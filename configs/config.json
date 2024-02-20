@@ -3,7 +3,10 @@
         "name": "Quadratic",
         "a": 1,
         "b": 0,
-        "c": 0
+        "c": 0,
+        "x_mins": [-1.0],
+        "x_maxs": [1.0],
+        "x_step_sizes": [0.1]
     },
     "algorithm": {
         "name": "SymbolicRegression"
