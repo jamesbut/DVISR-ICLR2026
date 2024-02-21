@@ -9,6 +9,9 @@
         "x_step_sizes": [0.1]
     },
     "algorithm": {
-        "name": "SymbolicRegression"
+        "name": "SymbolicRegression",
+        "num_iterations": 40,
+        "binary_operators": ["*"],
+        "unary_operators": []
     }
 }
