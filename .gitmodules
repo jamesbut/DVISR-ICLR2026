@@ -1,0 +1,4 @@
+[submodule "libs/MachineScientist"]
+	path = libs/MachineScientist
+	url = https://bitbucket.org/rguimera/machine-scientist.git
+	branch = no_degeneracy
