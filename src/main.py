@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from args import get_args_parser
 from config import read_config
 from domains.domain_factory import create_domain
