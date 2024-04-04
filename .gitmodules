@@ -2,3 +2,6 @@
 	path = libs/MachineScientist
 	url = https://bitbucket.org/rguimera/machine-scientist.git
 	branch = no_degeneracy
+[submodule "libs/DeepSymbolicOptimisation"]
+	path = libs/DeepSymbolicOptimisation
+	url = git@github.com:jamesbut/deep-symbolic-optimization.git

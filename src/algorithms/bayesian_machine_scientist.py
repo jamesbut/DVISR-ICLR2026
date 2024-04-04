@@ -52,7 +52,7 @@ class BayesianMachineScientist(Algorithm):
         description_lengths, mdl, mdl_model = [], np.inf, None
 
         # Perform MCMC
-        print('Performing MCMC...')
+        print('Performing Bayesian Machine Scientist MCMC...')
         for i in tqdm(range(self._num_steps)):
 
             # MCMC step within each temperature

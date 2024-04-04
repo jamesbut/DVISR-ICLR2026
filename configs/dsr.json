@@ -9,7 +9,7 @@
         "x_step_sizes": [0.1]
     },
     "algorithm": {
-        "name": "BayesianMachineScientist",
+        "name": "DeepSymbolicRegression",
         "num_steps": 5000
     }
 }

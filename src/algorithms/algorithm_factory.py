@@ -3,6 +3,7 @@ import sys
 # Import Algorithm subclasses
 from algorithms.symbolic_regression import SymbolicRegression
 from algorithms.bayesian_machine_scientist import BayesianMachineScientist
+from algorithms.deep_symbolic_regression import DeepSymbolicRegression
 
 
 # Create algorithm from json config
