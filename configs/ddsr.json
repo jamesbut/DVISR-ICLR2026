@@ -10,6 +10,21 @@
     },
     "algorithm": {
         "name": "DDSR",
+        "network": {
+            "num_hidden_layers": 1,
+            "neurons_per_hidden_layer": 256,
+            "x_layers": [
+                {
+                    "num_neurons": 256,
+                    "layer_type": "linear",
+                    "activation_function": "relu"
+                },
+                {
+                    "num_neurons": 256,
+                    "layer_type": "gru"
+                }
+            ]
+        },
         "num_steps": 500
     }
 }

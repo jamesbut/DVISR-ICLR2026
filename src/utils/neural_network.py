@@ -12,24 +12,27 @@ class NeuralNetwork(torch.nn.Module):
     def __init__(self, num_inputs=None, num_outputs=None,
                  num_hidden_layers=0, neurons_per_hidden_layer=0,
                  hidden_activ_func='relu', final_activ_func='sigmoid',
-                 bias=True, w_lb=None, w_ub=None, enforce_wb=True,
-                 file_path=None):
+                 w_lb=None, w_ub=None, enforce_wb=True,
+                 file_path=None, layers_spec=None):
 
         super(NeuralNetwork, self).__init__()
 
         if not file_path:
 
-            self._num_inputs = num_inputs
-            self._num_outputs = num_outputs
-            self._num_hidden_layers = num_hidden_layers
-            self._neurons_per_hidden_layer = neurons_per_hidden_layer
-            self._bias = bias
-            self._hidden_activ_func = hidden_activ_func
-            self._final_activ_func = final_activ_func
+            # Simplified specification
+            if not layers_spec:
+                layers_spec = self._build_layers_spec(
+                        num_inputs,
+                        num_outputs,
+                        num_hidden_layers,
+                        neurons_per_hidden_layer,
+                        hidden_activ_func,
+                        final_activ_func)
 
-            # Build neural net
-            self._nn = self._build_nn()
+            # Build neural net from layers specification
+            self._nn = self._build_nn(layers_spec)
 
+        # Read neural network from file
         else:
             self._nn = self._read(file_path)
 
@@ -46,35 +49,63 @@ class NeuralNetwork(torch.nn.Module):
         self._enforce_wb = enforce_wb
 
     # Build torch network from specification
-    def _build_nn(self):
+    def _build_nn(self, layers_spec):
 
         layers = []
-        if self._num_hidden_layers == 0:
-            layers.append(torch.nn.Linear(self._num_inputs, self._num_outputs,
-                                          bias=self._bias))
+        for layer in layers_spec:
 
-        else:
-            layers.append(torch.nn.Linear(self._num_inputs,
-                                          self._neurons_per_hidden_layer,
-                                          bias=self._bias))
-            # Hidden layers have ReLU activation
-            layers.append(self._activ_func_from_string(self._hidden_activ_func))
+            match layer['layer_type']:
 
-            for i in range(self._num_hidden_layers - 1):
-                layers.append(torch.nn.Linear(self._neurons_per_hidden_layer,
-                                              self._neurons_per_hidden_layer,
-                                              bias=self._bias))
-                layers.append(self._activ_func_from_string(self._hidden_activ_func))
+                case 'linear':
+                    layers.append(torch.nn.Linear(layer['num_inputs'],
+                                                  layer['num_outputs']))
+                case 'gru':
+                    layers.append(torch.nn.GRUCell(layer['num_inputs'],
+                                                   layer['num_outputs']))
 
-            layers.append(torch.nn.Linear(self._neurons_per_hidden_layer,
-                                          self._num_outputs,
-                                          bias=self._bias))
-
-        # Final layer goes through Sigmoid
-        if self._final_activ_func:
-            layers.append(self._activ_func_from_string(self._final_activ_func))
+            if 'activation_function' in layer:
+                layers.append(
+                    self._activ_func_from_string(layer['activation_function'])
+                )
 
         return torch.nn.Sequential(*layers)
+
+    def _build_layers_spec(self, num_inputs, num_outputs, num_hidden_layers,
+                           neurons_per_hidden_layer, hidden_activ_func,
+                           final_activ_func):
+
+        layers_spec = []
+
+        # Simpler network with no hidden layers
+        if num_hidden_layers == 0:
+            layers_spec.append({"num_inputs": num_inputs,
+                                "num_outputs": num_outputs,
+                                "layer_type": "linear",
+                                "activation_function": final_activ_func})
+
+        # Network with at least one hidden layer
+        else:
+
+            # First hidden layer
+            layers_spec.append({"num_inputs": num_inputs,
+                                "num_outputs": neurons_per_hidden_layer,
+                                "layer_type": "linear",
+                                "activation_function": hidden_activ_func})
+
+            # Subsequent hidden layers
+            for i in range(num_hidden_layers - 1):
+                layers_spec.append({"num_inputs": neurons_per_hidden_layer,
+                                    "num_outputs": neurons_per_hidden_layer,
+                                    "layer_type": "linear",
+                                    "activation_function": hidden_activ_func})
+
+            # Final layer
+            layers_spec.append({"num_inputs": neurons_per_hidden_layer,
+                                "num_outputs": num_outputs,
+                                "layer_type": "linear",
+                                "activation_function": final_activ_func})
+
+        return layers_spec
 
     # Takes an int, float, list, numpy array or torch Tensor,
     # passes it through the network and returns a torch Tensor
