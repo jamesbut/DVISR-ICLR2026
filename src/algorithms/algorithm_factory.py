@@ -4,19 +4,25 @@ import sys
 try:
     from algorithms.symbolic_regression import SymbolicRegression
 except ImportError as e:
-    print('Could not import SymbolicRegression domain')
+    print('Could not import the SymbolicRegression algorithm')
     print(e)
 
 try:
     from algorithms.bayesian_machine_scientist import BayesianMachineScientist
 except ImportError as e:
-    print('Could not import BayesianMachineScientist domain')
+    print('Could not import the BayesianMachineScientist algorithm')
     print(e)
 
 try:
     from algorithms.deep_symbolic_regression import DeepSymbolicRegression
 except ImportError as e:
-    print('Could not import DeepSymbolicRegression domain')
+    print('Could not import the DeepSymbolicRegression algorithm')
+    print(e)
+
+try:
+    from algorithms.ddsr import DDSR
+except ImportError as e:
+    print('Could not import the DDSR algorithm')
     print(e)
 
 
