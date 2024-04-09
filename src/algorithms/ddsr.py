@@ -12,5 +12,7 @@ class DDSR(Algorithm):
     def __init__(self, config):
         pass
 
+        # Create neural network
+
     def train(self, data):
         pass
