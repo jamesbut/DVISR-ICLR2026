@@ -1,9 +1,23 @@
 import sys
 
 # Import Algorithm subclasses
-from algorithms.symbolic_regression import SymbolicRegression
-from algorithms.bayesian_machine_scientist import BayesianMachineScientist
-from algorithms.deep_symbolic_regression import DeepSymbolicRegression
+try:
+    from algorithms.symbolic_regression import SymbolicRegression
+except ImportError as e:
+    print('Could not import SymbolicRegression domain')
+    print(e)
+
+try:
+    from algorithms.bayesian_machine_scientist import BayesianMachineScientist
+except ImportError as e:
+    print('Could not import BayesianMachineScientist domain')
+    print(e)
+
+try:
+    from algorithms.deep_symbolic_regression import DeepSymbolicRegression
+except ImportError as e:
+    print('Could not import DeepSymbolicRegression domain')
+    print(e)
 
 
 # Create algorithm from json config
