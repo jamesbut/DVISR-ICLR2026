@@ -19,8 +19,8 @@ class NeuralNetwork(torch.nn.Module):
 
         if not file_path:
 
-            # Simplified specification
-            if not layers_spec:
+            # Build layers specification
+            if layers_spec is None:
                 layers_spec = self._build_layers_spec(
                         num_inputs,
                         num_outputs,
