@@ -97,6 +97,5 @@ class DDSR(Algorithm):
             token_idx = arg_max(x)
             print(x)
 
-
     def _build_token_set(operators):
         pass

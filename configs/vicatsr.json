@@ -9,11 +9,13 @@
         "x_step_sizes": [0.1]
     },
     "algorithm": {
-        "name": "DDSR",
+        "name": "VICatSR",
         "operators": {
             "binary_ops": ["*", "-"],
             "unary_ops": ["cos"]
         },
-        "num_steps": 500
+        "num_steps": 500,
+        "num_eq_samples": 1,
+        "max_depth": 10
     }
 }

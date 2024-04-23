@@ -25,6 +25,12 @@ except ImportError as e:
     print('Could not import the DDSR algorithm')
     print(e)
 
+try:
+    from algorithms.vicatsr import VICatSR
+except ImportError as e:
+    print('Could not import the VICatSR algorithm')
+    print(e)
+
 
 # Create algorithm from json config
 def create_algorithm(config):
