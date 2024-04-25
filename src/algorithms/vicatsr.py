@@ -91,13 +91,25 @@ class VICatSR(Algorithm):
     def _calculate_elbo(self, data, z):
 
         # Prior
-        prior = torch.from_numpy(self._evaluate_prior(z))
+        prior = self._evaluate_prior(z)
+
+        # Extend prior to allow for summation with likelihood over batch, x
+        extended_prior = np.zeros((len(prior), len(data['x'])))
+        for i in range(len(prior)):
+            extended_prior[i] = np.repeat(prior[i], len(data['x']))
+        prior = torch.from_numpy(extended_prior)
 
         # Likelihood
         likelihood = torch.from_numpy(self._evaluate_likelihood(data, z))
 
         # Calculate q(z)
         q_z = self._q.pdf(z, self._token_set)
+
+        # Extend q(z) to allow for summation with likelihood over batch, x
+        extended_q_z = []
+        for i in range(len(q_z)):
+            extended_q_z.append(q_z[i].repeat(len(data['x'])))
+        q_z = torch.stack(extended_q_z)
 
         # Calculate ELBO
         elbo = torch.log(prior) + torch.log(likelihood) - torch.log(q_z)

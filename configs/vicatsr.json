@@ -17,7 +17,7 @@
         "num_steps": 500,
         "learning_rate": 1e-3,
         "num_eq_samples": 2,
-        "max_depth": 10,
-        "seed": 106
+        "max_depth": 5,
+        "x_seed": 106
     }
 }
