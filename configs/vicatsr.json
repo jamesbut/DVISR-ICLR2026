@@ -15,7 +15,9 @@
             "unary_ops": ["cos"]
         },
         "num_steps": 500,
-        "num_eq_samples": 1,
-        "max_depth": 10
+        "learning_rate": 1e-3,
+        "num_eq_samples": 2,
+        "max_depth": 10,
+        "seed": 106
     }
 }
