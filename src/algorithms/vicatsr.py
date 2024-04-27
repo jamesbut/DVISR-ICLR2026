@@ -19,14 +19,21 @@ class VICatSR(Algorithm):
 
         # Prepare binary and unary operations as tokens
         self._token_set = []
+        self._token_id = 0
 
         for bo in config['operators']['binary_ops']:
-            self._token_set.append({"op": bo, "type": "bin_op"})
+            self._token_set.append({"op": bo, "type": "bin_op",
+                                    "id": self._token_id})
+            self._token_id += 1
         for uo in config['operators']['unary_ops']:
-            self._token_set.append({"op": uo, "type": "un_op"})
+            self._token_set.append({"op": uo, "type": "un_op",
+                                    "id": self._token_id})
+            self._token_id += 1
 
         # Add constant as token
-        self._token_set.append({"op": 1.0, "type": "const"})
+        self._token_set.append({"op": 1.0, "type": "const",
+                                "id": self._token_id})
+        self._token_id += 1
 
         # Number of equations sampled to calculate expected loss
         self._num_eq_samples = config['num_eq_samples']
@@ -68,7 +75,9 @@ class VICatSR(Algorithm):
 
         # Finish creating token set
         for i in range(len(data['x'][0])):
-            self._token_set.append({"op": "x_" + str(i), "type": "const"})
+            self._token_set.append({"op": "x_" + str(i), "type": "const",
+                                    "id": self._token_id})
+            self._token_id += 1
 
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
@@ -82,6 +91,13 @@ class VICatSR(Algorithm):
 
         # Sample equations from q(z)
         sampled_eqs = [self._q.sample() for i in range(self._num_eq_samples)]
+
+        '''
+        for e in sampled_eqs:
+            print(e)
+            print(len(e.tokens()))
+        exit(0)
+        '''
 
         # Calculate ELBO
         elbo = self._calculate_elbo(data, sampled_eqs)
@@ -101,6 +117,9 @@ class VICatSR(Algorithm):
 
         # Likelihood
         likelihood = torch.from_numpy(self._evaluate_likelihood(data, z))
+
+        #print(prior)
+        #print(likelihood)
 
         # Calculate q(z)
         q_z = self._q.pdf(z, self._token_set)
@@ -149,6 +168,15 @@ class q:
         self._max_depth = max_sampling_depth
         self._token_set = token_set
 
+        # A mask to apply so that only constants are sampled
+        self._consts_mask = []
+        for t in self._token_set:
+            if t['type'] == 'const':
+                self._consts_mask.append(0.0)
+            else:
+                self._consts_mask.append(-1e9)
+        self._consts_mask = torch.from_numpy(np.array(self._consts_mask))
+
     def sample(self):
 
         self._net.reset(1)
@@ -160,12 +188,26 @@ class q:
         i = 0
         num_consts_required = 1
 
-        while i < self._max_depth and num_consts_required > 0:
+        #print('NEW SAMPLE')
 
-            x = self._net.forward(x)
+        while num_consts_required > 0:
 
-            token = np.random.choice(self._token_set, 1,
-                                     p=x.detach().numpy())[0]
+            # Apply mask to only sample constants if more constants are needed
+            # to produce a valid equation
+
+            #print('Depth - len(tokens):', self._max_depth - len(tokens))
+            #print('Num consts required:', num_consts_required)
+            if self._max_depth - len(tokens) <= num_consts_required + 1:
+                pre_softmax_mask = self._consts_mask
+            else:
+                pre_softmax_mask = None
+
+            x = self._net.forward(x, pre_softmax_mask)
+
+            token = copy.deepcopy(np.random.choice(self._token_set, 1,
+                                                   p=x.detach().numpy())[0])
+            #print('Token:', token)
+            #print('--------------')
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
@@ -174,6 +216,8 @@ class q:
                     num_consts_required += 1
                 case 'const':
                     num_consts_required -= 1
+
+            token['forced_const'] = False if pre_softmax_mask is None else True
 
             tokens.append(token)
             i += 1
@@ -194,12 +238,15 @@ class q:
             prob = 1.0
             for t in eq.tokens():
 
-                x = self._net.forward(x)
+                # Apply mask to force pdf to only be over const tokens
+                pre_softmax_mask = \
+                    self._consts_mask if t['forced_const'] else None
+
+                x = self._net.forward(x, pre_softmax_mask)
 
                 # Generate one hot vector for current token
-                idx = token_set.index(t)
                 one_hot = torch.zeros(self._net.num_inputs())
-                one_hot[idx] = 1.0
+                one_hot[t['id']] = 1.0
 
                 prob *= torch.sum(x * one_hot)
 
@@ -220,7 +267,7 @@ class NN(torch.nn.Module):
 
         self._num_inputs = num_inputs
 
-    def forward(self, x):
+    def forward(self, x, pre_softmax_mask=None):
 
         # Check hidden state has been initialised
         if not hasattr(self, '_hx'):
@@ -232,6 +279,11 @@ class NN(torch.nn.Module):
 
         # Linear layer
         x = self._l2(x)
+
+        # Apply binary mask before the softmax - this is equivalent to
+        # preventing some of the tokens being sampled
+        if pre_softmax_mask is not None:
+            x += pre_softmax_mask
 
         # Softmax layer
         x = torch.nn.functional.softmax(x)
@@ -308,3 +360,6 @@ class Equation:
 
     def tokens(self):
         return self._eq
+
+    def __repr__(self):
+        return str(self._eq)
