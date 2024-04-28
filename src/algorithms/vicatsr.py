@@ -118,9 +118,6 @@ class VICatSR(Algorithm):
         # Likelihood
         likelihood = torch.from_numpy(self._evaluate_likelihood(data, z))
 
-        #print(prior)
-        #print(likelihood)
-
         # Calculate q(z)
         q_z = self._q.pdf(z, self._token_set)
 
@@ -144,11 +141,12 @@ class VICatSR(Algorithm):
 
         likelihoods = []
         for eq in z:
-            likelihood = 1.0
-            for i in range(len(z)):
-                likelihood *= scipy.stats.norm.pdf(data['y'][i],
-                                                   loc=z[i].evaluate(data['x']),
-                                                   scale=1.0)
+            likelihood = []
+            means = eq.evaluate(data['x'])
+            for i in range(len(means)):
+                likelihood.append(scipy.stats.norm.pdf(data['y'][i],
+                                                       loc=means[i],
+                                                       scale=1.0))
             likelihoods.append(likelihood)
 
         return np.array(likelihoods)
@@ -188,15 +186,11 @@ class q:
         i = 0
         num_consts_required = 1
 
-        #print('NEW SAMPLE')
-
         while num_consts_required > 0:
 
             # Apply mask to only sample constants if more constants are needed
             # to produce a valid equation
 
-            #print('Depth - len(tokens):', self._max_depth - len(tokens))
-            #print('Num consts required:', num_consts_required)
             if self._max_depth - len(tokens) <= num_consts_required + 1:
                 pre_softmax_mask = self._consts_mask
             else:
@@ -206,8 +200,6 @@ class q:
 
             token = copy.deepcopy(np.random.choice(self._token_set, 1,
                                                    p=x.detach().numpy())[0])
-            #print('Token:', token)
-            #print('--------------')
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
@@ -312,8 +304,14 @@ class Equation:
     # Evaluate equation according to data variable values, x.
     def evaluate(self, x):
 
-        # Substitute variables for data, x
         eq = copy.deepcopy(self._eq)
+
+        # Convert consts to list of relevant data size
+        for token in eq:
+            if token['type'] == 'const' and not isinstance(token['op'], str):
+                token['op'] = np.array([token['op']] * len(x))
+
+        # Substitute variables for data, x
         for token in eq:
             for i in range(x.shape[0]):
                 if token['op'] == ('x_' + str(i)):
