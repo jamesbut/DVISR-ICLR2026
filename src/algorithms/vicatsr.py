@@ -69,7 +69,7 @@ class VICatSR(Algorithm):
             loss.backward()
             self._optimiser.step()
 
-            print('Loss: ', loss.item())
+            print('Step: ' + str(i) + '    Loss: ' + str(loss.item()))
 
     def _initialise(self, data):
 
@@ -91,13 +91,6 @@ class VICatSR(Algorithm):
 
         # Sample equations from q(z)
         sampled_eqs = [self._q.sample() for i in range(self._num_eq_samples)]
-
-        '''
-        for e in sampled_eqs:
-            print(e)
-            print(len(e.tokens()))
-        exit(0)
-        '''
 
         # Calculate ELBO
         elbo = self._calculate_elbo(data, sampled_eqs)
@@ -280,9 +273,6 @@ class NN(torch.nn.Module):
         # Softmax layer
         x = torch.nn.functional.softmax(x)
 
-        # Gumbel-softmax layer
-        # x = torch.nn.functional.gumbel_softmax(x)
-
         return x
 
     def reset(self, batch_size):
@@ -350,6 +340,34 @@ class Equation:
                     case _:
                         raise RuntimeError(t['op']
                                            + ' is not a recognised operator')
+
+        return stack.pop()
+
+    # Return infix string
+    def get_infix(self):
+
+        eq = copy.deepcopy(self._eq)
+        eq.reverse()
+
+        stack = []
+
+        for t in eq:
+
+            # If token is a constant, push onto stack
+            if t['type'] == 'const':
+                stack.append(str(t['op']))
+
+            # Otherwise print operators with elements from stack
+            else:
+
+                if t['type'] == 'bin_op':
+                    stack.append('(' + stack.pop() + ' ' + t['op']
+                                 + ' ' + stack.pop() + ')')
+                elif t['type'] == 'un_op':
+                    stack.append(t['op'] + '(' + stack.pop() + ')')
+                else:
+                    raise RuntimeError(
+                            t['type'] + ' is not a recognised token type')
 
         return stack.pop()
 

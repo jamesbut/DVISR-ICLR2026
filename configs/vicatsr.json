@@ -14,9 +14,9 @@
             "binary_ops": ["*", "-"],
             "unary_ops": ["cos"]
         },
-        "num_steps": 500,
+        "num_steps": 5000,
         "learning_rate": 1e-3,
-        "num_eq_samples": 2,
+        "num_eq_samples": 100,
         "max_depth": 5,
         "x_seed": 108
     }
