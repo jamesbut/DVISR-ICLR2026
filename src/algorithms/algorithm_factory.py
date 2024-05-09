@@ -31,6 +31,12 @@ except ImportError as e:
     print('Could not import the VICatSR algorithm')
     print(e)
 
+try:
+    from algorithms.vimg import VIMG
+except ImportError as e:
+    print('Could not import the VIMG algorithm')
+    print(e)
+
 
 # Create algorithm from json config
 def create_algorithm(config):
