@@ -1,14 +1,15 @@
 {
     "domain": {
-        "name": "Quadratic",
-        "a": 1,
-        "b": 0,
+        "name": "Linear",
+        "m": 10,
         "c": 0,
         "x_mins": [-1.0],
         "x_maxs": [1.0],
         "x_step_sizes": [0.1]
     },
     "algorithm": {
-        "name": "VIMG"
+        "name": "VIMG",
+        "num_steps": 100,
+        "learning_rate": 1e-2
     }
 }

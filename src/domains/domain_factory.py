@@ -2,6 +2,7 @@ import sys
 
 # Import Domain subclasses
 from domains.quadratic import Quadratic
+from domains.linear import Linear
 
 
 # Create domain from json config
