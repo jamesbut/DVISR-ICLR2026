@@ -11,13 +11,13 @@
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "binary_ops": ["*", "-"],
-            "unary_ops": ["cos"]
+            "x_binary_ops": ["*", "-"],
+            "x_unary_ops": ["cos"]
         },
-        "num_steps": 5000,
-        "learning_rate": 1e-3,
+        "num_steps": 5,
+        "learning_rate": 1e-2,
         "num_eq_samples": 100,
-        "max_depth": 5,
-        "x_seed": 108
+        "max_depth": 1,
+        "x_seed": 18
     }
 }
