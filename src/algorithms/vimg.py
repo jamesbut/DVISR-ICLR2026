@@ -18,25 +18,49 @@ class VIMG(Algorithm):
         self._num_steps = config['num_steps']
         self._learning_rate = config['learning_rate']
 
-        self._mu = 0.0
-        self._sigma = 1.0
+        self._q_mu = 0.0
+        self._q_sigma = 1.0
 
     def train(self, data):
 
-        #self.train_point_estimate(data)
-
-        #self.train_mu(data)
-
+        # self.train_point_estimate(data)
+        # self.train_mu(data)
         self.train_maximum_likelihood(data)
 
-    #def train_maximum_likelihood(self, data):
+    def train_maximum_likelihood(self, data):
+
+        for i in range(self._num_steps):
+
+            f = MeijerG(theta=self._theta, order=self._order)
+
+            # Calculate log likelihood
+            log_likelihood = 0.0
+            for x, y in zip(data['x'], data['y']):
+                log_likelihood += norm.logpdf(y, loc=f.evaluate(x))
+
+            # Calculate loss
+            loss = -log_likelihood
+
+            # Calculate loss gradient w.r.t. mu
+            loss_grads = np.array([(f.evaluate(x) - y) * f.gradients(x)[4]
+                                   for x, y in zip(data['x'], data['y'])])
+            loss_grad = np.sum(loss_grads)
+
+            print(f.expression())
+            print('θ_4:', self._theta[4])
+            print('θ_4 grad:', loss_grad)
+            print('Loss:', loss)
+            print('--------------')
+
+            # Take optimisation step
+            self._theta[4] -= self._learning_rate * loss_grad
 
     def train_mu(self, data):
 
         for i in range(self._num_steps):
 
             # Sample theta
-            theta = self._mu + norm.rvs()
+            theta = self._q_mu + norm.rvs()
             self._theta[4] = theta
 
             f = MeijerG(theta=self._theta, order=self._order)
@@ -44,18 +68,18 @@ class VIMG(Algorithm):
             # Calculate loss
             loss = self.calculate_loss(f, data)
 
-            # Calculate loss gradient w.r.t. theta
+            # Calculate loss gradient w.r.t. mu
             loss_grads = self.calculate_grads(f, data)
 
             print(f.expression())
             print('θ_4:', self._theta[4])
             print('θ_4 grad:', loss_grads[4])
-            print('mu:', self._mu)
+            print('mu:', self._q_mu)
             print('Loss:', loss)
             print('--------------')
 
             # Take optimisation step
-            self._mu -= self._learning_rate * loss_grads[4]
+            self._q_mu -= self._learning_rate * loss_grads[4]
 
     def train_point_estimate(self, data):
 
