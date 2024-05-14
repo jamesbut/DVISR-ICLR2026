@@ -21,11 +21,97 @@ class VIMG(Algorithm):
         self._q_mu = 0.0
         self._q_sigma = 1.0
 
+        self._num_samples = config['num_samples']
+
+        self._prior_mu = 1.0
+        self._prior_sigma = 1.0
+
     def train(self, data):
 
         # self.train_point_estimate(data)
         # self.train_mu(data)
-        self.train_maximum_likelihood(data)
+        # self.train_maximum_likelihood(data)
+        self.train_variational_inference(data)
+
+    def train_variational_inference(self, data):
+
+        for i in range(self._num_steps):
+
+            print('Step:', i)
+
+            # Sample thetas
+            thetas = [norm.rvs() + self._q_mu for i in range(self._num_samples)]
+
+            elbos = []
+            elbo_grads = []
+
+            for theta in thetas:
+
+                # Set theta[4]
+                th = self._theta.copy()
+                th[4] = theta
+                f = MeijerG(theta=th, order=self._order)
+
+                # Calculate log likelihood p(x|z)
+                log_likelihood = 0.0
+                for x, y in zip(data['x'], data['y']):
+                    log_likelihood += norm.logpdf(y, loc=f.evaluate(x))
+
+                # Calculate p(z) (gaussian)
+                prior = norm.pdf((theta - self._prior_mu) / self._prior_sigma)
+                log_prior = math.log(prior)
+
+                # Calculate q(z)
+                q_z = norm.pdf((theta - self._q_mu) / self._q_sigma)
+                log_q_z = math.log(q_z)
+
+                # Calculate ELBOs
+                elbo = log_likelihood + log_prior - log_q_z
+                elbos.append(elbo)
+
+                # Calculate log likelihood grad
+                ll_grads = np.array([(y - f.evaluate(x)) * f.gradients(x)[4]
+                                     for x, y in zip(data['x'], data['y'])])
+                ll_grad = np.mean(ll_grads)
+
+                # Calculate log prior grad
+                lp_grad = self._prior_mu - theta
+
+                # Calculate log q(z) grad
+                lq_grad = 0
+
+                elbo_grad = ll_grad + lp_grad - lq_grad
+                elbo_grads.append(elbo_grad)
+
+                '''
+                print(f.expression())
+
+                print('log likelihood:', log_likelihood)
+                print('log prior:', log_prior)
+                print('log_q_z:', log_q_z)
+                print('ELBO:', elbo)
+
+                print('log likelihood grad:', ll_grad)
+                print('log prior grad:', lp_grad)
+                print('log_q_z grad:', lq_grad)
+                print('ELBO grad:', elbo_grad)
+                '''
+
+            # Calculate average ELBO and ELBO gradients
+            avg_elbo = np.mean(np.array(elbos))
+            avg_elbo_grad = np.mean(np.array(elbo_grads))
+
+            # Calculate loss and loss gradients
+            loss = -avg_elbo
+            loss_grad = -avg_elbo_grad
+
+            print('q_mu:', self._q_mu)
+            print('q_mu grad:', loss_grad)
+            print('Loss:', loss)
+            print('--------------')
+
+            # Take optimisation step
+            self._q_mu -= self._learning_rate * loss_grad
 
     def train_maximum_likelihood(self, data):
 
