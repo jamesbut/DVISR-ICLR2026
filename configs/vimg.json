@@ -10,7 +10,19 @@
     "algorithm": {
         "name": "VIMG",
         "num_steps": 100,
-        "learning_rate": 0.5,
-        "num_samples": 10
+        "learning_rate": 5e-2,
+        "num_samples": 10,
+        "m": 0,
+        "n": 1,
+        "p": 3,
+        "q": 1,
+        "a": [2, 2, 2],
+        "b": [1],
+        "c": 1,
+        "opt_params": ["c"],
+        "prior_mu": 1.0,
+        "prior_sigma": 1.0,
+        "init_q_mu": 0.0,
+        "init_q_sigma": 1.0
     }
 }

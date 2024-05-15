@@ -12,19 +12,29 @@ class VIMG(Algorithm):
 
     def __init__(self, config):
 
-        self._theta = [2, 2, 2, 1, 1]
-        self._order = [0, 1, 3, 1]
+        self._m = config['m']
+        self._n = config['n']
+        self._p = config['p']
+        self._q = config['q']
+
+        self._order = [self._m, self._n, self._p, self._q]
+
+        self._a = config['a']
+        self._b = config['b']
+        self._c = config['c']
+
+        self.get_theta()
 
         self._num_steps = config['num_steps']
         self._learning_rate = config['learning_rate']
 
-        self._q_mu = 0.0
-        self._q_sigma = 1.0
+        self._q_mu = config['init_q_mu']
+        self._q_sigma = config['init_q_sigma']
 
         self._num_samples = config['num_samples']
 
-        self._prior_mu = 1.0
-        self._prior_sigma = 1.0
+        self._prior_mu = config['prior_mu']
+        self._prior_sigma = config['prior_sigma']
 
     def train(self, data):
 
@@ -56,6 +66,7 @@ class VIMG(Algorithm):
                 log_likelihood = 0.0
                 for x, y in zip(data['x'], data['y']):
                     log_likelihood += norm.logpdf(y, loc=f.evaluate(x))
+                #log_likelihood /= len(data['y'])
 
                 # Calculate p(z) (gaussian)
                 prior = norm.pdf((theta - self._prior_mu) / self._prior_sigma)
@@ -72,7 +83,8 @@ class VIMG(Algorithm):
                 # Calculate log likelihood grad
                 ll_grads = np.array([(y - f.evaluate(x)) * f.gradients(x)[4]
                                      for x, y in zip(data['x'], data['y'])])
-                ll_grad = np.mean(ll_grads)
+                #ll_grad = np.mean(ll_grads)
+                ll_grad = np.sum(ll_grads)
 
                 # Calculate log prior grad
                 lp_grad = self._prior_mu - theta
@@ -205,3 +217,32 @@ class VIMG(Algorithm):
 
     def optimise(self, loss_grads):
         self._theta[4] -= self._learning_rate * loss_grads[4]
+
+    def get_theta(self, params=None):
+
+        a = self._a.copy()
+        b = self._b.copy()
+        c = self._c
+
+        if params is not None:
+
+            for key, value in params.items():
+
+                if key == 'c':
+                    c = value
+
+                elif key.startswith('a'):
+                    idx = int(key[1])
+                    a[idx - 1] = value
+
+                elif key.startswith('b'):
+                    idx = int(key[1])
+                    b[idx - 1] = value
+
+                else:
+                    raise RuntimeError('Unrecognised parameter name '
+                                       'in set_theta')
+
+        theta = a + b + [c]
+
+        return theta
