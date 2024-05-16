@@ -5,6 +5,7 @@ from utils.meijer_g import MeijerG
 import math
 import numpy as np
 from scipy.stats import norm
+from scipy.stats import multivariate_normal
 np.set_printoptions(suppress=True)
 
 
@@ -23,18 +24,19 @@ class VIMG(Algorithm):
         self._b = config['b']
         self._c = config['c']
 
-        self.get_theta()
+        self._opt_params = config['opt_params']
 
-        self._num_steps = config['num_steps']
-        self._learning_rate = config['learning_rate']
+        self._prior_mu = config['prior_mu']
+        self._prior_sigma = config['prior_sigma']
+        self._prior = self.create_prior(config)
 
         self._q_mu = config['init_q_mu']
         self._q_sigma = config['init_q_sigma']
 
-        self._num_samples = config['num_samples']
+        self._num_steps = config['num_steps']
+        self._learning_rate = config['learning_rate']
 
-        self._prior_mu = config['prior_mu']
-        self._prior_sigma = config['prior_sigma']
+        self._num_samples = config['num_samples']
 
     def train(self, data):
 
@@ -50,30 +52,33 @@ class VIMG(Algorithm):
             print('Step:', i)
 
             # Sample thetas
-            thetas = [norm.rvs() + self._q_mu for i in range(self._num_samples)]
+            thetas = self.sample_thetas()
 
             elbos = []
             elbo_grads = []
 
             for theta in thetas:
 
-                # Set theta[4]
-                th = self._theta.copy()
-                th[4] = theta
-                f = MeijerG(theta=th, order=self._order)
+                # Set theta values
+                theta_dict = self.get_theta_dict(theta)
+
+                f = MeijerG(theta=self.get_theta(params=theta_dict),
+                            order=self._order)
 
                 # Calculate log likelihood p(x|z)
                 log_likelihood = 0.0
                 for x, y in zip(data['x'], data['y']):
                     log_likelihood += norm.logpdf(y, loc=f.evaluate(x))
-                #log_likelihood /= len(data['y'])
+                # log_likelihood /= len(data['y'])
 
                 # Calculate p(z) (gaussian)
-                prior = norm.pdf((theta - self._prior_mu) / self._prior_sigma)
+                prior = self._prior.pdf(theta)
                 log_prior = math.log(prior)
 
                 # Calculate q(z)
-                q_z = norm.pdf((theta - self._q_mu) / self._q_sigma)
+                q_z = multivariate_normal.pdf(theta,
+                                              mean=self._q_mu,
+                                              cov=self._q_sigma)
                 log_q_z = math.log(q_z)
 
                 # Calculate ELBOs
@@ -81,18 +86,19 @@ class VIMG(Algorithm):
                 elbos.append(elbo)
 
                 # Calculate log likelihood grad
-                ll_grads = np.array([(y - f.evaluate(x)) * f.gradients(x)[4]
+                ll_grads = np.array([(y - f.evaluate(x))
+                                     * f.gradients(x)[self.get_theta_idxs()]
                                      for x, y in zip(data['x'], data['y'])])
-                #ll_grad = np.mean(ll_grads)
-                ll_grad = np.sum(ll_grads)
+                # ll_grads = np.mean(ll_grads, axis=0)
+                ll_grads = np.sum(ll_grads, axis=0)
 
                 # Calculate log prior grad
-                lp_grad = self._prior_mu - theta
+                lp_grads = self._prior_mu - theta
 
                 # Calculate log q(z) grad
                 lq_grad = 0
 
-                elbo_grad = ll_grad + lp_grad - lq_grad
+                elbo_grad = ll_grads + lp_grads - lq_grad
                 elbo_grads.append(elbo_grad)
 
                 '''
@@ -109,9 +115,12 @@ class VIMG(Algorithm):
                 print('ELBO grad:', elbo_grad)
                 '''
 
+            elbos = np.array(elbos).ravel()
+            elbo_grads = np.vstack(elbo_grads)
+
             # Calculate average ELBO and ELBO gradients
             avg_elbo = np.mean(np.array(elbos))
-            avg_elbo_grad = np.mean(np.array(elbo_grads))
+            avg_elbo_grad = np.mean(np.array(elbo_grads), axis=0)
 
             # Calculate loss and loss gradients
             loss = -avg_elbo
@@ -246,3 +255,50 @@ class VIMG(Algorithm):
         theta = a + b + [c]
 
         return theta
+
+    def create_prior(self, config):
+        return multivariate_normal(config['prior_mu'], config['prior_sigma'])
+
+    # Sample thetas from q
+    def sample_thetas(self):
+
+        # Sample from q
+        thetas = multivariate_normal.rvs(mean=self._q_mu, cov=self._q_sigma,
+                                         size=self._num_samples)
+
+        # Reshape to correct numpy array size
+        thetas = np.reshape(thetas, (self._num_samples, len(self._opt_params)))
+
+        return thetas
+
+    # Convert numpy array of thetas to a dictionary where the theta values
+    # are labelled by their parameter names
+    def get_theta_dict(self, thetas):
+
+        assert len(thetas) == len(self._opt_params)
+
+        theta_dict = {}
+
+        for param, theta in zip(self._opt_params, thetas):
+            theta_dict[param] = theta
+
+        return theta_dict
+
+    # Get theta indices according to parameters being optimised
+    def get_theta_idxs(self):
+
+        idxs = []
+
+        for p in self._opt_params:
+
+            if p == 'c':
+                idxs.append(len(self._a) + len(self._b))
+
+            elif p.startswith('a'):
+                idxs.append(int(p[1]) - 1)
+
+            elif p.startswith('b'):
+                idxs.append(int(p[1]) + len(self._a) - 1)
+
+        idxs.sort()
+        return idxs

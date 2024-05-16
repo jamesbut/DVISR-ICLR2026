@@ -160,4 +160,4 @@ class MeijerG:
 
             grads.append(((np.real(f_g.evaluate(x)) - np.real(self.evaluate(x)))/h))
 
-        return grads
+        return np.vstack(grads).ravel()
