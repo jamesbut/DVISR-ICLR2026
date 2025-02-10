@@ -4,19 +4,19 @@
         "a": 1,
         "b": 0,
         "c": 0,
-        "x_mins": [-1.0],
+        "x_mins": [0.0],
         "x_maxs": [1.0],
         "x_step_sizes": [0.1]
     },
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "x_binary_ops": ["*", "-"],
+            "binary_ops": ["*"],
             "x_unary_ops": ["cos"]
         },
-        "num_steps": 5,
+        "num_steps": 100,
         "learning_rate": 1e-2,
-        "num_eq_samples": 100,
+        "num_eq_samples": 10,
         "max_depth": 1,
         "x_seed": 18
     }

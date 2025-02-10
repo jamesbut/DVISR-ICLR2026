@@ -10,6 +10,7 @@ import numpy as np
 import scipy
 import copy
 import torch
+import statistics
 torch.set_default_dtype(torch.float64)
 
 
@@ -44,7 +45,7 @@ class VICatSR(Algorithm):
         # Maximum equation tree depth
         self._max_depth = config['max_depth']
 
-        # Learning rate for ADAM optimiser
+        # Learning rate for optimiser
         self._lr = config['learning_rate']
 
         # Number of training steps
@@ -58,125 +59,32 @@ class VICatSR(Algorithm):
 
     def train(self, data):
 
-
-        # TODO: Remove
-
-        x = torch.Tensor([1.2])
-
-        p = torch.nn.Parameter(torch.Tensor([0.0, 0.0]))
-        #print('p:', p)
-
-        #opt = torch.optim.Adam([p], lr=1e-2)
-        opt = torch.optim.SGD([p], lr=1e-3)
-
-        for i in range(100):
-
-            z = []
-            for i in range(100):
-                z.append(torch.nn.functional.gumbel_softmax(p, hard=True))
-            z = torch.stack(z)
-
-            # 'reward' for each z instance
-            r = torch.zeros_like(z)
-            r[:, 1] = 1.0
-
-            means = torch.sum(r * z, dim=1)
-
-            #log_likelihood = torch.nn.Parameter(torch.Tensor([0.0]))
-            log_likelihood = 0.0
-            for i in range(len(means)):
-                #l = torch.Tensor([-0.9389]) if means[i] == 1.0 else torch.Tensor([-1.6389])
-                l = torch.distributions.normal.Normal(means[i], 1.0).log_prob(x)
-                #print('l:', l)
-                #log_likelihood += l
-                log_likelihood = log_likelihood + l
-
-            #q_z = torch.sum(z * torch.nn.functional.softmax(p), axis=1)
-            #log_q_z = torch.sum(torch.log(q_z))
-            q_z = torch.sum(z * torch.nn.functional.softmax(p))
-            print(q_z)
-
-            #print(log_q_z)
-
-            '''
-            print('LL:', log_likelihood)
-            print('Lqz:', torch.log(q_z))
-            print('Lqz:', log_q_z)
-            #exit(0)
-            '''
-            #log_likelihood = log_likelihood * 10
-
-            prior = torch.sum(z * torch.Tensor([0.5, 0.5]), axis=1)
-            log_prior = torch.sum(torch.log(prior))
-            #print(prior)
-            #print(log_prior)
-
-            #print(log_likelihood)
-            #print(log_prior)
-            #exit(0)
-
-            #loss = -(log_likelihood - torch.log(q_z))
-            #loss = -log_likelihood
-            #loss = -(log_likelihood - log_q_z)
-            #loss = -(log_likelihood + log_prior - log_q_z)
-            #loss = -(log_likelihood + log_prior - torch.log(q_z))
-            #loss = -(log_likelihood + log_prior)
-            #loss = -(log_prior)
-            #loss = -(log_q_z)
-            loss = -(q_z)
-
-            # WHAT IS GOING ON?
-
-            print('Loss:', loss.item())
-            print('Probs:', torch.nn.functional.softmax(p))
-
-            loss.backward()
-            opt.step()
-
-            #print(p.grad)
-            #exit(0)
-            #print(p)
-
-        exit(0)
-
-        # Initialise neural network and token set according to data
         self._initialise(data)
+
+        optimiser = torch.optim.Adam(self._q._net.parameters(), lr=self._lr,
+                                     maximize=True)
 
         for i in range(self._num_steps):
 
-            self._optimiser.zero_grad()
+            # Sample z from surrogate q
+            sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
 
-            # Calculate loss
-            loss = self._calculate_loss(data)
+            # Calculate likelihoods of sampled models
+            likelihoods = [self._evaluate_likelihood(data, z) for z in sampled_z]
 
-            #print('Loss:', loss)
+            loss = torch.stack(
+                [self._q.log_pdf(z) * r for z, r in zip(sampled_z, likelihoods)]
+            ).mean()
 
-            # Optimise
+            print('Loss:', loss.item())
+
+            optimiser.zero_grad()
             loss.backward()
+            optimiser.step()
 
-            '''
-            print('GRADS:')
-            for p in self._q._net.parameters():
-                print(p.grad)
-            print('----------')
-            print('PARAMS:')
-            for p in self._q._net.parameters():
-                print(p)
-            print('----------')
-            '''
-
-            self._optimiser.step()
-
-
-            '''
-            print('PARAMS:')
-            for p in self._q._net.parameters():
-                print(p)
-            print('----------')
-            '''
-            #exit(0)
-
-            print('Step: ' + str(i) + '    Loss: ' + str(loss.item()))
+        # sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
+        # for z in sampled_z:
+        #     print(z.get_infix())
 
     def _initialise(self, data):
 
@@ -190,67 +98,6 @@ class VICatSR(Algorithm):
         # the posterior
         self._q = q(self._token_set, self._max_depth)
 
-        # Create ADAM optimiser
-        #self._optimiser = torch.optim.Adam(self._q._net.parameters(),
-        #                                   lr=self._lr)
-        self._optimiser = torch.optim.SGD(self._q._net.parameters(),
-                                           lr=self._lr)
-
-    def _calculate_loss(self, data):
-
-        # Sample equations from q(z)
-        sampled_eqs = [self._q.sample() for i in range(self._num_eq_samples)]
-
-        #print(sampled_eqs[0])
-        #print(sampled_eqs[0].get_infix())
-        #for e in sampled_eqs:
-        #    print(e.get_infix())
-
-        # Calculate ELBO
-        elbo = self._calculate_elbo(data, sampled_eqs)
-
-        #print('ELBO:', elbo)
-        #exit(0)
-
-        return -torch.mean(elbo)
-
-    def _calculate_elbo(self, data, z):
-
-        # Prior
-        prior = self._evaluate_prior(z)
-        log_prior = torch.from_numpy(np.log(prior))
-
-        # Likelihood
-        likelihood = self._evaluate_likelihood(data, z)
-        log_likelihood = torch.from_numpy(np.sum(np.log(likelihood), axis=1))
-        #print('Log likelihood mean:', torch.mean(log_likelihood))
-        #print('Log likelihood:', log_likelihood)
-
-        # Calculate q(z)
-        q_z = self._q.pdf(z, self._token_set)
-        log_q_z = torch.log(q_z)
-        #print('Log q_(z):', log_q_z)
-        #print(torch.mean(log_q_z))
-        #exit(0)
-
-        '''
-        print('Prior:', prior)
-        print('Log prior:', log_prior)
-        print('Likelihood:', likelihood)
-        print('Log likelihood:', log_likelihood)
-        print('q(z):', q_z)
-        print('Log q(z):', log_q_z)
-
-        print('Likelihood:', likelihood)
-        print('Log likelihood:', log_likelihood)
-        '''
-
-        # Calculate ELBO
-        #elbo = log_prior + log_likelihood - log_q_z
-        elbo = log_likelihood - log_q_z
-
-        return elbo
-
     def _evaluate_prior(self, z):
 
         # For now, the prior is just the uniform distribution
@@ -259,16 +106,12 @@ class VICatSR(Algorithm):
     def _evaluate_likelihood(self, data, z):
 
         likelihoods = []
-        for eq in z:
-            likelihood = []
-            means = eq.evaluate(data['x'])
-            for i in range(len(means)):
-                likelihood.append(scipy.stats.norm.pdf(data['y'][i],
+        means = z.evaluate(data['x'])
+        for i in range(len(means)):
+            likelihoods.append(scipy.stats.norm.logpdf(data['y'][i],
                                                        loc=means[i],
                                                        scale=1.0))
-            likelihoods.append(likelihood)
-
-        return np.array(likelihoods)
+        return sum(likelihoods)
 
 
 # Surrogate distribution, q, which is optimised to approximate the
@@ -316,10 +159,6 @@ class q:
                 pre_softmax_mask = None
 
             x = self._net.forward(x, pre_softmax_mask)
-            #print('SAMPLE:', x)
-            #x = torch.tensor([0.0, 0.0, 0.0, 1.0, 0.0])
-            #x = torch.tensor([0.0, 0.0, 0.0, 0.0, 1.0])
-
             token = copy.deepcopy(np.random.choice(self._token_set, 1,
                                                    p=x.detach().numpy())[0])
 
@@ -338,40 +177,53 @@ class q:
 
         return Equation(tokens)
 
-    # Calculate probabilities of a set of equations, z, under q
-    def pdf(self, z, token_set):
+    # Calculate probability of an equation, z, under q
+    def pdf(self, z):
 
-        probabilities = []
+        self._net.reset(1)
 
-        for eq in z:
+        x = torch.zeros(self._net.num_inputs())
 
-            #print(eq.get_infix())
+        prob = 1.0
+        for t in z.tokens():
 
-            self._net.reset(1)
+            # Apply mask to force pdf to only be over const tokens
+            pre_softmax_mask = \
+                self._consts_mask if t['forced_const'] else None
 
-            x = torch.zeros(self._net.num_inputs())
+            x = self._net.forward(x, pre_softmax_mask)
 
-            prob = 1.0
-            for t in eq.tokens():
+            # Generate one hot vector for current token
+            one_hot = torch.zeros(self._net.num_inputs())
+            one_hot[t['id']] = 1.0
 
-                # Apply mask to force pdf to only be over const tokens
-                pre_softmax_mask = \
-                    self._consts_mask if t['forced_const'] else None
+            prob *= torch.sum(x * one_hot)
 
-                x = self._net.forward(x, pre_softmax_mask)
-                #print('PDF:', x)
+        return prob
 
-                # Generate one hot vector for current token
-                one_hot = torch.zeros(self._net.num_inputs())
-                one_hot[t['id']] = 1.0
+    # Calculate log probability of an equation, z, under q
+    def log_pdf(self, z):
 
-                prob = prob * torch.sum(x * one_hot)
+        self._net.reset(1)
 
-                #print(prob)
+        x = torch.zeros(self._net.num_inputs())
 
-            probabilities.append(prob)
+        log_prob = 0.0
+        for t in z.tokens():
 
-        return torch.stack(probabilities)
+            # Apply mask to force pdf to only be over const tokens
+            pre_softmax_mask = \
+                self._consts_mask if t['forced_const'] else None
+
+            x = self._net.forward(x, pre_softmax_mask)
+
+            # Generate one hot vector for current token
+            one_hot = torch.zeros(self._net.num_inputs())
+            one_hot[t['id']] = 1.0
+
+            log_prob += torch.log(torch.sum(x * one_hot))
+
+        return log_prob
 
 
 class NN(torch.nn.Module):
@@ -379,53 +231,16 @@ class NN(torch.nn.Module):
     def __init__(self, num_inputs, num_outputs, hidden_size):
         super().__init__()
 
-        '''
         self._hidden_size = hidden_size
 
         self._l1 = torch.nn.GRUCell(num_inputs, self._hidden_size)
         self._l2 = torch.nn.Linear(self._hidden_size, num_outputs)
 
         self._num_inputs = num_inputs
-
-        self._l1 = torch.nn.Linear(self._num_inputs, num_outputs)
-        '''
-
-        self._num_inputs = num_inputs
-
-        #self._bias = torch.nn.Parameter(torch.randn(num_outputs))
-        #self._bias = torch.nn.Parameter(torch.randn(1))
-        # More 1.0s
-        self._bias = torch.nn.Parameter(torch.Tensor([2.0]))
-        #self._bias = torch.nn.Parameter(torch.Tensor([100.0]))
-        # More x_0s
-        #self._bias = torch.nn.Parameter(torch.Tensor([-2.0]))
-        #self._bias = torch.nn.Parameter(torch.Tensor([-100.0]))
+        self._num_outputs = num_outputs
 
     def forward(self, x, pre_softmax_mask=None):
 
-        #print(self._bias)
-        x = torch.nn.functional.sigmoid(self._bias)
-        #print(x)
-        x = torch.ones(2) * x
-        x = torch.Tensor([1.0, -1.0]) * x
-        x = torch.Tensor([0.0, 1.0]) + x
-        #print(x)
-        return x
-
-        '''
-        x = torch.nn.functional.softmax(self._bias)
-        return x
-        '''
-
-
-        '''
-        x = self._l1(x)
-        x = torch.nn.functional.softmax(x)
-        return x
-        '''
-
-
-        '''
         # Check hidden state has been initialised
         if not hasattr(self, '_hx'):
             raise RuntimeError('Must call reset() before forward()')
@@ -445,16 +260,17 @@ class NN(torch.nn.Module):
 
         # Softmax layer
         x = torch.nn.functional.softmax(x)
-        '''
 
         return x
 
     def reset(self, batch_size):
-        pass
-        #self._hx = torch.zeros(self._hidden_size)
+        self._hx = torch.zeros(self._hidden_size)
 
     def num_inputs(self):
         return self._num_inputs
+
+    def num_outputs(self):
+        return self._num_outputs
 
 
 # A class for representing analytic equations and evaluating them

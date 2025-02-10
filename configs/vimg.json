@@ -1,17 +1,19 @@
 {
     "domain": {
         "name": "Linear",
-        "m": 10,
+        "m": 2,
         "c": 0,
-        "x_mins": [-1.0],
+        "x_mins": [0.0],
         "x_maxs": [1.0],
         "x_step_sizes": [0.1]
     },
     "algorithm": {
         "name": "VIMG",
         "num_steps": 100,
-        "learning_rate": 5e-2,
-        "num_samples": 2,
+        "learning_rate": 1e-2,
+        "xmax_abs_grad": 100.0,
+        "num_samples": 10,
+
         "m": 0,
         "n": 1,
         "p": 3,
@@ -20,16 +22,16 @@
         "b": [1],
         "c": 1,
 
-        "xopt_params": ["c"],
-        "xprior_mu": [1.0],
-        "xprior_sigma": [[1.0]],
-        "xinit_q_mu": [10.0],
-        "xinit_q_sigma": [[1.0]],
+        "opt_params": ["c"],
+        "prior_mu": [1.0],
+        "prior_sigma": [[1.0]],
+        "init_q_mu": [0.0],
+        "init_q_sigma": [[1.0]],
 
-        "opt_params": ["a1", "c"],
-        "prior_mu": [1.0, 1.0],
-        "prior_sigma": [[1.0, 0.0], [0.0, 1.0]],
-        "init_q_mu": [10.0, 5.0],
-        "init_q_sigma": [[1.0, 0.0],[0.0, 1.0]]
+        "xopt_params": ["a1", "c"],
+        "xprior_mu": [1.0, 1.0],
+        "xprior_sigma": [[1.0, 0.0], [0.0, 1.0]],
+        "xinit_q_mu": [10.0, 5.0],
+        "xinit_q_sigma": [[1.0, 0.0],[0.0, 1.0]]
     }
 }

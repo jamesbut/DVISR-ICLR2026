@@ -38,12 +38,14 @@ class VIMG(Algorithm):
 
         self._num_samples = config['num_samples']
 
+        self._max_abs_grad = config.get('max_abs_grad', None)
+
     def train(self, data):
 
-        # self.train_point_estimate(data)
+        self.train_point_estimate(data)
         # self.train_mu(data)
         # self.train_maximum_likelihood(data)
-        self.train_variational_inference(data)
+        # self.train_variational_inference(data)
 
     def train_variational_inference(self, data):
 
@@ -61,15 +63,15 @@ class VIMG(Algorithm):
 
                 # Set theta values
                 theta_dict = self.get_theta_dict(theta)
-
                 f = MeijerG(theta=self.get_theta(params=theta_dict),
                             order=self._order)
+                # print(f.expression())
 
                 # Calculate log likelihood p(x|z)
                 log_likelihood = 0.0
                 for x, y in zip(data['x'], data['y']):
                     log_likelihood += norm.logpdf(y, loc=f.evaluate(x))
-                # log_likelihood /= len(data['y'])
+                log_likelihood /= len(data['y'])
 
                 # Calculate p(z) (gaussian)
                 prior = self._prior.pdf(theta)
@@ -81,7 +83,7 @@ class VIMG(Algorithm):
                                               cov=self._q_sigma)
                 log_q_z = math.log(q_z)
 
-                # Calculate ELBOs
+                # Calculate ELBO
                 elbo = log_likelihood + log_prior - log_q_z
                 elbos.append(elbo)
 
@@ -89,8 +91,8 @@ class VIMG(Algorithm):
                 ll_grads = np.array([(y - f.evaluate(x))
                                      * f.gradients(x)[self.get_theta_idxs()]
                                      for x, y in zip(data['x'], data['y'])])
-                # ll_grads = np.mean(ll_grads, axis=0)
-                ll_grads = np.sum(ll_grads, axis=0)
+                ll_grads = np.mean(ll_grads, axis=0)
+                # ll_grads = np.sum(ll_grads, axis=0)
 
                 # Calculate log prior grad
                 lp_grads = self._prior_mu - theta
@@ -98,7 +100,12 @@ class VIMG(Algorithm):
                 # Calculate log q(z) grad
                 lq_grad = 0
 
+                # Calculate ELBO grad
                 elbo_grad = ll_grads + lp_grads - lq_grad
+
+                # Perform gradient clipping
+                elbo_grad = self.gradient_clipping(elbo_grad)
+
                 elbo_grads.append(elbo_grad)
 
                 '''
@@ -190,22 +197,63 @@ class VIMG(Algorithm):
 
     def train_point_estimate(self, data):
 
+        # TODO: Remove
+        # theta[1], [2] and [4] do not produce hypergeometric functions
+        # theta = [2, 2, 2, 1, 1]
+        # order = [0, 1, 3, 1]
+
+        # theta = [2]
+        # order = [1, 0, 0, 2]
+
+        # theta = [1, 1, 1]
+        # theta = [1]
+        # order = [2, 1, 2, 3]
+
+        # theta = [1, 1, 1, 1, 1, 1]
+        # order = [2, 2, 3, 3]
+
+        # theta = [1, 1, 1, 1]
+        # order = [2, 0, 1, 3]
+
+        # theta = [1, 1, 1, 0, 1]
+        # order = [1, 2, 2, 2]
+
+        theta = [-2, 0, 1]
+        order = [1, 1, 1, 2]
+
         for i in range(self._num_steps):
 
-            f = MeijerG(theta=self._theta, order=self._order)
+            f = MeijerG(theta=theta, order=order)
+
+            print('Theta:', theta)
+            print(f.expression())
 
             # Calculate loss
-            loss = self.calculate_loss(f, data)
+            losses = []
+            for x, y in zip(data['x'], data['y']):
+                loss = math.pow(f.evaluate(x) - y, 2)
+                losses.append(loss)
+            loss = np.sum(np.array(losses))
 
-            # Calculate loss gradient w.r.t. theta
-            loss_grads = self.calculate_grads(f, data)
-
-            print(f.expression())
-            print('θ:', self._theta)
             print('Loss:', loss)
 
+            # Calculate loss grads w.r.t theta
+            loss_grads = []
+            for x, y in zip(data['x'], data['y']):
+                loss_grad = 2 * (f.evaluate(x) - y) * f.gradients(x)
+                loss_grads.append(loss_grad)
+            loss_grads = np.sum(np.array(loss_grads), axis=0)
+
+            # Clip gradients
+            loss_grads = np.clip(loss_grads, -10, 10)
+            print('Grads:', loss_grads)
+
             # Take optimisation step
-            self.optimise(loss_grads)
+            theta[0] -= self._learning_rate * loss_grads[0]
+            # theta[1] -= self._learning_rate * loss_grads[1]
+            # theta[2] -= self._learning_rate * loss_grads[2]
+            # theta[3] -= self._learning_rate * loss_grads[3]
+            # theta[4] -= self._learning_rate * loss_grads[4]
 
     def calculate_loss(self, f, data):
 
@@ -302,3 +350,13 @@ class VIMG(Algorithm):
 
         idxs.sort()
         return idxs
+
+    # Peform gradient clipping on the gradients
+    def gradient_clipping(self, grads):
+
+        if self._max_abs_grad is not None:
+            for i, g in enumerate(grads):
+                if abs(g) > self._max_abs_grad:
+                    grads[i] = self._max_abs_grad * np.sign(g)
+
+        return grads

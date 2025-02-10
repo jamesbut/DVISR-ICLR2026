@@ -16,8 +16,8 @@ def main():
     # Read config
     config = read_config(args)
 
-    #from utils.json_helper import print_json
-    #print_json(config)
+    # from utils.json_helper import print_json
+    # print_json(config)
 
     # Create domain
     domain = create_domain(config['domain'])
