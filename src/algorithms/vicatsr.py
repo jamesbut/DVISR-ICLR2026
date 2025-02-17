@@ -10,7 +10,7 @@ import numpy as np
 import scipy
 import copy
 import torch
-import statistics
+import math
 torch.set_default_dtype(torch.float64)
 
 
@@ -51,6 +51,9 @@ class VICatSR(Algorithm):
         # Number of training steps
         self._num_steps = config['num_steps']
 
+        # Size of RNN hidden layer
+        self._hidden_layer_size = config['rnn_hidden_layer_size']
+
         # Seed random number generators
         self._seed = config.get('seed', None)
         if self._seed is not None:
@@ -59,10 +62,14 @@ class VICatSR(Algorithm):
 
     def train(self, data):
 
+        self._maximise_likelihood(data)
+        # self._maximise_elbo(data)
+
+    def _maximise_likelihood(self, data):
+
         self._initialise(data)
 
-        optimiser = torch.optim.Adam(self._q._net.parameters(), lr=self._lr,
-                                     maximize=True)
+        optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
         for i in range(self._num_steps):
 
@@ -70,21 +77,95 @@ class VICatSR(Algorithm):
             sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
 
             # Calculate likelihoods of sampled models
-            likelihoods = [self._evaluate_likelihood(data, z) for z in sampled_z]
+            likelihoods = torch.tensor(
+                [self._log_likelihood(data, z) for z in sampled_z],
+                requires_grad=False
+            )
+
+            rewards = likelihoods
+            baseline = rewards.mean()
+            rewards = rewards - baseline
 
             loss = torch.stack(
-                [self._q.log_pdf(z) * r for z, r in zip(sampled_z, likelihoods)]
+                [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
             ).mean()
 
-            print('Loss:', loss.item())
+            print('Step: {}   Loss: {}'.format(str(i), loss.item()))
 
             optimiser.zero_grad()
+
             loss.backward()
+
             optimiser.step()
 
-        # sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
-        # for z in sampled_z:
-        #     print(z.get_infix())
+        sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
+        for z in sampled_z:
+            print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
+
+        print('Params:')
+        for p in self._q._net.parameters():
+            print(p)
+
+    def _maximise_elbo(self, data):
+
+        self._initialise(data)
+
+        optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
+
+        for i in range(self._num_steps):
+
+            # Sample z from surrogate q
+            sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
+
+            # Calculate likelihoods of sampled models
+            likelihoods = torch.tensor(
+                [self._log_likelihood(data, z) for z in sampled_z],
+                requires_grad=False
+            )
+
+            # Calculate q(z) under the surrogate distribution for samples models
+            # NOTE: This .detach() makes a big difference to optimisation
+            q_zs = torch.stack([self._q.log_pdf(z) for z in sampled_z]).detach()
+
+            # Calculate priors, p(z), for sampled models
+            # priors = torch.tensor([self._log_prior(z) for z in sampled_z])
+
+            # Calculate ELBO
+            elbos = likelihoods - q_zs
+            # elbo = elbos.mean()
+            # elbo = (likelihoods + priors - q_zs).mean()
+
+            rewards = elbos
+
+            # for z in sampled_z:
+            #     print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
+            # print(likelihoods)
+            # print(q_zs)
+            # print(rewards)
+
+            baseline = rewards.mean()
+            rewards = rewards - baseline
+            # print(rewards)
+
+            loss = torch.stack(
+                [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
+            ).mean()
+
+            print('Step: {}   Loss: {}'.format(str(i), loss.item()))
+
+            optimiser.zero_grad()
+
+            loss.backward()
+
+            optimiser.step()
+
+        sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
+        for z in sampled_z:
+            print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
+
+        print('Params:')
+        for p in self._q._net.parameters():
+            print(p)
 
     def _initialise(self, data):
 
@@ -96,14 +177,16 @@ class VICatSR(Algorithm):
 
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
-        self._q = q(self._token_set, self._max_depth)
+        self._q = q(self._token_set, self._max_depth, self._hidden_layer_size)
 
-    def _evaluate_prior(self, z):
+    def _log_prior(self, z):
 
         # For now, the prior is just the uniform distribution
-        return np.array([1 / len(self._token_set) ** e.num_tokens() for e in z])
+        return math.log(1 / len(self._token_set)) * z.num_tokens()
 
-    def _evaluate_likelihood(self, data, z):
+        # TODO: I should consider the forced constants here too
+
+    def _log_likelihood(self, data, z):
 
         likelihoods = []
         means = z.evaluate(data['x'])
@@ -120,10 +203,10 @@ class VICatSR(Algorithm):
 # a sequence of categorical distribution parameters.
 class q:
 
-    def __init__(self, token_set, max_sampling_depth):
+    def __init__(self, token_set, max_sampling_depth, hidden_layer_size):
 
         # Create recurrent neural network
-        self._net = NN(len(token_set), len(token_set), 256)
+        self._net = NN(len(token_set), len(token_set), hidden_layer_size)
 
         self._max_depth = max_sampling_depth
         self._token_set = token_set
@@ -158,9 +241,8 @@ class q:
             else:
                 pre_softmax_mask = None
 
-            x = self._net.forward(x, pre_softmax_mask)
-            token = copy.deepcopy(np.random.choice(self._token_set, 1,
-                                                   p=x.detach().numpy())[0])
+            x = self._net.forward(x, pre_softmax_mask).detach().numpy()
+            token = copy.deepcopy(np.random.choice(self._token_set, 1, p=x)[0])
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
@@ -233,8 +315,12 @@ class NN(torch.nn.Module):
 
         self._hidden_size = hidden_size
 
-        self._l1 = torch.nn.GRUCell(num_inputs, self._hidden_size)
-        self._l2 = torch.nn.Linear(self._hidden_size, num_outputs)
+        if hidden_size == 0:
+            self._l1 = None
+            self._l2 = torch.nn.Linear(num_inputs, num_outputs)
+        else:
+            self._l1 = torch.nn.GRUCell(num_inputs, self._hidden_size)
+            self._l2 = torch.nn.Linear(self._hidden_size, num_outputs)
 
         self._num_inputs = num_inputs
         self._num_outputs = num_outputs
@@ -246,8 +332,9 @@ class NN(torch.nn.Module):
             raise RuntimeError('Must call reset() before forward()')
 
         # GRU layer
-        x = self._l1(x, self._hx)
-        self._hx = x
+        if self._l1 is not None:
+            x = self._l1(x, self._hx)
+            self._hx = x
 
         # Linear layer
         x = self._l2(x)

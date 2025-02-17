@@ -14,10 +14,12 @@
             "binary_ops": ["*"],
             "x_unary_ops": ["cos"]
         },
-        "num_steps": 100,
+        "num_steps": 1000,
         "learning_rate": 1e-2,
         "num_eq_samples": 10,
         "max_depth": 1,
+        "_rnn_hidden_layer_size": 256,
+        "rnn_hidden_layer_size": 0,
         "x_seed": 18
     }
 }
