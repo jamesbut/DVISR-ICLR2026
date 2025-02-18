@@ -43,7 +43,13 @@ class VICatSR(Algorithm):
         self._num_eq_samples = config['num_eq_samples']
 
         # Maximum equation tree depth
-        self._max_depth = config['max_depth']
+        self._max_depth = None
+        if 'max_depth' in config:
+            # self._max_depth = config['max_depth']
+            raise NotImplementedError('Max tree depth not yet implemented')
+
+        # Maximum number of tokens in generated equations
+        self._max_num_tokens = config['max_num_tokens']
 
         # Learning rate for optimiser
         self._lr = config['learning_rate']
@@ -102,9 +108,11 @@ class VICatSR(Algorithm):
         for z in sampled_z:
             print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
 
+        '''
         print('Params:')
         for p in self._q._net.parameters():
             print(p)
+        '''
 
     def _maximise_elbo(self, data):
 
@@ -177,7 +185,8 @@ class VICatSR(Algorithm):
 
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
-        self._q = q(self._token_set, self._max_depth, self._hidden_layer_size)
+        self._q = q(self._token_set, self._hidden_layer_size,
+                    self._max_depth, self._max_num_tokens)
 
     def _log_prior(self, z):
 
@@ -203,12 +212,13 @@ class VICatSR(Algorithm):
 # a sequence of categorical distribution parameters.
 class q:
 
-    def __init__(self, token_set, max_sampling_depth, hidden_layer_size):
+    def __init__(self, token_set, hidden_layer_size, max_depth, max_num_tokens):
 
         # Create recurrent neural network
         self._net = NN(len(token_set), len(token_set), hidden_layer_size)
 
-        self._max_depth = max_sampling_depth
+        self._max_depth = max_depth
+        self._max_num_tokens = max_num_tokens
         self._token_set = token_set
 
         # A mask to apply so that only constants are sampled
@@ -235,14 +245,19 @@ class q:
 
             # Apply mask to only sample constants if more constants are needed
             # to produce a valid equation
-
-            if self._max_depth - len(tokens) <= num_consts_required + 1:
+            pre_softmax_mask = None
+            if self._max_num_tokens - len(tokens) <= num_consts_required:
                 pre_softmax_mask = self._consts_mask
-            else:
-                pre_softmax_mask = None
 
-            x = self._net.forward(x, pre_softmax_mask).detach().numpy()
-            token = copy.deepcopy(np.random.choice(self._token_set, 1, p=x)[0])
+            # Pass input through network
+            out = self._net.forward(x, pre_softmax_mask).detach().numpy()
+
+            # Sample token from categorical distribution
+            token = copy.deepcopy(np.random.choice(self._token_set, 1, p=out)[0])
+
+            # Generate next network input
+            x = torch.zeros_like(x)
+            x[token['id']] = 1.0
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
@@ -273,13 +288,16 @@ class q:
             pre_softmax_mask = \
                 self._consts_mask if t['forced_const'] else None
 
-            x = self._net.forward(x, pre_softmax_mask)
+            out = self._net.forward(x, pre_softmax_mask)
 
             # Generate one hot vector for current token
             one_hot = torch.zeros(self._net.num_inputs())
             one_hot[t['id']] = 1.0
 
-            prob *= torch.sum(x * one_hot)
+            prob *= torch.sum(out * one_hot)
+
+            # Set next network input
+            x = one_hot.clone().detach()
 
         return prob
 
@@ -304,6 +322,9 @@ class q:
             one_hot[t['id']] = 1.0
 
             log_prob += torch.log(torch.sum(x * one_hot))
+
+            # Set next network input
+            x = one_hot.clone().detach()
 
         return log_prob
 

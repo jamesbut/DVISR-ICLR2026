@@ -7,6 +7,7 @@ except ImportError as e:
     print('Could not import the SymbolicRegression algorithm')
     print(e)
 
+'''
 try:
     from algorithms.bayesian_machine_scientist import BayesianMachineScientist
 except ImportError as e:
@@ -24,6 +25,7 @@ try:
 except ImportError as e:
     print('Could not import the DDSR algorithm')
     print(e)
+'''
 
 try:
     from algorithms.vicatsr import VICatSR

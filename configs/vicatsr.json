@@ -11,15 +11,16 @@
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "binary_ops": ["*"],
-            "x_unary_ops": ["cos"]
+            "_binary_ops": ["*"],
+            "unary_ops": ["sin"]
         },
-        "num_steps": 1000,
+        "num_steps": 500,
         "learning_rate": 1e-2,
         "num_eq_samples": 10,
-        "max_depth": 1,
-        "_rnn_hidden_layer_size": 256,
-        "rnn_hidden_layer_size": 0,
+        "_max_depth": 2,
+        "max_num_tokens": 1,
+        "rnn_hidden_layer_size": 256,
+        "_rnn_hidden_layer_size": 0,
         "x_seed": 18
     }
 }
