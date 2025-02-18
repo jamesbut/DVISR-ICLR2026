@@ -68,8 +68,8 @@ class VICatSR(Algorithm):
 
     def train(self, data):
 
-        # self._maximise_likelihood(data)
-        self._maximise_elbo(data)
+        self._maximise_likelihood(data)
+        # self._maximise_elbo(data)
 
     def _maximise_likelihood(self, data):
 
@@ -410,9 +410,10 @@ class Equation:
 
         # Substitute variables for data, x
         for token in eq:
-            for i in range(x.shape[0]):
-                if token['op'] == ('x_' + str(i)):
-                    token['op'] = x[:, i]
+            for i in range(x.shape[1]):
+                if not isinstance(token['op'], np.ndarray):
+                    if token['op'] == ('x_' + str(i)):
+                        token['op'] = x[:, i]
 
         # Convert Polish notation to Reverse Polish Notation
         eq.reverse()
