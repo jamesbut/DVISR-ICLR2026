@@ -11,14 +11,14 @@
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "_binary_ops": ["*"],
+            "binary_ops": ["*"],
             "unary_ops": ["sin"]
         },
         "num_steps": 500,
         "learning_rate": 1e-2,
         "num_eq_samples": 10,
         "_max_depth": 2,
-        "max_num_tokens": 1,
+        "max_num_tokens": 2,
         "rnn_hidden_layer_size": 256,
         "_rnn_hidden_layer_size": 0,
         "x_seed": 18

@@ -68,8 +68,8 @@ class VICatSR(Algorithm):
 
     def train(self, data):
 
-        self._maximise_likelihood(data)
-        # self._maximise_elbo(data)
+        # self._maximise_likelihood(data)
+        self._maximise_elbo(data)
 
     def _maximise_likelihood(self, data):
 
@@ -87,6 +87,12 @@ class VICatSR(Algorithm):
                 [self._log_likelihood(data, z) for z in sampled_z],
                 requires_grad=False
             )
+
+            '''
+            for z, l in zip(sampled_z, likelihoods):
+                print('z: ' + z.get_infix() + '    likelihood: ' + str(l))
+            exit()
+            '''
 
             rewards = likelihoods
             baseline = rewards.mean()
@@ -171,9 +177,11 @@ class VICatSR(Algorithm):
         for z in sampled_z:
             print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
 
+        '''
         print('Params:')
         for p in self._q._net.parameters():
             print(p)
+        '''
 
     def _initialise(self, data):
 
