@@ -35,9 +35,11 @@ class VICatSR(Algorithm):
                 self._token_id += 1
 
         # Add constant as token
-        self._token_set.append({"op": 1.0, "type": "const",
-                                "id": self._token_id})
-        self._token_id += 1
+        if 'consts' in config['operators']:
+            for c in config['operators']['consts']:
+                self._token_set.append({"op": c, "type": "const",
+                                        "id": self._token_id})
+                self._token_id += 1
 
         # Number of equations sampled to calculate expected loss
         self._num_eq_samples = config['num_eq_samples']
