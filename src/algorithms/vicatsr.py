@@ -82,7 +82,8 @@ class VICatSR(Algorithm):
         for i in range(self._num_steps):
 
             # Sample z from surrogate q
-            sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
+            sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
+                         for i in range(self._num_eq_samples)]
 
             # Optimise equation constants if required
             sampled_z = [optimise_eq_consts(z, data, log_likelihood)
@@ -116,7 +117,8 @@ class VICatSR(Algorithm):
 
             optimiser.step()
 
-        sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
+        sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
+                     for i in range(self._num_eq_samples)]
         for z in sampled_z:
             print('z: ' + z.get_infix() + '    pdf: '
                   + str(self._q.pdf(z).item()))
@@ -136,11 +138,8 @@ class VICatSR(Algorithm):
         for i in range(self._num_steps):
 
             # Sample z from surrogate q
-            sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
-
-            # Optimise equation constants if required
-            sampled_z = [optimise_eq_consts(z, data, log_likelihood)
-                         for z in sampled_z]
+            sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
+                         for i in range(self._num_eq_samples)]
 
             # Calculate likelihoods of sampled models
             likelihoods = torch.tensor(
@@ -184,7 +183,8 @@ class VICatSR(Algorithm):
 
             optimiser.step()
 
-        sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
+        sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
+                     for i in range(self._num_eq_samples)]
         for z in sampled_z:
             print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
 
@@ -293,6 +293,10 @@ class q:
             i += 1
 
         return Equation(tokens)
+
+    # Sample from q and also optimise const tokens of sampled equation
+    def sample_and_optimise(self, data, log_likelihood_func):
+        return optimise_eq_consts(self.sample(), data, log_likelihood_func)
 
     # Calculate probability of an equation, z, under q
     def pdf(self, z):
