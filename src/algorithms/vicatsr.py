@@ -85,7 +85,8 @@ class VICatSR(Algorithm):
             sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
 
             # Optimise equation constants if required
-            sampled_z = [optimise_eq_consts(z, data, log_likelihood) for z in sampled_z]
+            sampled_z = [optimise_eq_consts(z, data, log_likelihood)
+                         for z in sampled_z]
 
             # Calculate likelihoods of sampled models
             likelihoods = torch.tensor(
@@ -117,7 +118,8 @@ class VICatSR(Algorithm):
 
         sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
         for z in sampled_z:
-            print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
+            print('z: ' + z.get_infix() + '    pdf: '
+                  + str(self._q.pdf(z).item()))
 
         '''
         print('Params:')
@@ -137,7 +139,8 @@ class VICatSR(Algorithm):
             sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
 
             # Optimise equation constants if required
-            sampled_z = [optimise_eq_consts(z, data, log_likelihood) for z in sampled_z]
+            sampled_z = [optimise_eq_consts(z, data, log_likelihood)
+                         for z in sampled_z]
 
             # Calculate likelihoods of sampled models
             likelihoods = torch.tensor(
@@ -530,7 +533,7 @@ class Equation:
     def _replace_opt_consts(self, eq):
 
         if self._num_opt_consts != 0:
-            if self._opt_consts:
+            if self._opt_consts is not None:
                 i = 0
                 for token in eq:
                     if token['op'] == 'opt_const':
