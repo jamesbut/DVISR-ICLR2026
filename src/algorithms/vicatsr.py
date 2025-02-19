@@ -34,7 +34,7 @@ class VICatSR(Algorithm):
                                         "id": self._token_id})
                 self._token_id += 1
 
-        # Add constant as token
+        # Add constants as tokens
         if 'consts' in config['operators']:
             for c in config['operators']['consts']:
                 self._token_set.append({"op": c, "type": "const",
@@ -84,9 +84,12 @@ class VICatSR(Algorithm):
             # Sample z from surrogate q
             sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
 
+            # Optimise equation constants if required
+            sampled_z = [optimise_eq_consts(z, data, log_likelihood) for z in sampled_z]
+
             # Calculate likelihoods of sampled models
             likelihoods = torch.tensor(
-                [self._log_likelihood(data, z) for z in sampled_z],
+                [log_likelihood(data, z) for z in sampled_z],
                 requires_grad=False
             )
 
@@ -133,9 +136,12 @@ class VICatSR(Algorithm):
             # Sample z from surrogate q
             sampled_z = [self._q.sample() for i in range(self._num_eq_samples)]
 
+            # Optimise equation constants if required
+            sampled_z = [optimise_eq_consts(z, data, log_likelihood) for z in sampled_z]
+
             # Calculate likelihoods of sampled models
             likelihoods = torch.tensor(
-                [self._log_likelihood(data, z) for z in sampled_z],
+                [log_likelihood(data, z) for z in sampled_z],
                 requires_grad=False
             )
 
@@ -205,15 +211,16 @@ class VICatSR(Algorithm):
 
         # TODO: I should consider the forced constants here too
 
-    def _log_likelihood(self, data, z):
 
-        likelihoods = []
-        means = z.evaluate(data['x'])
-        for i in range(len(means)):
-            likelihoods.append(scipy.stats.norm.logpdf(data['y'][i],
-                                                       loc=means[i],
-                                                       scale=1.0))
-        return sum(likelihoods)
+def log_likelihood(data, z):
+
+    likelihoods = []
+    means = z.evaluate(data['x'])
+    for i in range(len(means)):
+        likelihoods.append(scipy.stats.norm.logpdf(data['y'][i],
+                                                   loc=means[i],
+                                                   scale=1.0))
+    return sum(likelihoods)
 
 
 # Surrogate distribution, q, which is optimised to approximate the
@@ -400,10 +407,22 @@ class Equation:
         # Equation is represented in polish notation
         self._eq = tokens
 
+        # Check whether equation has any consts to optimise
+        self._num_opt_consts = 0
+        for t in tokens:
+            if t['op'] == 'opt_const':
+                self._num_opt_consts += 1
+
+        # Optimisable constant values
+        self._opt_consts = None
+
     # Evaluate equation according to data variable values, x.
     def evaluate(self, x):
 
         eq = copy.deepcopy(self._eq)
+
+        # Replace opt consts with values
+        eq = self._replace_opt_consts(eq)
 
         # Convert consts to list of relevant data size
         for token in eq:
@@ -457,6 +476,10 @@ class Equation:
     def get_infix(self):
 
         eq = copy.deepcopy(self._eq)
+
+        # Replace opt consts with values
+        eq = self._replace_opt_consts(eq)
+
         eq.reverse()
 
         stack = []
@@ -465,7 +488,10 @@ class Equation:
 
             # If token is a constant, push onto stack
             if t['type'] == 'const':
-                stack.append(str(t['op']))
+                if isinstance(t['op'], str):
+                    stack.append(t['op'])
+                else:
+                    stack.append("{:.4f}".format(t['op']))
 
             # Otherwise print operators with elements from stack
             else:
@@ -487,5 +513,68 @@ class Equation:
     def tokens(self):
         return self._eq
 
+    def num_opt_consts(self):
+        return self._num_opt_consts
+
+    def set_opt_consts(self, x):
+
+        if len(x) != self._num_opt_consts:
+            raise ValueError(
+                f"Expects {self._num_opt_consts} opt consts but "
+                f"{len(x)} was given"
+            )
+
+        self._opt_consts = x
+
+    # Replace opt_const with values
+    def _replace_opt_consts(self, eq):
+
+        if self._num_opt_consts != 0:
+            if self._opt_consts:
+                i = 0
+                for token in eq:
+                    if token['op'] == 'opt_const':
+                        token['op'] = self._opt_consts[i]
+                        i += 1
+            else:
+                raise ValueError(
+                    'Trying to evaluate an equation that has opt const tokens '
+                    'but no opt const values'
+                )
+
+        return eq
+
     def __repr__(self):
         return str(self._eq)
+
+
+# Optimise consts in equation to maximise log likelihood
+def optimise_eq_consts(eq, data, log_likelihood_func):
+
+    # If there are no consts to optimise just return original equation
+    if eq.num_opt_consts() == 0:
+        return eq
+
+    # Initial guess of all ones
+    init_x = np.ones(eq.num_opt_consts())
+
+    def min_func(x, eq, data, log_likelihood_func):
+
+        # Evaluate equation with opt consts set as x
+        eq.set_opt_consts(x)
+
+        log_likelihood = log_likelihood_func(data, eq)
+
+        return -log_likelihood
+
+    # Optimise log likelihood with respect to op constants
+    res = scipy.optimize.minimize(min_func, init_x,
+                                  args=(eq, data, log_likelihood_func),
+                                  method='bfgs')
+
+    if not res['success']:
+        raise RuntimeError('Scipy minimize failed')
+
+    eq.set_opt_consts(res['x'])
+
+    return eq
