@@ -70,12 +70,13 @@ class VICatSR(Algorithm):
 
     def train(self, data):
 
+        self._initialise(data)
+
         # self._maximise_likelihood(data)
-        self._maximise_elbo(data)
+        # self._maximise_elbo(data)
+        self._true_posterior(data)
 
     def _maximise_likelihood(self, data):
-
-        self._initialise(data)
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
@@ -131,8 +132,6 @@ class VICatSR(Algorithm):
 
     def _maximise_elbo(self, data):
 
-        self._initialise(data)
-
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
         for i in range(self._num_steps):
@@ -158,21 +157,12 @@ class VICatSR(Algorithm):
             )
 
             # Calculate ELBO
-            elbos = likelihoods - q_zs
-            # elbo = elbos.mean()
-            # elbo = (likelihoods + priors - q_zs).mean()
+            elbos = likelihoods + priors - q_zs
 
             rewards = elbos
 
-            # for z in sampled_z:
-            #     print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
-            # print(likelihoods)
-            # print(q_zs)
-            # print(rewards)
-
             baseline = rewards.mean()
             rewards = rewards - baseline
-            # print(rewards)
 
             loss = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
@@ -221,6 +211,16 @@ class VICatSR(Algorithm):
                                                 self._max_num_tokens)
         prob_indv_eq = 1 / total_num_eqs
         return math.log(prob_indv_eq)
+
+    # Calculate the true posterior
+    def _true_posterior(self, data):
+
+        # Enumerate all expressions
+        all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
+
+        for e in all_exps:
+            print(e.get_infix())
+        exit()
 
 
 def log_likelihood(data, z):
@@ -273,6 +273,50 @@ def calculate_total_num_eqs(token_set, max_num_tokens):
 
     # Sum up to t_max
     return sum(b[:t_max + 1])
+
+
+# Enumerate all expressions according to a specific token set and a maximum
+def enumerate_expressions(token_set, max_num_tokens):
+
+    l_m = max_num_tokens
+
+    # Split tokens by type
+    consts = [t for t in token_set if t['type'] == 'const']
+    un_ops = [t for t in token_set if t['type'] == 'un_op']
+    bin_ops = [t for t in token_set if t['type'] == 'bin_op']
+
+    # Initialize list to store expressions by length
+    # expressions[0] is empty (unused), expressions[1] for length 1, etc.
+    expressions = [[] for _ in range(l_m + 1)]
+
+    # Base case: length 1 expressions are just the constants
+    expressions[1] = [[c] for c in consts]
+
+    # Build expressions iteratively from length 2 to l_m
+    for length in range(2, l_m + 1):
+
+        # Add expressions starting with unary operations
+        # Format: [unary_op] + subexpression_of_length_(length-1)
+        for uop in un_ops:
+            for subexpr in expressions[length - 1]:
+                expressions[length].append([uop] + subexpr)
+
+        # Add expressions starting with binary operations (if length >= 3)
+        # Format: [binary_op] + expr1 + expr2, where
+        # total length = 1 + len(expr1) + len(expr2)
+        if length >= 3:
+            for bop in bin_ops:
+                # Split remaining tokens (length-1) between two subexpressions
+                for k in range(1, length - 1):
+                    for expr1 in expressions[k]:
+                        for expr2 in expressions[length - 1 - k]:
+                            expressions[length].append([bop] + expr1 + expr2)
+
+    # Collect all expressions from length 1 to l_m
+    all_expressions = [Equation(expr) for length in range(1, l_m + 1)
+                       for expr in expressions[length]]
+
+    return all_expressions
 
 
 # Surrogate distribution, q, which is optimised to approximate the
