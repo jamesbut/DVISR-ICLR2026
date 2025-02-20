@@ -310,7 +310,7 @@ def enumerate_expressions(token_set, max_num_tokens):
     expressions = [[] for _ in range(l_m + 1)]
 
     # Base case: length 1 expressions are just the constants
-    expressions[1] = [[c] for c in consts]
+    expressions[1] = [[copy.deepcopy(c)] for c in consts]
 
     # Build expressions iteratively from length 2 to l_m
     for length in range(2, l_m + 1):
@@ -319,7 +319,9 @@ def enumerate_expressions(token_set, max_num_tokens):
         # Format: [unary_op] + subexpression_of_length_(length-1)
         for uop in un_ops:
             for subexpr in expressions[length - 1]:
-                expressions[length].append([uop] + subexpr)
+                expressions[length].append(
+                    [copy.deepcopy(uop)] + copy.deepcopy(subexpr)
+                )
 
         # Add expressions starting with binary operations (if length >= 3)
         # Format: [binary_op] + expr1 + expr2, where
@@ -330,7 +332,10 @@ def enumerate_expressions(token_set, max_num_tokens):
                 for k in range(1, length - 1):
                     for expr1 in expressions[k]:
                         for expr2 in expressions[length - 1 - k]:
-                            expressions[length].append([bop] + expr1 + expr2)
+                            expressions[length].append(
+                                [copy.deepcopy(bop)] + copy.deepcopy(expr1)
+                                + copy.deepcopy(expr2)
+                            )
 
     # Collect all expressions from length 1 to l_m
     all_expressions = [Equation(expr) for length in range(1, l_m + 1)
