@@ -13,13 +13,14 @@
         "operators": {
             "binary_ops": ["*"],
             "unary_ops": ["sin"],
-            "consts": ["opt_const"]
+            "_consts": [1.0, "opt_const"],
+            "consts": [1.0]
         },
         "num_steps": 500,
         "learning_rate": 1e-2,
         "num_eq_samples": 10,
         "_max_depth": 2,
-        "max_num_tokens": 1,
+        "max_num_tokens": 3,
         "rnn_hidden_layer_size": 256,
         "_rnn_hidden_layer_size": 0,
         "x_seed": 18

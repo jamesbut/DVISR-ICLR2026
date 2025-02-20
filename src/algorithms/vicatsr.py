@@ -70,8 +70,8 @@ class VICatSR(Algorithm):
 
     def train(self, data):
 
-        self._maximise_likelihood(data)
-        # self._maximise_elbo(data)
+        # self._maximise_likelihood(data)
+        self._maximise_elbo(data)
 
     def _maximise_likelihood(self, data):
 
@@ -152,7 +152,10 @@ class VICatSR(Algorithm):
             q_zs = torch.stack([self._q.log_pdf(z) for z in sampled_z]).detach()
 
             # Calculate priors, p(z), for sampled models
-            # priors = torch.tensor([self._log_prior(z) for z in sampled_z])
+            priors = torch.tensor(
+                [self._log_prior(z) for z in sampled_z],
+                requires_grad=False
+            )
 
             # Calculate ELBO
             elbos = likelihoods - q_zs
@@ -202,6 +205,10 @@ class VICatSR(Algorithm):
                                     "id": self._token_id})
             self._token_id += 1
 
+        # Calculate total number of models
+        self._total_num_eqs = calculate_total_num_eqs(self._token_set,
+                                                      self._max_num_tokens)
+
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
         self._q = q(self._token_set, self._hidden_layer_size,
@@ -209,10 +216,11 @@ class VICatSR(Algorithm):
 
     def _log_prior(self, z):
 
-        # For now, the prior is just the uniform distribution
-        return math.log(1 / len(self._token_set)) * z.num_tokens()
-
-        # TODO: I should consider the forced constants here too
+        # Calculate uniform prior for now
+        total_num_eqs = calculate_total_num_eqs(self._token_set,
+                                                self._max_num_tokens)
+        prob_indv_eq = 1 / total_num_eqs
+        return math.log(prob_indv_eq)
 
 
 def log_likelihood(data, z):
@@ -224,6 +232,47 @@ def log_likelihood(data, z):
                                                    loc=means[i],
                                                    scale=1.0))
     return sum(likelihoods)
+
+
+# Calculate total number of models possible according to token set and
+# max number of tokens
+def calculate_total_num_eqs(token_set, max_num_tokens):
+
+    n_c = sum(1 for t in token_set if t['type'] == 'const')
+    n_u = sum(1 for t in token_set if t['type'] == 'un_op')
+    n_b = sum(1 for t in token_set if t['type'] == 'bin_op')
+    t_max = max_num_tokens
+
+    """
+    Calculate the number of distinct expressions with <= t_max tokens.
+
+    Parameters:
+    - t_max: Maximum number of tokens (integer >= 0)
+    - n_c: Number of distinct constants (integer >= 0)
+    - n_u: Number of distinct unary operators (integer >= 0)
+    - n_b: Number of distinct binary operators (integer >= 0)
+
+    Returns:
+    - Number of expressions with 1 to t_max tokens inclusive
+    """
+    if t_max < 0:
+        return 0
+
+    # b[t] stores number of expressions with exactly t tokens
+    b = [0] * (t_max + 1)
+    if t_max >= 1:
+        b[1] = n_c
+
+    # Compute exact counts for each expression size
+    for t in range(2, t_max + 1):
+        unary = n_u * b[t - 1]
+        binary = 0
+        for i in range(1, t - 1):
+            binary += b[i] * b[t - 1 - i]
+        b[t] = unary + n_b * binary
+
+    # Sum up to t_max
+    return sum(b[:t_max + 1])
 
 
 # Surrogate distribution, q, which is optimised to approximate the
