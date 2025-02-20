@@ -91,7 +91,7 @@ class VICatSR(Algorithm):
                          for z in sampled_z]
 
             # Calculate likelihoods of sampled models
-            likelihoods = torch.tensor(
+            log_likelihoods = torch.tensor(
                 [log_likelihood(data, z) for z in sampled_z],
                 requires_grad=False
             )
@@ -102,7 +102,7 @@ class VICatSR(Algorithm):
             exit()
             '''
 
-            rewards = likelihoods
+            rewards = log_likelihoods
             baseline = rewards.mean()
             rewards = rewards - baseline
 
@@ -140,24 +140,25 @@ class VICatSR(Algorithm):
             sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                          for i in range(self._num_eq_samples)]
 
-            # Calculate likelihoods of sampled models
-            likelihoods = torch.tensor(
+            # Calculate log likelihoods of sampled models
+            log_likelihoods = torch.tensor(
                 [log_likelihood(data, z) for z in sampled_z],
                 requires_grad=False
             )
 
-            # Calculate q(z) under the surrogate distribution for samples models
+            # Calculate log q(z) under the surrogate distribution for samples
+            # models
             # NOTE: This .detach() makes a big difference to optimisation
-            q_zs = torch.stack([self._q.log_pdf(z) for z in sampled_z]).detach()
+            log_q_zs = torch.stack([self._q.log_pdf(z) for z in sampled_z]).detach()
 
-            # Calculate priors, p(z), for sampled models
-            priors = torch.tensor(
+            # Calculate priors, ln p(z), for sampled models
+            log_priors = torch.tensor(
                 [self._log_prior(z) for z in sampled_z],
                 requires_grad=False
             )
 
             # Calculate ELBO
-            elbos = likelihoods + priors - q_zs
+            elbos = log_likelihoods + log_priors - log_q_zs
 
             rewards = elbos
 
@@ -204,13 +205,16 @@ class VICatSR(Algorithm):
         self._q = q(self._token_set, self._hidden_layer_size,
                     self._max_depth, self._max_num_tokens)
 
-    def _log_prior(self, z):
+    def _prior(self, z):
 
         # Calculate uniform prior for now
         total_num_eqs = calculate_total_num_eqs(self._token_set,
                                                 self._max_num_tokens)
-        prob_indv_eq = 1 / total_num_eqs
-        return math.log(prob_indv_eq)
+        prior = 1 / total_num_eqs
+        return prior
+
+    def _log_prior(self, z):
+        return math.log(self._prior(z))
 
     # Calculate the true posterior
     def _true_posterior(self, data):
@@ -218,9 +222,14 @@ class VICatSR(Algorithm):
         # Enumerate all expressions
         all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
 
-        for e in all_exps:
-            print(e.get_infix())
-        exit()
+        # Calculate p(x) based on the law of total probability
+        p_x = sum([likelihood(data, z) * self._prior(z) for z in all_exps])
+
+        # Calculate p(z|x) for all expressions
+        p_z_x = [likelihood(data, z) * self._prior(z) / p_x for z in all_exps]
+
+        for z, posterior in zip(all_exps, p_z_x):
+            print('z: ' + z.get_infix() + '    posterior: ' + str(posterior))
 
 
 def log_likelihood(data, z):
@@ -232,6 +241,17 @@ def log_likelihood(data, z):
                                                    loc=means[i],
                                                    scale=1.0))
     return sum(likelihoods)
+
+
+def likelihood(data, z):
+
+    likelihoods = []
+    means = z.evaluate(data['x'])
+    for i in range(len(means)):
+        likelihoods.append(scipy.stats.norm.pdf(data['y'][i],
+                                                loc=means[i],
+                                                scale=1.0))
+    return math.prod(likelihoods)
 
 
 # Calculate total number of models possible according to token set and
