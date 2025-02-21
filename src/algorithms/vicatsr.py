@@ -74,7 +74,6 @@ class VICatSR(Algorithm):
 
         # self._maximise_likelihood(data)
         self._maximise_elbo(data)
-        # self._true_posterior(data)
 
     def _maximise_likelihood(self, data):
 
@@ -97,7 +96,14 @@ class VICatSR(Algorithm):
             )
 
             '''
-            for z, l in zip(sampled_z, likelihoods):
+            all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
+            for e in all_exps:
+                print(e.get_infix())
+            exit()
+            '''
+
+            '''
+            for z, l in zip(sampled_z, log_likelihoods):
                 print('z: ' + z.get_infix() + '    likelihood: ' + str(l))
             exit()
             '''
@@ -344,10 +350,10 @@ def enumerate_expressions(token_set, max_num_tokens):
     all_expressions = [Equation(expr) for length in range(1, l_m + 1)
                        for expr in expressions[length]]
 
-    # Check whether constants would have been forced given the max number
-    # of tokens
+    # Check whether pre softmax masks would have been applied if these
+    # expressions were sampled from q
     for e in all_expressions:
-        e.apply_forced_consts(max_num_tokens)
+        e.apply_pre_softmax_mask(max_num_tokens)
 
     return all_expressions
 
@@ -368,13 +374,18 @@ class q:
         self._token_set = token_set
 
         # A mask to apply so that only constants are sampled
-        self._consts_mask = []
-        for t in self._token_set:
-            if t['type'] == 'const':
-                self._consts_mask.append(0.0)
-            else:
-                self._consts_mask.append(-1e9)
-        self._consts_mask = torch.from_numpy(np.array(self._consts_mask))
+        global consts_mask
+        consts_mask = [0.0 if t['type'] == 'const' else -1e9
+                       for t in self._token_set]
+        consts_mask = torch.from_numpy(np.array(consts_mask))
+
+        # A mask to apply so that only unary operators and consts are sampled
+        global un_ops_consts_mask
+        un_ops_consts_mask = [0.0 if t['type'] == 'un_op'
+                                     or t['type'] == 'const' else -1e9
+                              for t in self._token_set]
+        un_ops_consts_mask = \
+            torch.from_numpy(np.array(un_ops_consts_mask))
 
     def sample(self):
 
@@ -384,16 +395,18 @@ class q:
         # sampled
         tokens = []
         x = torch.zeros(self._net.num_inputs())
-        i = 0
         num_consts_required = 1
 
         while num_consts_required > 0:
 
-            # Apply mask to only sample constants if more constants are needed
-            # to produce a valid equation
             pre_softmax_mask = None
+            # Apply mask to only sample unary operators and constants
+            if self._max_num_tokens - len(tokens) <= num_consts_required + 1:
+                pre_softmax_mask = un_ops_consts_mask
+
+            # Apply mask to only sample constants
             if self._max_num_tokens - len(tokens) <= num_consts_required:
-                pre_softmax_mask = self._consts_mask
+                pre_softmax_mask = consts_mask
 
             # Pass input through network
             out = self._net.forward(x, pre_softmax_mask).detach().numpy()
@@ -413,10 +426,9 @@ class q:
                 case 'const':
                     num_consts_required -= 1
 
-            token['forced_const'] = False if pre_softmax_mask is None else True
+            token['pre_softmax_mask'] = copy.deepcopy(pre_softmax_mask)
 
             tokens.append(token)
-            i += 1
 
         return Equation(tokens)
 
@@ -434,11 +446,7 @@ class q:
         prob = 1.0
         for t in z.tokens():
 
-            # Apply mask to force pdf to only be over const tokens
-            pre_softmax_mask = \
-                self._consts_mask if t['forced_const'] else None
-
-            out = self._net.forward(x, pre_softmax_mask)
+            out = self._net.forward(x, t['pre_softmax_mask'])
 
             # Generate one hot vector for current token
             one_hot = torch.zeros(self._net.num_inputs())
@@ -461,11 +469,7 @@ class q:
         log_prob = 0.0
         for t in z.tokens():
 
-            # Apply mask to force pdf to only be over const tokens
-            pre_softmax_mask = \
-                self._consts_mask if t['forced_const'] else None
-
-            x = self._net.forward(x, pre_softmax_mask)
+            x = self._net.forward(x, t['pre_softmax_mask'])
 
             # Generate one hot vector for current token
             one_hot = torch.zeros(self._net.num_inputs())
@@ -659,26 +663,26 @@ class Equation:
 
         self._opt_consts = x
 
-    # If forced consts have not been calculated, do that here
-    def apply_forced_consts(self, max_num_tokens):
+    # If masks have not been calculated, do that here
+    def apply_pre_softmax_mask(self, max_num_tokens):
 
         # Check whether forced consts have already been applied
         for token in self._eq:
-            if token['type'] == 'const' and 'forced_const' in token:
+            if 'pre_softmax_mask' in token:
                 raise RuntimeError(
-                    'Trying to apply forced consts to an equation that '
+                    'Trying to apply pre softmax masks to an equation that '
                     'already has them set'
                 )
 
         num_consts_required = 1
         for i, token in enumerate(self._eq):
 
-            # Determine whether forced const or not
-            if token['type'] == 'const':
-                if i + num_consts_required < max_num_tokens:
-                    token['forced_const'] = False
-                else:
-                    token['forced_const'] = True
+            # Determine whether and which mask would have been used
+            token['pre_softmax_mask'] = None
+            if i + num_consts_required >= max_num_tokens:
+                token['pre_softmax_mask'] = copy.deepcopy(consts_mask)
+            elif i + num_consts_required + 1 >= max_num_tokens:
+                token['pre_softmax_mask'] = copy.deepcopy(un_ops_consts_mask)
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
