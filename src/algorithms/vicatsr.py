@@ -73,8 +73,8 @@ class VICatSR(Algorithm):
         self._initialise(data)
 
         # self._maximise_likelihood(data)
-        # self._maximise_elbo(data)
-        self._true_posterior(data)
+        self._maximise_elbo(data)
+        # self._true_posterior(data)
 
     def _maximise_likelihood(self, data):
 
@@ -124,12 +124,6 @@ class VICatSR(Algorithm):
             print('z: ' + z.get_infix() + '    pdf: '
                   + str(self._q.pdf(z).item()))
 
-        '''
-        print('Params:')
-        for p in self._q._net.parameters():
-            print(p)
-        '''
-
     def _maximise_elbo(self, data):
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
@@ -177,16 +171,21 @@ class VICatSR(Algorithm):
 
             optimiser.step()
 
+        '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                      for i in range(self._num_eq_samples)]
         for z in sampled_z:
             print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
+        '''
 
-        '''
-        print('Params:')
-        for p in self._q._net.parameters():
-            print(p)
-        '''
+        true_posterior, all_exps = self._true_posterior(data)
+
+        for p_z_x, z in zip(true_posterior, all_exps):
+            print(
+                'z: ' + z.get_infix() + '    q(z): '
+                + str(self._q.pdf(z).item()) + '    p(z|x): '
+                + str(p_z_x)
+            )
 
     def _initialise(self, data):
 
@@ -216,7 +215,7 @@ class VICatSR(Algorithm):
     def _log_prior(self, z):
         return math.log(self._prior(z))
 
-    # Calculate the true posterior
+    # Calculate the true posterior for all enumerated models
     def _true_posterior(self, data):
 
         # Enumerate all expressions
@@ -228,8 +227,12 @@ class VICatSR(Algorithm):
         # Calculate p(z|x) for all expressions
         p_z_x = [likelihood(data, z) * self._prior(z) / p_x for z in all_exps]
 
+        '''
         for z, posterior in zip(all_exps, p_z_x):
             print('z: ' + z.get_infix() + '    posterior: ' + str(posterior))
+        '''
+
+        return p_z_x, all_exps
 
 
 def log_likelihood(data, z):
@@ -340,6 +343,11 @@ def enumerate_expressions(token_set, max_num_tokens):
     # Collect all expressions from length 1 to l_m
     all_expressions = [Equation(expr) for length in range(1, l_m + 1)
                        for expr in expressions[length]]
+
+    # Check whether constants would have been forced given the max number
+    # of tokens
+    for e in all_expressions:
+        e.apply_forced_consts(max_num_tokens)
 
     return all_expressions
 
@@ -650,6 +658,35 @@ class Equation:
             )
 
         self._opt_consts = x
+
+    # If forced consts have not been calculated, do that here
+    def apply_forced_consts(self, max_num_tokens):
+
+        # Check whether forced consts have already been applied
+        for token in self._eq:
+            if token['type'] == 'const' and 'forced_const' in token:
+                raise RuntimeError(
+                    'Trying to apply forced consts to an equation that '
+                    'already has them set'
+                )
+
+        num_consts_required = 1
+        for i, token in enumerate(self._eq):
+
+            # Determine whether forced const or not
+            if token['type'] == 'const':
+                if i + num_consts_required < max_num_tokens:
+                    token['forced_const'] = False
+                else:
+                    token['forced_const'] = True
+
+            # Increase or decrease the number of constants required
+            # depending on the sample token type
+            match token['type']:
+                case 'bin_op':
+                    num_consts_required += 1
+                case 'const':
+                    num_consts_required -= 1
 
     # Replace opt_const with values
     def _replace_opt_consts(self, eq):
