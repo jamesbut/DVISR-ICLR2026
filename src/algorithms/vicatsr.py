@@ -124,11 +124,19 @@ class VICatSR(Algorithm):
 
             optimiser.step()
 
+        '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                      for i in range(self._num_eq_samples)]
         for z in sampled_z:
             print('z: ' + z.get_infix() + '    pdf: '
                   + str(self._q.pdf(z).item()))
+        '''
+
+        all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
+        for z in all_exps:
+            print('z: ' + z.get_infix() + '    q(z): '
+                  + str(self._q.pdf(z).item()) + '     p(x|z): '
+                  + str(likelihood(data, z)))
 
     def _maximise_elbo(self, data):
 
