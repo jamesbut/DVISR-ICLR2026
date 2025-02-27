@@ -25,12 +25,14 @@ class VICatSR(Algorithm):
         if 'binary_ops' in config['operators']:
             for bo in config['operators']['binary_ops']:
                 self._token_set.append({"op": bo, "type": "bin_op",
+                                        "sub_type": None,
                                         "id": self._token_id})
                 self._token_id += 1
 
         if 'unary_ops' in config['operators']:
             for uo in config['operators']['unary_ops']:
                 self._token_set.append({"op": uo, "type": "un_op",
+                                        "sub_type": None,
                                         "id": self._token_id})
                 self._token_id += 1
 
@@ -38,8 +40,16 @@ class VICatSR(Algorithm):
         if 'consts' in config['operators']:
             for c in config['operators']['consts']:
                 self._token_set.append({"op": c, "type": "const",
+                                        "sub_type": "float_const",
                                         "id": self._token_id})
                 self._token_id += 1
+            self._distr_over_consts = False
+        else:
+            self._token_set.append({"op": "opt_const", "type": "const",
+                                    "sub_type": "float_const",
+                                    "id": self._token_id})
+            self._token_id += 1
+            self._distr_over_consts = True
 
         # Number of equations sampled to calculate expected loss
         self._num_eq_samples = config['num_eq_samples']
@@ -72,10 +82,15 @@ class VICatSR(Algorithm):
 
         self._initialise(data)
 
-        # self._maximise_likelihood(data)
-        self._maximise_elbo(data)
+        self._maximise_likelihood(data)
+        # self._maximise_elbo(data)
 
     def _maximise_likelihood(self, data):
+
+        if self._distr_over_consts:
+            # TODO: This might be possible, come back to this
+            raise RuntimeError('Maximising likelihood not implemented for '
+                               'distribution over constants')
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
@@ -157,7 +172,9 @@ class VICatSR(Algorithm):
             # Calculate log q(z) under the surrogate distribution for samples
             # models
             # NOTE: This .detach() makes a big difference to optimisation
-            log_q_zs = torch.stack([self._q.log_pdf(z) for z in sampled_z]).detach()
+            log_q_zs = torch.stack(
+                [self._q.log_pdf(z) for z in sampled_z]
+            ).detach()
 
             # Calculate priors, ln p(z), for sampled models
             log_priors = torch.tensor(
@@ -194,18 +211,20 @@ class VICatSR(Algorithm):
 
         true_posterior, all_exps = self._true_posterior(data)
 
-        for p_z_x, z in zip(true_posterior, all_exps):
-            print(
-                'z: ' + z.get_infix() + '    q(z): '
-                + str(self._q.pdf(z).item()) + '    p(z|x): '
-                + str(p_z_x)
-            )
+        if true_posterior is not None:
+            for p_z_x, z in zip(true_posterior, all_exps):
+                print(
+                    'z: ' + z.get_infix() + '    q(z): '
+                    + str(self._q.pdf(z).item()) + '    p(z|x): '
+                    + str(p_z_x)
+                )
 
     def _initialise(self, data):
 
         # Finish creating token set
         for i in range(len(data['x'][0])):
             self._token_set.append({"op": "x_" + str(i), "type": "const",
+                                    "sub_type": "var_const",
                                     "id": self._token_id})
             self._token_id += 1
 
@@ -216,9 +235,12 @@ class VICatSR(Algorithm):
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
         self._q = q(self._token_set, self._hidden_layer_size,
-                    self._max_depth, self._max_num_tokens)
+                    self._max_depth, self._max_num_tokens,
+                    self._distr_over_consts)
 
     def _prior(self, z):
+
+        # TODO: Do I need to change the prior for distribution over constants?
 
         # Calculate uniform prior for now
         total_num_eqs = calculate_total_num_eqs(self._token_set,
@@ -231,6 +253,11 @@ class VICatSR(Algorithm):
 
     # Calculate the true posterior for all enumerated models
     def _true_posterior(self, data):
+
+        # If we are optimising a distribution over constants, then we cannot
+        # calculate the true posterior - I think...
+        if self._distr_over_consts:
+            return None, None
 
         # Enumerate all expressions
         all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
@@ -372,14 +399,17 @@ def enumerate_expressions(token_set, max_num_tokens):
 # a sequence of categorical distribution parameters.
 class q:
 
-    def __init__(self, token_set, hidden_layer_size, max_depth, max_num_tokens):
+    def __init__(self, token_set, hidden_layer_size, max_depth,
+                 max_num_tokens, distr_over_consts):
 
         # Create recurrent neural network
-        self._net = NN(len(token_set), len(token_set), hidden_layer_size)
+        self._net = NN(len(token_set), len(token_set),
+                       hidden_layer_size, distr_over_consts)
 
         self._max_depth = max_depth
         self._max_num_tokens = max_num_tokens
         self._token_set = token_set
+        self._distr_over_consts = distr_over_consts
 
         # A mask to apply so that only constants are sampled
         global consts_mask
@@ -420,11 +450,23 @@ class q:
             out = self._net.forward(x, pre_softmax_mask).detach().numpy()
 
             # Sample token from categorical distribution
-            token = copy.deepcopy(np.random.choice(self._token_set, 1, p=out)[0])
+            token = copy.deepcopy(
+                np.random.choice(
+                    self._token_set, 1, p=out[:len(self._token_set)]
+                )[0]
+            )
+
+            # If token is op_const and distribution over constants is on
+            # then sample value from distribution
+            if self._distr_over_consts and token['op'] == 'opt_const':
+                token['op'] = np.random.normal(loc=out[-1], scale=0.1)
 
             # Generate next network input
             x = torch.zeros_like(x)
             x[token['id']] = 1.0
+
+            # TODO: Might have to input sampled value for constants back into
+            # the network
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
@@ -456,11 +498,18 @@ class q:
 
             out = self._net.forward(x, t['pre_softmax_mask'])
 
+            # TODO: I might not have to generate a one hot encoding and
+            # multiply, I might just be able to index the tensor?
             # Generate one hot vector for current token
             one_hot = torch.zeros(self._net.num_inputs())
             one_hot[t['id']] = 1.0
 
-            prob *= torch.sum(out * one_hot)
+            prob *= torch.sum(out[:len(self._token_set)] * one_hot)
+
+            if self._distr_over_consts and t['sub_type'] == 'float_const':
+                prob *= torch.distributions.normal.Normal(
+                    loc=out[-1], scale=0.1
+                ).pdf(t['op'])
 
             # Set next network input
             x = one_hot.clone().detach()
@@ -477,13 +526,20 @@ class q:
         log_prob = 0.0
         for t in z.tokens():
 
-            x = self._net.forward(x, t['pre_softmax_mask'])
+            out = self._net.forward(x, t['pre_softmax_mask'])
 
             # Generate one hot vector for current token
             one_hot = torch.zeros(self._net.num_inputs())
             one_hot[t['id']] = 1.0
 
-            log_prob += torch.log(torch.sum(x * one_hot))
+            log_prob += torch.log(
+                torch.sum(out[:len(self._token_set)] * one_hot)
+            )
+
+            if self._distr_over_consts and t['sub_type'] == 'float_const':
+                log_prob += torch.distributions.normal.Normal(
+                    loc=out[-1], scale=0.1
+                ).log_prob(torch.tensor(t['op']))
 
             # Set next network input
             x = one_hot.clone().detach()
@@ -493,17 +549,26 @@ class q:
 
 class NN(torch.nn.Module):
 
-    def __init__(self, num_inputs, num_outputs, hidden_size):
+    def __init__(self, num_inputs, num_outputs, hidden_size, distr_over_consts):
         super().__init__()
 
         self._hidden_size = hidden_size
 
+        self._l1 = None
+        self._consts_mean_layer = None
+
         if hidden_size == 0:
-            self._l1 = None
+
             self._l2 = torch.nn.Linear(num_inputs, num_outputs)
+
+            if distr_over_consts:
+                self._consts_mean_layer = torch.nn.Linear(num_inputs, 1)
         else:
             self._l1 = torch.nn.GRUCell(num_inputs, self._hidden_size)
             self._l2 = torch.nn.Linear(self._hidden_size, num_outputs)
+
+            if distr_over_consts:
+                self._consts_mean_layer = torch.nn.Linear(self._hidden_size, 1)
 
         self._num_inputs = num_inputs
         self._num_outputs = num_outputs
@@ -519,19 +584,25 @@ class NN(torch.nn.Module):
             x = self._l1(x, self._hx)
             self._hx = x
 
-        # Linear layer
-        x = self._l2(x)
+        # Linear layer that produces logits for the categorical distribution
+        cat_logits = self._l2(x)
 
         # Apply binary mask before the softmax - this is equivalent to
         # preventing some of the tokens being sampled
         # TODO: I do not know whether this should be in-place
         if pre_softmax_mask is not None:
-            x += pre_softmax_mask
+            cat_logits += pre_softmax_mask
 
-        # Softmax layer
-        x = torch.nn.functional.softmax(x)
+        # Softmax layer that converts logits to probabilities
+        cat_params = torch.nn.functional.softmax(cat_logits)
+        output = cat_params
 
-        return x
+        # Output parameter of constant distribution
+        if self._consts_mean_layer is not None:
+            const_mean = self._consts_mean_layer(x)
+            output = torch.cat((output, const_mean), dim=0)
+
+        return output
 
     def reset(self, batch_size):
         self._hx = torch.zeros(self._hidden_size)
