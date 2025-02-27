@@ -14,7 +14,7 @@
             "binary_ops": ["*"],
             "unary_ops": ["sin"],
             "_consts": [1.0, "opt_const"],
-            "consts": [1.0]
+            "_consts": [1.0]
         },
         "num_steps": 500,
         "learning_rate": 5e-3,

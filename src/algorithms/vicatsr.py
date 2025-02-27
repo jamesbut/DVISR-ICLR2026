@@ -38,15 +38,25 @@ class VICatSR(Algorithm):
 
         # Add constants as tokens
         if 'consts' in config['operators']:
+
             for c in config['operators']['consts']:
-                self._token_set.append({"op": c, "type": "const",
-                                        "sub_type": "float_const",
-                                        "id": self._token_id})
+
+                token = {"op": c, "type": "const",
+                         "sub_type": "float_const",
+                         "id": self._token_id}
+                if c == 'opt_const':
+                    token['value'] = None
+
+                self._token_set.append(token)
                 self._token_id += 1
+
             self._distr_over_consts = False
+
         else:
+
             self._token_set.append({"op": "opt_const", "type": "const",
                                     "sub_type": "float_const",
+                                    "value": None,
                                     "id": self._token_id})
             self._token_id += 1
             self._distr_over_consts = True
@@ -86,11 +96,6 @@ class VICatSR(Algorithm):
         # self._maximise_elbo(data)
 
     def _maximise_likelihood(self, data):
-
-        if self._distr_over_consts:
-            # TODO: This might be possible, come back to this
-            raise RuntimeError('Maximising likelihood not implemented for '
-                               'distribution over constants')
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
@@ -147,8 +152,9 @@ class VICatSR(Algorithm):
                   + str(self._q.pdf(z).item()))
         '''
 
-        all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
+        all_exps = self._enumerate_expressions()
         for z in all_exps:
+            print(z)
             print('z: ' + z.get_infix() + '    q(z): '
                   + str(self._q.pdf(z).item()) + '     p(x|z): '
                   + str(likelihood(data, z)))
@@ -206,7 +212,7 @@ class VICatSR(Algorithm):
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                      for i in range(self._num_eq_samples)]
         for z in sampled_z:
-            print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z).item()))
+            print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z)[0].item()))
         '''
 
         true_posterior, all_exps = self._true_posterior(data)
@@ -260,7 +266,7 @@ class VICatSR(Algorithm):
             return None, None
 
         # Enumerate all expressions
-        all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
+        all_exps = self._enumerate_expressions()
 
         # Calculate p(x) based on the law of total probability
         p_x = sum([likelihood(data, z) * self._prior(z) for z in all_exps])
@@ -274,6 +280,70 @@ class VICatSR(Algorithm):
         '''
 
         return p_z_x, all_exps
+
+    # Enumerate all expressions according to a specific token set and a maximum
+    def _enumerate_expressions(self):
+
+        l_m = self._max_num_tokens
+
+        # Split tokens by type
+        consts = [t for t in self._token_set if t['type'] == 'const']
+        un_ops = [t for t in self._token_set if t['type'] == 'un_op']
+        bin_ops = [t for t in self._token_set if t['type'] == 'bin_op']
+
+        # Initialize list to store expressions by length
+        # expressions[0] is empty (unused), expressions[1] for length 1, etc.
+        expressions = [[] for _ in range(l_m + 1)]
+
+        # Base case: length 1 expressions are just the constants
+        expressions[1] = [[copy.deepcopy(c)] for c in consts]
+
+        # Build expressions iteratively from length 2 to l_m
+        for length in range(2, l_m + 1):
+
+            # Add expressions starting with unary operations
+            # Format: [unary_op] + subexpression_of_length_(length-1)
+            for uop in un_ops:
+                for subexpr in expressions[length - 1]:
+                    expressions[length].append(
+                        [copy.deepcopy(uop)] + copy.deepcopy(subexpr)
+                    )
+
+            # Add expressions starting with binary operations (if length >= 3)
+            # Format: [binary_op] + expr1 + expr2, where
+            # total length = 1 + len(expr1) + len(expr2)
+            if length >= 3:
+                for bop in bin_ops:
+                    # Split remaining tokens (length-1) between two subexpressions
+                    for k in range(1, length - 1):
+                        for expr1 in expressions[k]:
+                            for expr2 in expressions[length - 1 - k]:
+                                expressions[length].append(
+                                    [copy.deepcopy(bop)] + copy.deepcopy(expr1)
+                                    + copy.deepcopy(expr2)
+                                )
+
+        # Collect all expressions from length 1 to l_m
+        all_expressions = [Equation(expr) for length in range(1, l_m + 1)
+                           for expr in expressions[length]]
+
+        # Check whether pre softmax masks would have been applied if these
+        # expressions were sampled from q
+        for e in all_expressions:
+            e.apply_pre_softmax_mask(self._max_num_tokens)
+
+        # If we are considering a distribution over constants then set the
+        # constant to the mean of the distribution
+        if self._distr_over_consts:
+            for exp in all_expressions:
+                net_outs = self._q.net_outs(exp)
+                consts = []
+                for out, token in zip(net_outs, exp.tokens()):
+                    if token['sub_type'] == 'float_const':
+                        consts.append(out[-1])
+                exp.set_opt_consts(consts)
+
+        return all_expressions
 
 
 def log_likelihood(data, z):
@@ -337,60 +407,6 @@ def calculate_total_num_eqs(token_set, max_num_tokens):
 
     # Sum up to t_max
     return sum(b[:t_max + 1])
-
-
-# Enumerate all expressions according to a specific token set and a maximum
-def enumerate_expressions(token_set, max_num_tokens):
-
-    l_m = max_num_tokens
-
-    # Split tokens by type
-    consts = [t for t in token_set if t['type'] == 'const']
-    un_ops = [t for t in token_set if t['type'] == 'un_op']
-    bin_ops = [t for t in token_set if t['type'] == 'bin_op']
-
-    # Initialize list to store expressions by length
-    # expressions[0] is empty (unused), expressions[1] for length 1, etc.
-    expressions = [[] for _ in range(l_m + 1)]
-
-    # Base case: length 1 expressions are just the constants
-    expressions[1] = [[copy.deepcopy(c)] for c in consts]
-
-    # Build expressions iteratively from length 2 to l_m
-    for length in range(2, l_m + 1):
-
-        # Add expressions starting with unary operations
-        # Format: [unary_op] + subexpression_of_length_(length-1)
-        for uop in un_ops:
-            for subexpr in expressions[length - 1]:
-                expressions[length].append(
-                    [copy.deepcopy(uop)] + copy.deepcopy(subexpr)
-                )
-
-        # Add expressions starting with binary operations (if length >= 3)
-        # Format: [binary_op] + expr1 + expr2, where
-        # total length = 1 + len(expr1) + len(expr2)
-        if length >= 3:
-            for bop in bin_ops:
-                # Split remaining tokens (length-1) between two subexpressions
-                for k in range(1, length - 1):
-                    for expr1 in expressions[k]:
-                        for expr2 in expressions[length - 1 - k]:
-                            expressions[length].append(
-                                [copy.deepcopy(bop)] + copy.deepcopy(expr1)
-                                + copy.deepcopy(expr2)
-                            )
-
-    # Collect all expressions from length 1 to l_m
-    all_expressions = [Equation(expr) for length in range(1, l_m + 1)
-                       for expr in expressions[length]]
-
-    # Check whether pre softmax masks would have been applied if these
-    # expressions were sampled from q
-    for e in all_expressions:
-        e.apply_pre_softmax_mask(max_num_tokens)
-
-    return all_expressions
 
 
 # Surrogate distribution, q, which is optimised to approximate the
@@ -459,7 +475,7 @@ class q:
             # If token is op_const and distribution over constants is on
             # then sample value from distribution
             if self._distr_over_consts and token['op'] == 'opt_const':
-                token['op'] = np.random.normal(loc=out[-1], scale=0.1)
+                token['value'] = np.random.normal(loc=out[-1], scale=0.1)
 
             # Generate next network input
             x = torch.zeros_like(x)
@@ -493,7 +509,7 @@ class q:
 
         x = torch.zeros(self._net.num_inputs())
 
-        prob = 1.0
+        probs = []
         for t in z.tokens():
 
             out = self._net.forward(x, t['pre_softmax_mask'])
@@ -504,17 +520,17 @@ class q:
             one_hot = torch.zeros(self._net.num_inputs())
             one_hot[t['id']] = 1.0
 
-            prob *= torch.sum(out[:len(self._token_set)] * one_hot)
+            probs.append(torch.sum(out[:len(self._token_set)] * one_hot))
 
             if self._distr_over_consts and t['sub_type'] == 'float_const':
-                prob *= torch.distributions.normal.Normal(
+                probs.append(torch.exp(torch.distributions.normal.Normal(
                     loc=out[-1], scale=0.1
-                ).pdf(t['op'])
+                ).log_prob(torch.tensor(t['value']))))
 
             # Set next network input
             x = one_hot.clone().detach()
 
-        return prob
+        return math.prod(probs)
 
     # Calculate log probability of an equation, z, under q
     def log_pdf(self, z):
@@ -523,7 +539,7 @@ class q:
 
         x = torch.zeros(self._net.num_inputs())
 
-        log_prob = 0.0
+        log_probs = []
         for t in z.tokens():
 
             out = self._net.forward(x, t['pre_softmax_mask'])
@@ -532,19 +548,43 @@ class q:
             one_hot = torch.zeros(self._net.num_inputs())
             one_hot[t['id']] = 1.0
 
-            log_prob += torch.log(
+            log_probs.append(torch.log(
                 torch.sum(out[:len(self._token_set)] * one_hot)
-            )
+            ))
 
             if self._distr_over_consts and t['sub_type'] == 'float_const':
-                log_prob += torch.distributions.normal.Normal(
+                log_probs.append(torch.distributions.normal.Normal(
                     loc=out[-1], scale=0.1
-                ).log_prob(torch.tensor(t['op']))
+                ).log_prob(torch.tensor(t['value'])))
 
             # Set next network input
             x = one_hot.clone().detach()
 
-        return log_prob
+        return sum(log_probs)
+
+    # Get all network outputs for a particular equation
+    def net_outs(self, z):
+
+        self._net.reset(1)
+
+        x = torch.zeros(self._net.num_inputs())
+
+        net_outs = []
+        for t in z.tokens():
+
+            out = self._net.forward(x, t['pre_softmax_mask'])
+            net_outs.append(out)
+
+            # TODO: I might not have to generate a one hot encoding and
+            # multiply, I might just be able to index the tensor?
+            # Generate one hot vector for current token
+            one_hot = torch.zeros(self._net.num_inputs())
+            one_hot[t['id']] = 1.0
+
+            # Set next network input
+            x = one_hot.clone().detach()
+
+        return torch.stack(net_outs).detach().numpy()
 
 
 class NN(torch.nn.Module):
@@ -628,9 +668,6 @@ class Equation:
         for t in tokens:
             if t['op'] == 'opt_const':
                 self._num_opt_consts += 1
-
-        # Optimisable constant values
-        self._opt_consts = None
 
     # Evaluate equation according to data variable values, x.
     def evaluate(self, x):
@@ -740,7 +777,11 @@ class Equation:
                 f"{len(x)} was given"
             )
 
-        self._opt_consts = x
+        i = 0
+        for token in self._eq:
+            if token['op'] == 'opt_const':
+                token['value'] = x[i]
+                i += 1
 
     # If masks have not been calculated, do that here
     def apply_pre_softmax_mask(self, max_num_tokens):
@@ -775,17 +816,17 @@ class Equation:
     def _replace_opt_consts(self, eq):
 
         if self._num_opt_consts != 0:
-            if self._opt_consts is not None:
-                i = 0
-                for token in eq:
-                    if token['op'] == 'opt_const':
-                        token['op'] = self._opt_consts[i]
+            i = 0
+            for token in eq:
+                if token['op'] == 'opt_const':
+                    if token['value'] is not None:
+                        token['op'] = token['value']
                         i += 1
-            else:
-                raise ValueError(
-                    'Trying to evaluate an equation that has opt const tokens '
-                    'but no opt const values'
-                )
+                    else:
+                        raise ValueError(
+                            'Trying to evaluate an equation that has opt '
+                            'const tokens but no opt const values'
+                        )
 
         return eq
 
