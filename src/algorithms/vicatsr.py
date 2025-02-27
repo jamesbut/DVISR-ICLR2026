@@ -92,8 +92,8 @@ class VICatSR(Algorithm):
 
         self._initialise(data)
 
-        self._maximise_likelihood(data)
-        # self._maximise_elbo(data)
+        # self._maximise_likelihood(data)
+        self._maximise_elbo(data)
 
     def _maximise_likelihood(self, data):
 
@@ -104,10 +104,6 @@ class VICatSR(Algorithm):
             # Sample z from surrogate q
             sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                          for i in range(self._num_eq_samples)]
-
-            # Optimise equation constants if required
-            sampled_z = [optimise_eq_consts(z, data, log_likelihood)
-                         for z in sampled_z]
 
             # Calculate likelihoods of sampled models
             log_likelihoods = torch.tensor(
@@ -154,7 +150,6 @@ class VICatSR(Algorithm):
 
         all_exps = self._enumerate_expressions()
         for z in all_exps:
-            print(z)
             print('z: ' + z.get_infix() + '    q(z): '
                   + str(self._q.pdf(z).item()) + '     p(x|z): '
                   + str(likelihood(data, z)))
@@ -217,13 +212,12 @@ class VICatSR(Algorithm):
 
         true_posterior, all_exps = self._true_posterior(data)
 
-        if true_posterior is not None:
-            for p_z_x, z in zip(true_posterior, all_exps):
-                print(
-                    'z: ' + z.get_infix() + '    q(z): '
-                    + str(self._q.pdf(z).item()) + '    p(z|x): '
-                    + str(p_z_x)
-                )
+        for p_z_x, z in zip(true_posterior, all_exps):
+            print(
+                'z: ' + z.get_infix() + '    q(z): '
+                + str(self._q.pdf(z).item()) + '    p(z|x): '
+                + str(p_z_x)
+            )
 
     def _initialise(self, data):
 
@@ -260,13 +254,13 @@ class VICatSR(Algorithm):
     # Calculate the true posterior for all enumerated models
     def _true_posterior(self, data):
 
+        # Enumerate all expressions
+        all_exps = self._enumerate_expressions()
+
         # If we are optimising a distribution over constants, then we cannot
         # calculate the true posterior - I think...
         if self._distr_over_consts:
-            return None, None
-
-        # Enumerate all expressions
-        all_exps = self._enumerate_expressions()
+            return [None] * len(all_exps), all_exps
 
         # Calculate p(x) based on the law of total probability
         p_x = sum([likelihood(data, z) * self._prior(z) for z in all_exps])
@@ -500,7 +494,14 @@ class q:
 
     # Sample from q and also optimise const tokens of sampled equation
     def sample_and_optimise(self, data, log_likelihood_func):
-        return optimise_eq_consts(self.sample(), data, log_likelihood_func)
+
+        eq = self.sample()
+
+        # Do not optimise if using distribution over constants
+        if self._distr_over_consts:
+            return eq
+        else:
+            return optimise_eq_consts(eq, data, log_likelihood_func)
 
     # Calculate probability of an equation, z, under q
     def pdf(self, z):
