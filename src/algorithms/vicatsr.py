@@ -11,6 +11,7 @@ import scipy
 import copy
 import torch
 import math
+import itertools
 torch.set_default_dtype(torch.float64)
 
 
@@ -187,7 +188,6 @@ class VICatSR(Algorithm):
             elbos = log_likelihoods + log_priors - log_q_zs
 
             rewards = elbos
-
             baseline = rewards.mean()
             rewards = rewards - baseline
 
@@ -257,13 +257,47 @@ class VICatSR(Algorithm):
         # Enumerate all expressions
         all_exps = self._enumerate_expressions()
 
-        # If we are optimising a distribution over constants, then we cannot
-        # calculate the true posterior - I think...
-        if self._distr_over_consts:
-            return [None] * len(all_exps), all_exps
+        num_opt_consts = [e.num_opt_consts() for e in all_exps]
+        total_num_opt_consts = sum(num_opt_consts)
 
         # Calculate p(x) based on the law of total probability
-        p_x = sum([likelihood(data, z) * self._prior(z) for z in all_exps])
+        if total_num_opt_consts == 0:
+            p_x = sum([likelihood(data, z) * self._prior(z) for z in all_exps])
+
+        # Calculate p(x) using a numerical integrator
+        else:
+
+            def joint_func(*args):
+
+                # Unpack arguments
+                num_consts = args[-1]
+                cumm_num_consts = list(itertools.accumulate(num_consts))
+                total_num_consts = sum(num_consts)
+                x = args[:total_num_consts + 1]
+                all_exps = args[total_num_consts + 1]
+
+                # Sample a particular expression
+                samp = x[0]
+                idx = int(samp)
+                z = all_exps[idx]
+
+                if z.num_opt_consts() > 0:
+                    this_z_consts = x[cumm_num_consts[idx]: cumm_num_consts[idx + 1] + 1]
+                    z.set_opt_consts(this_z_consts)
+
+                return likelihood(data, z) * self._prior(z)
+
+            # Create integration bounds
+            # The first bound is for selecting the particular expression
+            # The remaining bounds are for each of the optimisable constants
+            integration_bounds = [[0, len(all_exps)]]
+
+            for i in range(total_num_opt_consts):
+                integration_bounds.append([-np.inf, np.inf])
+
+            p_x, error = scipy.integrate.nquad(joint_func,
+                                               integration_bounds,
+                                               args=(all_exps, num_opt_consts))
 
         # Calculate p(z|x) for all expressions
         p_z_x = [likelihood(data, z) * self._prior(z) / p_x for z in all_exps]
@@ -769,6 +803,9 @@ class Equation:
 
     def num_opt_consts(self):
         return self._num_opt_consts
+
+    def num_float_consts(self):
+        return sum(1 for e in self._eq if e['sub_type'] == 'float_const')
 
     def set_opt_consts(self, x):
 
