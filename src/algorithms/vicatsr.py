@@ -55,7 +55,7 @@ class VICatSR(Algorithm):
 
         else:
 
-            self._token_set.append({"op": "opt_const", "type": "const",
+            self._token_set.append({"op": "distr_const", "type": "const",
                                     "sub_type": "float_const",
                                     "value": None,
                                     "id": self._token_id})
@@ -68,7 +68,6 @@ class VICatSR(Algorithm):
         # Maximum equation tree depth
         self._max_depth = None
         if 'max_depth' in config:
-            # self._max_depth = config['max_depth']
             raise NotImplementedError('Max tree depth not yet implemented')
 
         # Maximum number of tokens in generated equations
@@ -257,11 +256,11 @@ class VICatSR(Algorithm):
         # Enumerate all expressions
         all_exps = self._enumerate_expressions()
 
-        num_opt_consts = [e.num_opt_consts() for e in all_exps]
-        total_num_opt_consts = sum(num_opt_consts)
+        num_distr_consts = [e.num_distr_consts() for e in all_exps]
+        total_num_distr_consts = sum(num_distr_consts)
 
         # Calculate p(x) based on the law of total probability
-        if total_num_opt_consts == 0:
+        if total_num_distr_consts == 0:
             p_x = sum([likelihood(data, z) * self._prior(z) for z in all_exps])
 
         # Calculate p(x) using a numerical integrator
@@ -281,9 +280,10 @@ class VICatSR(Algorithm):
                 idx = int(samp)
                 z = all_exps[idx]
 
-                if z.num_opt_consts() > 0:
-                    this_z_consts = x[cumm_num_consts[idx]: cumm_num_consts[idx + 1] + 1]
-                    z.set_opt_consts(this_z_consts)
+                if z.num_distr_consts() > 0:
+                    this_z_consts = x[cumm_num_consts[idx]:
+                                      cumm_num_consts[idx + 1] + 1]
+                    z.set_distr_consts(this_z_consts)
 
                 return likelihood(data, z) * self._prior(z)
 
@@ -292,12 +292,13 @@ class VICatSR(Algorithm):
             # The remaining bounds are for each of the optimisable constants
             integration_bounds = [[0, len(all_exps)]]
 
-            for i in range(total_num_opt_consts):
+            for i in range(total_num_distr_consts):
                 integration_bounds.append([-np.inf, np.inf])
 
             p_x, error = scipy.integrate.nquad(joint_func,
                                                integration_bounds,
-                                               args=(all_exps, num_opt_consts))
+                                               args=(all_exps,
+                                                     num_distr_consts))
 
         # Calculate p(z|x) for all expressions
         p_z_x = [likelihood(data, z) * self._prior(z) / p_x for z in all_exps]
@@ -500,9 +501,9 @@ class q:
                 )[0]
             )
 
-            # If token is op_const and distribution over constants is on
+            # If token is distr_const and distribution over constants is on
             # then sample value from distribution
-            if self._distr_over_consts and token['op'] == 'opt_const':
+            if self._distr_over_consts and token['op'] == 'distr_const':
                 token['value'] = np.random.normal(loc=out[-1], scale=0.1)
 
             # Generate next network input
@@ -698,11 +699,13 @@ class Equation:
         # Equation is represented in polish notation
         self._eq = tokens
 
-        # Check whether equation has any consts to optimise
-        self._num_opt_consts = 0
-        for t in tokens:
-            if t['op'] == 'opt_const':
-                self._num_opt_consts += 1
+        # Check number of opt_consts
+        self._num_opt_consts = sum(1 for t in tokens
+                                   if t['op'] == 'opt_const')
+
+        # Calculate number of distr_consts
+        self._num_distr_consts = sum(1 for t in tokens
+                                     if t['op'] == 'distr_const')
 
     # Evaluate equation according to data variable values, x.
     def evaluate(self, x):
@@ -765,8 +768,9 @@ class Equation:
 
         eq = copy.deepcopy(self._eq)
 
-        # Replace opt consts with values
+        # Replace opt and distr consts with values
         eq = self._replace_opt_consts(eq)
+        eq = self._replace_distr_consts(eq)
 
         eq.reverse()
 
@@ -804,6 +808,9 @@ class Equation:
     def num_opt_consts(self):
         return self._num_opt_consts
 
+    def num_distr_consts(self):
+        return self._num_distr_consts
+
     def num_float_consts(self):
         return sum(1 for e in self._eq if e['sub_type'] == 'float_const')
 
@@ -818,6 +825,20 @@ class Equation:
         i = 0
         for token in self._eq:
             if token['op'] == 'opt_const':
+                token['value'] = x[i]
+                i += 1
+
+    def set_distr_consts(self, x):
+
+        if len(x) != self._num_distr_consts:
+            raise ValueError(
+                f"Expects {self._num_distr_consts} distr consts but "
+                f"{len(x)} was given"
+            )
+
+        i = 0
+        for token in self._eq:
+            if token['op'] == 'distr_const':
                 token['value'] = x[i]
                 i += 1
 
@@ -864,6 +885,24 @@ class Equation:
                         raise ValueError(
                             'Trying to evaluate an equation that has opt '
                             'const tokens but no opt const values'
+                        )
+
+        return eq
+
+    # Replace distr_const with values
+    def _replace_distr_consts(self, eq):
+
+        if self._num_distr_consts != 0:
+            i = 0
+            for token in eq:
+                if token['op'] == 'distr_const':
+                    if token['value'] is not None:
+                        token['op'] = token['value']
+                        i += 1
+                    else:
+                        raise ValueError(
+                            'Trying to evaluate an equation that has distr '
+                            'const tokens but no distr const values'
                         )
 
         return eq
