@@ -93,7 +93,20 @@ class VICatSR(unittest.TestCase):
         self.assertAlmostEqual(q.pdf(all_exps[1]).item(), 0.60497784)
         self.assertAlmostEqual(true_pos[1], 0.60497784)
 
-    # TODO: Test max likelihood with distr consts
+    def test_max_likelihood_distr_consts(self):
+
+        self._config['algorithm']['max_likelihood'] = True
+
+        # Create algoritm
+        alg = create_algorithm(self._config['algorithm'])
+
+        # Train
+        q, all_exps = alg.train(self._data)
+
+        # q should still converge to a one hot vector
+        self.assertLessEqual(q.pdf(all_exps[0]).item(), 0.01)
+        self.assertGreaterEqual(q.pdf(all_exps[1]).item(), 0.99)
+
     # TODO: Test ELBO with distr consts
 
 

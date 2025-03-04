@@ -375,11 +375,9 @@ class VICatSR(Algorithm):
         if self._distr_over_consts:
             for exp in all_expressions:
                 net_outs = self._q.net_outs(exp)
-                consts = []
-                for out, token in zip(net_outs, exp.tokens()):
-                    if token['sub_type'] == 'float_const':
-                        consts.append(out[-1])
-                exp.set_opt_consts(consts)
+                consts = [out[-1] for out, token in zip(net_outs, exp.tokens())
+                          if token['sub_type'] == 'float_const']
+                exp.set_distr_consts(consts)
 
         # Optimise constants according to maximum likelihood if there are
         # any optimisable constants
@@ -392,23 +390,17 @@ class VICatSR(Algorithm):
 
 def log_likelihood(data, z):
 
-    likelihoods = []
     means = z.evaluate(data['x'])
-    for i in range(len(means)):
-        likelihoods.append(scipy.stats.norm.logpdf(data['y'][i],
-                                                   loc=means[i],
-                                                   scale=1.0))
-    return sum(likelihoods)
+    log_likelihoods = [scipy.stats.norm.logpdf(y, mean)
+                       for y, mean in zip(data['y'], means)]
+    return sum(log_likelihoods)
 
 
 def likelihood(data, z):
 
-    likelihoods = []
     means = z.evaluate(data['x'])
-    for i in range(len(means)):
-        likelihoods.append(scipy.stats.norm.pdf(data['y'][i],
-                                                loc=means[i],
-                                                scale=1.0))
+    likelihoods = [scipy.stats.norm.pdf(y, mean)
+                   for y, mean in zip(data['y'], means)]
     return math.prod(likelihoods)
 
 
@@ -727,8 +719,9 @@ class Equation:
 
         eq = copy.deepcopy(self._eq)
 
-        # Replace opt consts with values
+        # Replace opt and distr consts with values
         eq = self._replace_opt_consts(eq)
+        eq = self._replace_distr_consts(eq)
 
         # Convert consts to list of relevant data size
         for token in eq:
