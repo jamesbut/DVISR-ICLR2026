@@ -12,13 +12,8 @@
         "name": "VICatSR",
         "operators": {
             "binary_ops": ["*"],
-            "unary_ops": ["sin"],
-            "_consts": [1.0, "opt_const"],
-            "consts": [1.0],
-            "_consts": [0.35],
-            "_consts": [0.3934]
+            "unary_ops": ["sin"]
         },
-        "max_likelihood": false,
         "num_steps": 500,
         "_learning_rate": 5e-3,
         "learning_rate": 1e-3,

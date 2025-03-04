@@ -82,6 +82,9 @@ class VICatSR(Algorithm):
         # Size of RNN hidden layer
         self._hidden_layer_size = config['rnn_hidden_layer_size']
 
+        # Flag as to whether to run max likelihood or ELBO optimisation
+        self._max_likelihood_flag = config.get('max_likelihood', False)
+
         # Seed random number generators
         self._seed = config.get('seed', None)
         if self._seed is not None:
@@ -92,8 +95,10 @@ class VICatSR(Algorithm):
 
         self._initialise(data)
 
-        # self._maximise_likelihood(data)
-        self._maximise_elbo(data)
+        if self._max_likelihood_flag:
+            return self._maximise_likelihood(data)
+        else:
+            return self._maximise_elbo(data)
 
     def _maximise_likelihood(self, data):
 
@@ -148,11 +153,13 @@ class VICatSR(Algorithm):
                   + str(self._q.pdf(z).item()))
         '''
 
-        all_exps = self._enumerate_expressions()
+        all_exps = self._enumerate_expressions(data)
         for z in all_exps:
             print('z: ' + z.get_infix() + '    q(z): '
                   + str(self._q.pdf(z).item()) + '     p(x|z): '
                   + str(likelihood(data, z)))
+
+        return self._q, all_exps
 
     def _maximise_elbo(self, data):
 
@@ -218,6 +225,8 @@ class VICatSR(Algorithm):
                 + str(p_z_x)
             )
 
+        return self._q, true_posterior, all_exps
+
     def _initialise(self, data):
 
         # Finish creating token set
@@ -254,7 +263,7 @@ class VICatSR(Algorithm):
     def _true_posterior(self, data):
 
         # Enumerate all expressions
-        all_exps = self._enumerate_expressions()
+        all_exps = self._enumerate_expressions(data)
 
         num_distr_consts = [e.num_distr_consts() for e in all_exps]
         total_num_distr_consts = sum(num_distr_consts)
@@ -311,7 +320,7 @@ class VICatSR(Algorithm):
         return p_z_x, all_exps
 
     # Enumerate all expressions according to a specific token set and a maximum
-    def _enumerate_expressions(self):
+    def _enumerate_expressions(self, data=None):
 
         l_m = self._max_num_tokens
 
@@ -371,6 +380,12 @@ class VICatSR(Algorithm):
                     if token['sub_type'] == 'float_const':
                         consts.append(out[-1])
                 exp.set_opt_consts(consts)
+
+        # Optimise constants according to maximum likelihood if there are
+        # any optimisable constants
+        if data is not None:
+            all_expressions = [optimise_eq_consts(eq, data, log_likelihood)
+                               for eq in all_expressions]
 
         return all_expressions
 
