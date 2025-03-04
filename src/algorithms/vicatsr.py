@@ -85,6 +85,10 @@ class VICatSR(Algorithm):
         # Flag as to whether to run max likelihood or ELBO optimisation
         self._max_likelihood_flag = config.get('max_likelihood', False)
 
+        # Information about the prior
+        self._prior_mean = 0.0
+        self._prior_variance = config.get('prior_variance', None)
+
         # Seed random number generators
         self._seed = config.get('seed', None)
         if self._seed is not None:
@@ -248,12 +252,18 @@ class VICatSR(Algorithm):
 
     def _prior(self, z):
 
-        # TODO: Do I need to change the prior for distribution over constants?
-
-        # Calculate uniform prior for now
         total_num_eqs = calculate_total_num_eqs(self._token_set,
                                                 self._max_num_tokens)
+        # Uniform prior
         prior = 1 / total_num_eqs
+
+        if self._distr_over_consts:
+            for c in z.distr_const_tokens():
+                const_prior = scipy.stats.norm.pdf(c['value'],
+                                                   self._prior_mean,
+                                                   self._prior_variance)
+                prior *= const_prior
+
         return prior
 
     def _log_prior(self, z):
@@ -274,6 +284,7 @@ class VICatSR(Algorithm):
 
         # Calculate p(x) using a numerical integrator
         else:
+            return [None] * len(all_exps), all_exps
 
             def joint_func(*args):
 
@@ -287,7 +298,7 @@ class VICatSR(Algorithm):
                 # Sample a particular expression
                 samp = x[0]
                 idx = int(samp)
-                z = all_exps[idx]
+                z = copy.deepcopy(all_exps[idx])
 
                 if z.num_distr_consts() > 0:
                     this_z_consts = x[cumm_num_consts[idx]:
@@ -677,7 +688,7 @@ class NN(torch.nn.Module):
             cat_logits += pre_softmax_mask
 
         # Softmax layer that converts logits to probabilities
-        cat_params = torch.nn.functional.softmax(cat_logits)
+        cat_params = torch.nn.functional.softmax(cat_logits, dim=0)
         output = cat_params
 
         # Output parameter of constant distribution
@@ -812,6 +823,9 @@ class Equation:
 
     def tokens(self):
         return self._eq
+
+    def distr_const_tokens(self):
+        return [t for t in self._eq if t['op'] == 'distr_const']
 
     def num_opt_consts(self):
         return self._num_opt_consts

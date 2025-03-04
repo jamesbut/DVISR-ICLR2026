@@ -107,7 +107,13 @@ class VICatSR(unittest.TestCase):
         self.assertLessEqual(q.pdf(all_exps[0]).item(), 0.01)
         self.assertGreaterEqual(q.pdf(all_exps[1]).item(), 0.99)
 
-    # TODO: Test ELBO with distr consts
+    def test_elbo_distr_consts(self):
+
+        # Create algoritm
+        alg = create_algorithm(self._config['algorithm'])
+
+        # Train
+        q, true_pos, all_exps = alg.train(self._data)
 
 
 if __name__ == "__main__":
