@@ -284,13 +284,13 @@ class VICatSR(Algorithm):
 
         # Calculate p(x) using a numerical integrator
         else:
-            return [None] * len(all_exps), all_exps
+            # return [None] * len(all_exps), all_exps
 
             def joint_func(*args):
 
                 # Unpack arguments
                 num_consts = args[-1]
-                cumm_num_consts = list(itertools.accumulate(num_consts))
+                cumm_num_consts = [0] + list(itertools.accumulate(num_consts))
                 total_num_consts = sum(num_consts)
                 x = args[:total_num_consts + 1]
                 all_exps = args[total_num_consts + 1]
@@ -298,12 +298,25 @@ class VICatSR(Algorithm):
                 # Sample a particular expression
                 samp = x[0]
                 idx = int(samp)
+
+                # This might happen if the integrator samples exactly the
+                # upper bound
+                if idx >= len(all_exps):
+                    return 0.0
+
                 z = copy.deepcopy(all_exps[idx])
 
+                # Parse consts relevant to selected expression
+                this_z_consts = x[cumm_num_consts[idx] + 1:
+                                  cumm_num_consts[idx + 1] + 1]
+                other_z_consts = x[1:cumm_num_consts[idx] + 1] \
+                                 + x[cumm_num_consts[idx + 1] + 1:]
+
                 if z.num_distr_consts() > 0:
-                    this_z_consts = x[cumm_num_consts[idx]:
-                                      cumm_num_consts[idx + 1] + 1]
                     z.set_distr_consts(this_z_consts)
+
+                if any(c < 0.0 or c > 1.0 for c in other_z_consts):
+                    return 0.0
 
                 return likelihood(data, z) * self._prior(z)
 
