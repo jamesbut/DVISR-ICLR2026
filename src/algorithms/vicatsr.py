@@ -86,7 +86,7 @@ class VICatSR(Algorithm):
         self._max_likelihood_flag = config.get('max_likelihood', False)
 
         # Information about the prior
-        self._prior_mean = 0.0
+        self._prior_mean = 1.0
         self._prior_variance = config.get('prior_variance', None)
 
         # Seed random number generators
@@ -98,6 +98,42 @@ class VICatSR(Algorithm):
     def train(self, data):
 
         self._initialise(data)
+
+        '''
+        # TODO: Remove
+        import matplotlib.pyplot as plt
+
+        all_exps = self._enumerate_expressions(data)
+
+        x = np.arange(-10.0, 10.0, 0.01)
+        exps = [copy.deepcopy(all_exps[0]) for _ in range(len(x))]
+        for val, e in zip(x, exps):
+            e.set_distr_consts([val])
+
+        priors = [self._prior(z) for z in exps]
+        likelihoods = [likelihood(data, z) for z in exps]
+        joints = [l * p for p, l in zip(priors, likelihoods)]
+        evidence = self.evidence(data, [exps[0]])
+        posteriors = [j / evidence for j in joints]
+        print('Evidence:', evidence)
+
+        prior_max = x[np.argmax(priors)]
+        likelihood_max = x[np.argmax(likelihoods)]
+        joint_max = x[np.argmax(joints)]
+        posterior_max = x[np.argmax(posteriors)]
+        print('Prior max:', prior_max)
+        print('Likelihood max:', likelihood_max)
+        print('Joint max:', joint_max)
+        print('Posterior max:', joint_max)
+
+        plt.plot(x, priors)
+        plt.plot(x, likelihoods)
+        plt.plot(x, joints)
+        plt.plot(x, posteriors)
+        plt.show()
+
+        exit()
+        '''
 
         if self._max_likelihood_flag:
             return self._maximise_likelihood(data)
@@ -220,16 +256,16 @@ class VICatSR(Algorithm):
             print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z)[0].item()))
         '''
 
-        true_posterior, all_exps = self._true_posterior(data)
+        true_posteriors, all_exps = self.posteriors(data)
 
-        for p_z_x, z in zip(true_posterior, all_exps):
+        for p_z_x, z in zip(true_posteriors, all_exps):
             print(
                 'z: ' + z.get_infix() + '    q(z): '
                 + str(self._q.pdf(z).item()) + '    p(z|x): '
                 + str(p_z_x)
             )
 
-        return self._q, true_posterior, all_exps
+        return self._q, true_posteriors, all_exps
 
     def _initialise(self, data):
 
@@ -269,18 +305,43 @@ class VICatSR(Algorithm):
     def _log_prior(self, z):
         return math.log(self._prior(z))
 
+    # Calculate posterior for specific model z
+    def posterior(self, data, z, all_z, evidence=None):
+
+        # Calculate evidence if not provided
+        p_x = self.evidence(data, all_z) if evidence is None else evidence
+
+        # Calculate posterior
+        return likelihood(data, z) * self._prior(z) / p_x
+
     # Calculate the true posterior for all enumerated models
-    def _true_posterior(self, data):
+    def posteriors(self, data):
 
         # Enumerate all expressions
-        all_exps = self._enumerate_expressions(data)
+        all_z = self._enumerate_expressions(data)
 
-        num_distr_consts = [e.num_distr_consts() for e in all_exps]
+        # Precompute evidence
+        p_x = self.evidence(data, all_z)
+
+        # Calculate p(z|x) for all expressions
+        p_z_x = [self.posterior(data, z, all_z, p_x) for z in all_z]
+
+        '''
+        for z, posterior in zip(all_exps, p_z_x):
+            print('z: ' + z.get_infix() + '    posterior: ' + str(posterior))
+        '''
+
+        return p_z_x, all_z
+
+    # Calculate p(x) (evidence) over all models, zs
+    def evidence(self, data, zs):
+
+        num_distr_consts = [e.num_distr_consts() for e in zs]
         total_num_distr_consts = sum(num_distr_consts)
 
         # Calculate p(x) based on the law of total probability
         if total_num_distr_consts == 0:
-            p_x = sum([likelihood(data, z) * self._prior(z) for z in all_exps])
+            p_x = sum([likelihood(data, z) * self._prior(z) for z in zs])
 
         # Calculate p(x) using a numerical integrator
         else:
@@ -323,25 +384,16 @@ class VICatSR(Algorithm):
             # Create integration bounds
             # The first bound is for selecting the particular expression
             # The remaining bounds are for each of the optimisable constants
-            integration_bounds = [[0, len(all_exps)]]
+            integration_bounds = [[0, len(zs)]]
 
             for i in range(total_num_distr_consts):
                 integration_bounds.append([-np.inf, np.inf])
 
             p_x, error = scipy.integrate.nquad(joint_func,
                                                integration_bounds,
-                                               args=(all_exps,
-                                                     num_distr_consts))
+                                               args=(zs, num_distr_consts))
 
-        # Calculate p(z|x) for all expressions
-        p_z_x = [likelihood(data, z) * self._prior(z) / p_x for z in all_exps]
-
-        '''
-        for z, posterior in zip(all_exps, p_z_x):
-            print('z: ' + z.get_infix() + '    posterior: ' + str(posterior))
-        '''
-
-        return p_z_x, all_exps
+        return p_x
 
     # Enumerate all expressions according to a specific token set and a maximum
     def _enumerate_expressions(self, data=None):
@@ -426,6 +478,7 @@ def likelihood(data, z):
     likelihoods = [scipy.stats.norm.pdf(y, mean)
                    for y, mean in zip(data['y'], means)]
     return math.prod(likelihoods)
+
 
 
 # Calculate total number of models possible according to token set and
