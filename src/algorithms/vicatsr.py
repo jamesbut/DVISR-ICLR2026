@@ -99,42 +99,6 @@ class VICatSR(Algorithm):
 
         self._initialise(data)
 
-        '''
-        # TODO: Remove
-        import matplotlib.pyplot as plt
-
-        all_exps = self._enumerate_expressions(data)
-
-        x = np.arange(-10.0, 10.0, 0.01)
-        exps = [copy.deepcopy(all_exps[0]) for _ in range(len(x))]
-        for val, e in zip(x, exps):
-            e.set_distr_consts([val])
-
-        priors = [self._prior(z) for z in exps]
-        likelihoods = [likelihood(data, z) for z in exps]
-        joints = [l * p for p, l in zip(priors, likelihoods)]
-        evidence = self.evidence(data, [exps[0]])
-        posteriors = [j / evidence for j in joints]
-        print('Evidence:', evidence)
-
-        prior_max = x[np.argmax(priors)]
-        likelihood_max = x[np.argmax(likelihoods)]
-        joint_max = x[np.argmax(joints)]
-        posterior_max = x[np.argmax(posteriors)]
-        print('Prior max:', prior_max)
-        print('Likelihood max:', likelihood_max)
-        print('Joint max:', joint_max)
-        print('Posterior max:', joint_max)
-
-        plt.plot(x, priors)
-        plt.plot(x, likelihoods)
-        plt.plot(x, joints)
-        plt.plot(x, posteriors)
-        plt.show()
-
-        exit()
-        '''
-
         if self._max_likelihood_flag:
             return self._maximise_likelihood(data)
         else:
@@ -463,6 +427,58 @@ class VICatSR(Algorithm):
 
         return all_expressions
 
+    # Plot priors, likelihoods, joints and posterior for simplest case
+    def _plot_distrs(self, data):
+
+        import matplotlib.pyplot as plt
+
+        all_exps = self._enumerate_expressions(data)
+
+        if len(all_exps) > 1:
+            raise RuntimeError('Cannot plot distributions for more than y=c')
+
+        x = np.arange(-10.0, 10.0, 0.01)
+        exps = [copy.deepcopy(all_exps[0]) for _ in range(len(x))]
+        for val, e in zip(x, exps):
+            e.set_distr_consts([val])
+
+        priors = [self._prior(z) for z in exps]
+        likelihoods = [likelihood(data, z) for z in exps]
+        joints = [l * p for p, l in zip(priors, likelihoods)]
+        evidence = self.evidence(data, [exps[0]])
+        posteriors = [j / evidence for j in joints]
+        print('Evidence:', evidence)
+
+        prior_max = x[np.argmax(priors)]
+        likelihood_max = x[np.argmax(likelihoods)]
+        joint_max = x[np.argmax(joints)]
+        posterior_max = x[np.argmax(posteriors)]
+        print('Prior max:', prior_max)
+        print('Likelihood max:', likelihood_max)
+        print('Joint max:', joint_max)
+        print('Posterior max:', posterior_max)
+
+        plt.plot(x, priors)
+        plt.plot(x, likelihoods)
+        plt.plot(x, joints)
+        plt.plot(x, posteriors)
+        plt.show()
+
+        # Check posterior integrates to 1
+        def post_func(*args):
+
+            z = copy.deepcopy(args[1])
+            z.set_distr_consts([args[0]])
+            return self.posterior(data, z, [z], evidence)
+
+        integration_bounds = [[-np.inf, np.inf]]
+
+        out, error = scipy.integrate.nquad(post_func,
+                                           integration_bounds,
+                                           args=(exps[0], data, evidence))
+        print(out)
+        print(error)
+
 
 def log_likelihood(data, z):
 
@@ -478,7 +494,6 @@ def likelihood(data, z):
     likelihoods = [scipy.stats.norm.pdf(y, mean)
                    for y, mean in zip(data['y'], means)]
     return math.prod(likelihoods)
-
 
 
 # Calculate total number of models possible according to token set and
