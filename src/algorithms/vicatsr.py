@@ -100,9 +100,13 @@ class VICatSR(Algorithm):
         self._initialise(data)
 
         if self._max_likelihood_flag:
-            return self._maximise_likelihood(data)
+            results = self._maximise_likelihood(data)
         else:
-            return self._maximise_elbo(data)
+            results = self._maximise_elbo(data)
+
+        self._plot_distrs(data)
+
+        return results
 
     def _maximise_likelihood(self, data):
 
@@ -427,7 +431,8 @@ class VICatSR(Algorithm):
 
         return all_expressions
 
-    # Plot priors, likelihoods, joints and posterior for simplest case
+    # Plot priors, likelihoods, joints and posterior for simplest case.
+    # NOTE: This is just for testing and should not be used functionally.
     def _plot_distrs(self, data):
 
         import matplotlib.pyplot as plt
@@ -447,21 +452,29 @@ class VICatSR(Algorithm):
         joints = [l * p for p, l in zip(priors, likelihoods)]
         evidence = self.evidence(data, [exps[0]])
         posteriors = [j / evidence for j in joints]
-        print('Evidence:', evidence)
+        qs = [self._q.pdf(z).item() for z in exps]
 
         prior_max = x[np.argmax(priors)]
         likelihood_max = x[np.argmax(likelihoods)]
         joint_max = x[np.argmax(joints)]
         posterior_max = x[np.argmax(posteriors)]
+        q_max = x[np.argmax(qs)]
+
+        print('Evidence:', evidence)
         print('Prior max:', prior_max)
         print('Likelihood max:', likelihood_max)
         print('Joint max:', joint_max)
         print('Posterior max:', posterior_max)
+        print('q max:', q_max)
 
-        plt.plot(x, priors)
-        plt.plot(x, likelihoods)
-        plt.plot(x, joints)
-        plt.plot(x, posteriors)
+        plt.plot(x, priors, label='Prior')
+        plt.plot(x, likelihoods, label='Likelihood')
+        plt.plot(x, joints, label='Joint')
+        plt.plot(x, posteriors, label='Posterior')
+        plt.plot(x, qs, label='q(z)')
+
+        plt.legend()
+
         plt.show()
 
         # Check posterior integrates to 1

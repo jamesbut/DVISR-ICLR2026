@@ -15,7 +15,7 @@
             "unary_ops": ["sin"]
         },
         "prior_variance": 1.0,
-        "num_steps": 5,
+        "num_steps": 500,
         "_learning_rate": 5e-3,
         "learning_rate": 1e-3,
         "num_eq_samples": 10,
