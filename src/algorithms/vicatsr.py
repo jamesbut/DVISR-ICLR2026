@@ -12,6 +12,7 @@ import copy
 import torch
 import math
 import itertools
+import matplotlib.pyplot as plt
 torch.set_default_dtype(torch.float64)
 
 
@@ -86,7 +87,7 @@ class VICatSR(Algorithm):
         self._max_likelihood_flag = config.get('max_likelihood', False)
 
         # Information about the prior
-        self._prior_mean = 1.0
+        self._prior_mean = config.get('prior_mean', 0.0)
         self._prior_variance = config.get('prior_variance', None)
 
         # Seed random number generators
@@ -173,11 +174,15 @@ class VICatSR(Algorithm):
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
+        mus = []
         for i in range(self._num_steps):
 
             # Sample z from surrogate q
             sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                          for i in range(self._num_eq_samples)]
+
+            mu = self._q.net_outs(sampled_z[0])[-1][-1]
+            mus.append(mu)
 
             # Calculate log likelihoods of sampled models
             log_likelihoods = torch.tensor(
@@ -216,6 +221,9 @@ class VICatSR(Algorithm):
             loss.backward()
 
             optimiser.step()
+
+        plt.plot(range(self._num_steps), mus)
+        plt.show()
 
         '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
@@ -435,14 +443,12 @@ class VICatSR(Algorithm):
     # NOTE: This is just for testing and should not be used functionally.
     def _plot_distrs(self, data):
 
-        import matplotlib.pyplot as plt
-
         all_exps = self._enumerate_expressions(data)
 
         if len(all_exps) > 1:
             raise RuntimeError('Cannot plot distributions for more than y=c')
 
-        x = np.arange(-10.0, 10.0, 0.01)
+        x = np.arange(-5.0, 5.0, 0.01)
         exps = [copy.deepcopy(all_exps[0]) for _ in range(len(x))]
         for val, e in zip(x, exps):
             e.set_distr_consts([val])
