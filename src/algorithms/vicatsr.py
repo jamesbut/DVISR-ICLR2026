@@ -10,10 +10,11 @@ import numpy as np
 import scipy
 import copy
 import torch
+torch.set_default_dtype(torch.float64)
 import math
 import itertools
 import matplotlib.pyplot as plt
-torch.set_default_dtype(torch.float64)
+from equation import Equation
 
 
 class VICatSR(Algorithm):
@@ -53,6 +54,7 @@ class VICatSR(Algorithm):
                 self._token_id += 1
 
             self._distr_over_consts = False
+            self._q_const_variance = None
 
         else:
 
@@ -62,6 +64,7 @@ class VICatSR(Algorithm):
                                     "id": self._token_id})
             self._token_id += 1
             self._distr_over_consts = True
+            self._q_const_variance = config.get('q_const_variance')
 
         # Number of equations sampled to calculate expected loss
         self._num_eq_samples = config['num_eq_samples']
@@ -105,7 +108,7 @@ class VICatSR(Algorithm):
         else:
             results = self._maximise_elbo(data)
 
-        self._plot_distrs(data)
+        # self._plot_distrs(data)
 
         return results
 
@@ -181,8 +184,8 @@ class VICatSR(Algorithm):
             sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                          for i in range(self._num_eq_samples)]
 
-            mu = self._q.net_outs(sampled_z[0])[-1][-1]
-            mus.append(mu)
+            # mu = self._q.net_outs(sampled_z[0])[-1][-1]
+            # mus.append(mu)
 
             # Calculate log likelihoods of sampled models
             log_likelihoods = torch.tensor(
@@ -222,8 +225,10 @@ class VICatSR(Algorithm):
 
             optimiser.step()
 
+        '''
         plt.plot(range(self._num_steps), mus)
         plt.show()
+        '''
 
         '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
@@ -252,6 +257,17 @@ class VICatSR(Algorithm):
                                     "id": self._token_id})
             self._token_id += 1
 
+        # A mask to apply so that only constants are sampled
+        self._consts_mask = torch.from_numpy(np.array(
+            [0.0 if t['type'] == 'const' else -1e9 for t in self._token_set]
+        ))
+
+        # A mask to apply so that only unary operators and consts are sampled
+        self._un_ops_consts_mask = torch.from_numpy(np.array(
+            [0.0 if t['type'] == 'un_op' or t['type'] == 'const' else -1e9
+             for t in self._token_set]
+        ))
+
         # Calculate total number of models
         self._total_num_eqs = calculate_total_num_eqs(self._token_set,
                                                       self._max_num_tokens)
@@ -260,7 +276,8 @@ class VICatSR(Algorithm):
         # the posterior
         self._q = q(self._token_set, self._hidden_layer_size,
                     self._max_depth, self._max_num_tokens,
-                    self._distr_over_consts)
+                    self._distr_over_consts, self._q_const_variance,
+                    self._consts_mask, self._un_ops_consts_mask)
 
     def _prior(self, z):
 
@@ -420,7 +437,9 @@ class VICatSR(Algorithm):
         # Check whether pre softmax masks would have been applied if these
         # expressions were sampled from q
         for e in all_expressions:
-            e.apply_pre_softmax_mask(self._max_num_tokens)
+            e.apply_pre_softmax_mask(self._max_num_tokens,
+                                     self._consts_mask,
+                                     self._un_ops_consts_mask)
 
         # If we are considering a distribution over constants then set the
         # constant to the mean of the distribution
@@ -563,7 +582,8 @@ def calculate_total_num_eqs(token_set, max_num_tokens):
 class q:
 
     def __init__(self, token_set, hidden_layer_size, max_depth,
-                 max_num_tokens, distr_over_consts):
+                 max_num_tokens, distr_over_consts, const_variance,
+                 consts_mask, un_ops_consts_mask):
 
         # Create recurrent neural network
         self._net = NN(len(token_set), len(token_set),
@@ -574,19 +594,12 @@ class q:
         self._token_set = token_set
         self._distr_over_consts = distr_over_consts
 
-        # A mask to apply so that only constants are sampled
-        global consts_mask
-        consts_mask = [0.0 if t['type'] == 'const' else -1e9
-                       for t in self._token_set]
-        consts_mask = torch.from_numpy(np.array(consts_mask))
+        self._consts_mask = consts_mask
+        self._un_ops_consts_mask = un_ops_consts_mask
 
-        # A mask to apply so that only unary operators and consts are sampled
-        global un_ops_consts_mask
-        un_ops_consts_mask = [0.0 if t['type'] == 'un_op'
-                                     or t['type'] == 'const' else -1e9
-                              for t in self._token_set]
-        un_ops_consts_mask = \
-            torch.from_numpy(np.array(un_ops_consts_mask))
+        # Variance for normal distribution over constants
+        # If set to None, this is also optimised
+        self._const_variance = const_variance
 
     def sample(self):
 
@@ -603,11 +616,11 @@ class q:
             pre_softmax_mask = None
             # Apply mask to only sample unary operators and constants
             if self._max_num_tokens - len(tokens) <= num_consts_required + 1:
-                pre_softmax_mask = un_ops_consts_mask
+                pre_softmax_mask = self._un_ops_consts_mask
 
             # Apply mask to only sample constants
             if self._max_num_tokens - len(tokens) <= num_consts_required:
-                pre_softmax_mask = consts_mask
+                pre_softmax_mask = self._consts_mask
 
             # Pass input through network
             out = self._net.forward(x, pre_softmax_mask).detach().numpy()
@@ -622,7 +635,8 @@ class q:
             # If token is distr_const and distribution over constants is on
             # then sample value from distribution
             if self._distr_over_consts and token['op'] == 'distr_const':
-                token['value'] = np.random.normal(loc=out[-1], scale=0.1)
+                token['value'] = np.random.normal(loc=out[-1],
+                                                  scale=self._const_variance)
 
             # Generate next network input
             x = torch.zeros_like(x)
@@ -806,231 +820,6 @@ class NN(torch.nn.Module):
 
     def num_outputs(self):
         return self._num_outputs
-
-
-# A class for representing analytic equations and evaluating them
-class Equation:
-
-    # Tokens should be input in polish notation
-    def __init__(self, tokens):
-
-        # Equation is represented in polish notation
-        self._eq = tokens
-
-        # Check number of opt_consts
-        self._num_opt_consts = sum(1 for t in tokens
-                                   if t['op'] == 'opt_const')
-
-        # Calculate number of distr_consts
-        self._num_distr_consts = sum(1 for t in tokens
-                                     if t['op'] == 'distr_const')
-
-    # Evaluate equation according to data variable values, x.
-    def evaluate(self, x):
-
-        eq = copy.deepcopy(self._eq)
-
-        # Replace opt and distr consts with values
-        eq = self._replace_opt_consts(eq)
-        eq = self._replace_distr_consts(eq)
-
-        # Convert consts to list of relevant data size
-        for token in eq:
-            if token['type'] == 'const' and not isinstance(token['op'], str):
-                token['op'] = np.array([token['op']] * len(x))
-
-        # Substitute variables for data, x
-        for token in eq:
-            for i in range(x.shape[1]):
-                if not isinstance(token['op'], np.ndarray):
-                    if token['op'] == ('x_' + str(i)):
-                        token['op'] = x[:, i]
-
-        # Convert Polish notation to Reverse Polish Notation
-        eq.reverse()
-
-        # Evaluate equation using stack
-        stack = []
-
-        for t in eq:
-
-            # If token is a constant, push onto stack
-            if t['type'] == 'const':
-                stack.append(t['op'])
-
-            # Otherwise apply operators to elements on the stack
-            else:
-
-                match t['op']:
-                    case '*':
-                        stack.append(stack.pop() * stack.pop())
-                    case '/':
-                        stack.append(stack.pop() / stack.pop())
-                    case '+':
-                        stack.append(stack.pop() + stack.pop())
-                    case '-':
-                        stack.append(stack.pop() - stack.pop())
-                    case 'cos':
-                        stack.append(np.cos(stack.pop()))
-                    case 'sin':
-                        stack.append(np.sin(stack.pop()))
-                    case 'exp':
-                        stack.append(np.exp(stack.pop()))
-                    case _:
-                        raise RuntimeError(t['op']
-                                           + ' is not a recognised operator')
-
-        return stack.pop()
-
-    # Return infix string
-    def get_infix(self):
-
-        eq = copy.deepcopy(self._eq)
-
-        # Replace opt and distr consts with values
-        eq = self._replace_opt_consts(eq)
-        eq = self._replace_distr_consts(eq)
-
-        eq.reverse()
-
-        stack = []
-
-        for t in eq:
-
-            # If token is a constant, push onto stack
-            if t['type'] == 'const':
-                if isinstance(t['op'], str):
-                    stack.append(t['op'])
-                else:
-                    stack.append("{:.4f}".format(t['op']))
-
-            # Otherwise print operators with elements from stack
-            else:
-
-                if t['type'] == 'bin_op':
-                    stack.append('(' + stack.pop() + ' ' + t['op']
-                                 + ' ' + stack.pop() + ')')
-                elif t['type'] == 'un_op':
-                    stack.append(t['op'] + '(' + stack.pop() + ')')
-                else:
-                    raise RuntimeError(
-                            t['type'] + ' is not a recognised token type')
-
-        return stack.pop()
-
-    def num_tokens(self):
-        return len(self._eq)
-
-    def tokens(self):
-        return self._eq
-
-    def distr_const_tokens(self):
-        return [t for t in self._eq if t['op'] == 'distr_const']
-
-    def num_opt_consts(self):
-        return self._num_opt_consts
-
-    def num_distr_consts(self):
-        return self._num_distr_consts
-
-    def num_float_consts(self):
-        return sum(1 for e in self._eq if e['sub_type'] == 'float_const')
-
-    def set_opt_consts(self, x):
-
-        if len(x) != self._num_opt_consts:
-            raise ValueError(
-                f"Expects {self._num_opt_consts} opt consts but "
-                f"{len(x)} was given"
-            )
-
-        i = 0
-        for token in self._eq:
-            if token['op'] == 'opt_const':
-                token['value'] = x[i]
-                i += 1
-
-    def set_distr_consts(self, x):
-
-        if len(x) != self._num_distr_consts:
-            raise ValueError(
-                f"Expects {self._num_distr_consts} distr consts but "
-                f"{len(x)} was given"
-            )
-
-        i = 0
-        for token in self._eq:
-            if token['op'] == 'distr_const':
-                token['value'] = x[i]
-                i += 1
-
-    # If masks have not been calculated, do that here
-    def apply_pre_softmax_mask(self, max_num_tokens):
-
-        # Check whether forced consts have already been applied
-        for token in self._eq:
-            if 'pre_softmax_mask' in token:
-                raise RuntimeError(
-                    'Trying to apply pre softmax masks to an equation that '
-                    'already has them set'
-                )
-
-        num_consts_required = 1
-        for i, token in enumerate(self._eq):
-
-            # Determine whether and which mask would have been used
-            token['pre_softmax_mask'] = None
-            if i + num_consts_required >= max_num_tokens:
-                token['pre_softmax_mask'] = copy.deepcopy(consts_mask)
-            elif i + num_consts_required + 1 >= max_num_tokens:
-                token['pre_softmax_mask'] = copy.deepcopy(un_ops_consts_mask)
-
-            # Increase or decrease the number of constants required
-            # depending on the sample token type
-            match token['type']:
-                case 'bin_op':
-                    num_consts_required += 1
-                case 'const':
-                    num_consts_required -= 1
-
-    # Replace opt_const with values
-    def _replace_opt_consts(self, eq):
-
-        if self._num_opt_consts != 0:
-            i = 0
-            for token in eq:
-                if token['op'] == 'opt_const':
-                    if token['value'] is not None:
-                        token['op'] = token['value']
-                        i += 1
-                    else:
-                        raise ValueError(
-                            'Trying to evaluate an equation that has opt '
-                            'const tokens but no opt const values'
-                        )
-
-        return eq
-
-    # Replace distr_const with values
-    def _replace_distr_consts(self, eq):
-
-        if self._num_distr_consts != 0:
-            i = 0
-            for token in eq:
-                if token['op'] == 'distr_const':
-                    if token['value'] is not None:
-                        token['op'] = token['value']
-                        i += 1
-                    else:
-                        raise ValueError(
-                            'Trying to evaluate an equation that has distr '
-                            'const tokens but no distr const values'
-                        )
-
-        return eq
-
-    def __repr__(self):
-        return str(self._eq)
 
 
 # Optimise consts in equation to maximise log likelihood
