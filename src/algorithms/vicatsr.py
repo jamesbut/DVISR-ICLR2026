@@ -64,7 +64,7 @@ class VICatSR(Algorithm):
                                     "id": self._token_id})
             self._token_id += 1
             self._distr_over_consts = True
-            self._q_const_variance = config.get('q_const_variance')
+            self._q_const_variance = config.get('q_const_variance', None)
 
         # Number of equations sampled to calculate expected loss
         self._num_eq_samples = config['num_eq_samples']
@@ -91,7 +91,13 @@ class VICatSR(Algorithm):
 
         # Information about the prior
         self._prior_mean = config.get('prior_mean', 0.0)
-        self._prior_variance = config.get('prior_variance', None)
+        self._prior_variance = config.get('prior_variance', 1.0)
+
+        # Remove x variables as tokens
+        self._remove_x_vars = config.get('remove_x_vars', False)
+
+        # Plot if available
+        self._plotting = config.get('plotting', False)
 
         # Seed random number generators
         self._seed = config.get('seed', None)
@@ -108,7 +114,8 @@ class VICatSR(Algorithm):
         else:
             results = self._maximise_elbo(data)
 
-        # self._plot_distrs(data)
+        if self._plotting:
+            self._plot_distrs(data)
 
         return results
 
@@ -184,8 +191,9 @@ class VICatSR(Algorithm):
             sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
                          for i in range(self._num_eq_samples)]
 
-            # mu = self._q.net_outs(sampled_z[0])[-1][-1]
-            # mus.append(mu)
+            if self._distr_over_consts:
+                mu = self._q.net_outs(sampled_z[0])[-1][-2]
+                mus.append(mu)
 
             # Calculate log likelihoods of sampled models
             log_likelihoods = torch.tensor(
@@ -225,10 +233,9 @@ class VICatSR(Algorithm):
 
             optimiser.step()
 
-        '''
-        plt.plot(range(self._num_steps), mus)
-        plt.show()
-        '''
+        if self._plotting:
+            plt.plot(range(self._num_steps), mus)
+            plt.show()
 
         '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
@@ -251,11 +258,12 @@ class VICatSR(Algorithm):
     def _initialise(self, data):
 
         # Finish creating token set
-        for i in range(len(data['x'][0])):
-            self._token_set.append({"op": "x_" + str(i), "type": "const",
-                                    "sub_type": "var_const",
-                                    "id": self._token_id})
-            self._token_id += 1
+        if not self._remove_x_vars:
+            for i in range(len(data['x'][0])):
+                self._token_set.append({"op": "x_" + str(i), "type": "const",
+                                        "sub_type": "var_const",
+                                        "id": self._token_id})
+                self._token_id += 1
 
         # A mask to apply so that only constants are sampled
         self._consts_mask = torch.from_numpy(np.array(
@@ -446,7 +454,7 @@ class VICatSR(Algorithm):
         if self._distr_over_consts:
             for exp in all_expressions:
                 net_outs = self._q.net_outs(exp)
-                consts = [out[-1] for out, token in zip(net_outs, exp.tokens())
+                consts = [out[-2] for out, token in zip(net_outs, exp.tokens())
                           if token['sub_type'] == 'float_const']
                 exp.set_distr_consts(consts)
 
@@ -587,7 +595,8 @@ class q:
 
         # Create recurrent neural network
         self._net = NN(len(token_set), len(token_set),
-                       hidden_layer_size, distr_over_consts)
+                       hidden_layer_size, distr_over_consts,
+                       True if const_variance is None else False)
 
         self._max_depth = max_depth
         self._max_num_tokens = max_num_tokens
@@ -635,8 +644,14 @@ class q:
             # If token is distr_const and distribution over constants is on
             # then sample value from distribution
             if self._distr_over_consts and token['op'] == 'distr_const':
-                token['value'] = np.random.normal(loc=out[-1],
-                                                  scale=self._const_variance)
+
+                # Variance of const distribution is either given in config
+                # or optimised
+                const_variance = out[-1] if self._const_variance is None \
+                                         else self._const_variance
+                # Sample
+                token['value'] = np.random.normal(loc=out[-2],
+                                                  scale=const_variance)
 
             # Generate next network input
             x = torch.zeros_like(x)
@@ -691,8 +706,14 @@ class q:
             probs.append(torch.sum(out[:len(self._token_set)] * one_hot))
 
             if self._distr_over_consts and t['sub_type'] == 'float_const':
+
+                # Variance of const distribution is either given in config
+                # or optimised
+                const_variance = out[-1] if self._const_variance is None \
+                                         else self._const_variance
+
                 probs.append(torch.exp(torch.distributions.normal.Normal(
-                    loc=out[-1], scale=0.1
+                    loc=out[-2], scale=const_variance
                 ).log_prob(torch.tensor(t['value']))))
 
             # Set next network input
@@ -721,8 +742,14 @@ class q:
             ))
 
             if self._distr_over_consts and t['sub_type'] == 'float_const':
+
+                # Variance of const distribution is either given in config
+                # or optimised
+                const_variance = out[-1] if self._const_variance is None \
+                                         else self._const_variance
+
                 log_probs.append(torch.distributions.normal.Normal(
-                    loc=out[-1], scale=0.1
+                    loc=out[-2], scale=const_variance
                 ).log_prob(torch.tensor(t['value'])))
 
             # Set next network input
@@ -757,29 +784,33 @@ class q:
 
 class NN(torch.nn.Module):
 
-    def __init__(self, num_inputs, num_outputs, hidden_size, distr_over_consts):
+    def __init__(self, num_inputs, num_outputs, hidden_size,
+                 distr_over_consts: bool, const_variance: bool):
         super().__init__()
 
         self._hidden_size = hidden_size
 
         self._l1 = None
-        self._consts_mean_layer = None
+        self._consts_layer = None
 
         if hidden_size == 0:
 
             self._l2 = torch.nn.Linear(num_inputs, num_outputs)
 
             if distr_over_consts:
-                self._consts_mean_layer = torch.nn.Linear(num_inputs, 1)
+                self._consts_layer = torch.nn.Linear(num_inputs, 2)
+
         else:
             self._l1 = torch.nn.GRUCell(num_inputs, self._hidden_size)
             self._l2 = torch.nn.Linear(self._hidden_size, num_outputs)
 
             if distr_over_consts:
-                self._consts_mean_layer = torch.nn.Linear(self._hidden_size, 1)
+                self._consts_layer = torch.nn.Linear(self._hidden_size, 2)
 
         self._num_inputs = num_inputs
         self._num_outputs = num_outputs
+
+        self._const_variance = const_variance
 
     def forward(self, x, pre_softmax_mask=None):
 
@@ -806,9 +837,13 @@ class NN(torch.nn.Module):
         output = cat_params
 
         # Output parameter of constant distribution
-        if self._consts_mean_layer is not None:
-            const_mean = self._consts_mean_layer(x)
-            output = torch.cat((output, const_mean), dim=0)
+        if self._consts_layer is not None:
+            const_out = self._consts_layer(x)
+
+            if self._const_variance:
+                const_out[1] = torch.nn.functional.softplus(const_out[1])
+
+            output = torch.cat((output, const_out), dim=0)
 
         return output
 

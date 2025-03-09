@@ -12,21 +12,21 @@
         "name": "VICatSR",
         "operators": {
             "binary_ops": ["*"],
-            "unary_ops": ["sin"],
-            "_consts": [1.0, "opt_const"],
-            "consts": [1.0],
-            "_consts": [0.35],
-            "_consts": [0.3934]
+            "unary_ops": ["sin"]
         },
-        "max_likelihood": false,
+        "prior_mean": 0.35,
+        "prior_variance": 1.0,
+        "q_const_variance": 0.1,
         "num_steps": 500,
-        "_learning_rate": 5e-3,
-        "learning_rate": 1e-3,
+        "_learning_rate": 1e-3,
+        "learning_rate": 2e-4,
         "num_eq_samples": 10,
         "_max_depth": 2,
         "max_num_tokens": 1,
         "rnn_hidden_layer_size": 256,
         "_rnn_hidden_layer_size": 0,
+        "remove_x_vars": true,
+        "plotting": true,
         "x_seed": 18
     }
 }

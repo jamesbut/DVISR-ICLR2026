@@ -25,6 +25,7 @@ class VICatSR(unittest.TestCase):
 
         self._config['algorithm']['operators']['consts'] = [1.0]
         self._config['algorithm']['max_likelihood'] = True
+        self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
@@ -41,6 +42,7 @@ class VICatSR(unittest.TestCase):
     def test_elbo_static_consts(self):
 
         self._config['algorithm']['operators']['consts'] = [1.0]
+        self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
@@ -59,6 +61,7 @@ class VICatSR(unittest.TestCase):
 
         self._config['algorithm']['operators']['consts'] = ['opt_const']
         self._config['algorithm']['max_likelihood'] = True
+        self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
@@ -77,6 +80,7 @@ class VICatSR(unittest.TestCase):
     def test_elbo_opt_consts(self):
 
         self._config['algorithm']['operators']['consts'] = ['opt_const']
+        self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
@@ -96,6 +100,7 @@ class VICatSR(unittest.TestCase):
     def test_max_likelihood_distr_consts(self):
 
         self._config['algorithm']['max_likelihood'] = True
+        self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
@@ -109,11 +114,21 @@ class VICatSR(unittest.TestCase):
 
     def test_elbo_distr_consts(self):
 
+        self._config['algorithm']['learning_rate'] = 2e-4
+        self._config['algorithm']['q_const_variance'] = 0.1
+        self._config['algorithm']['remove_x_vars'] = True
+        self._config['algorithm']['plotting'] = False
+
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
+
+        # Check constant mean is in the correct ballpark, and is hence
+        # being optimised
+        self.assertLessEqual(all_exps[0].tokens()[0]['value'], 0.5)
+        self.assertGreaterEqual(all_exps[0].tokens()[0]['value'], 0.2)
 
 
 if __name__ == "__main__":
