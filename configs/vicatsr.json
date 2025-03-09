@@ -16,7 +16,7 @@
         },
         "prior_mean": 0.35,
         "prior_variance": 1.0,
-        "q_const_variance": 0.1,
+        "_q_const_variance": 0.1,
         "num_steps": 500,
         "_learning_rate": 1e-3,
         "learning_rate": 2e-4,

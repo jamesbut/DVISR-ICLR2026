@@ -841,7 +841,11 @@ class NN(torch.nn.Module):
             const_out = self._consts_layer(x)
 
             if self._const_variance:
-                const_out[1] = torch.nn.functional.softplus(const_out[1])
+                const_out = torch.where(
+                    torch.tensor([False, True]),
+                    torch.nn.functional.softplus(const_out),
+                    const_out
+                )
 
             output = torch.cat((output, const_out), dim=0)
 
