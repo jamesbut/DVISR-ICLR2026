@@ -115,7 +115,6 @@ class VICatSR(unittest.TestCase):
     def test_elbo_distr_consts(self):
 
         self._config['algorithm']['learning_rate'] = 2e-4
-        self._config['algorithm']['q_const_variance'] = 0.1
         self._config['algorithm']['remove_x_vars'] = True
         self._config['algorithm']['plotting'] = False
 
@@ -125,10 +124,20 @@ class VICatSR(unittest.TestCase):
         # Train
         q, true_pos, all_exps = alg.train(self._data)
 
-        # Check constant mean is in the correct ballpark, and is hence
-        # being optimised
-        self.assertLessEqual(all_exps[0].tokens()[0]['value'], 0.5)
-        self.assertGreaterEqual(all_exps[0].tokens()[0]['value'], 0.2)
+        # Get const mean and variance
+        consts_params = q.get_consts_params(all_exps[0])
+        mean = consts_params[0][0]
+        variance = consts_params[0][1]
+
+        print('Mean:', mean)
+        print('Variance:', variance)
+
+        # Check the parameters for the distribution over constants has
+        # optimised
+        self.assertLessEqual(mean, 0.37)
+        self.assertGreaterEqual(mean, 0.33)
+        self.assertLessEqual(variance, 0.32)
+        self.assertGreaterEqual(variance, 0.28)
 
 
 if __name__ == "__main__":
