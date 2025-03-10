@@ -187,35 +187,12 @@ class VICatSR(Algorithm):
         mus = []
         for i in range(self._num_steps):
 
-            # Sample z from surrogate q
-            sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
-                         for i in range(self._num_eq_samples)]
+            # Calculate ELBO
+            elbos, sampled_z = self.elbos(data, self._num_eq_samples)
 
             if self._distr_over_consts:
                 mu = self._q.net_outs(sampled_z[0])[-1][-2]
                 mus.append(mu)
-
-            # Calculate log likelihoods of sampled models
-            log_likelihoods = torch.tensor(
-                [log_likelihood(data, z) for z in sampled_z],
-                requires_grad=False
-            )
-
-            # Calculate log q(z) under the surrogate distribution for samples
-            # models
-            # NOTE: This .detach() makes a big difference to optimisation
-            log_q_zs = torch.stack(
-                [self._q.log_pdf(z) for z in sampled_z]
-            ).detach()
-
-            # Calculate priors, ln p(z), for sampled models
-            log_priors = torch.tensor(
-                [self._log_prior(z) for z in sampled_z],
-                requires_grad=False
-            )
-
-            # Calculate ELBO
-            elbos = log_likelihoods + log_priors - log_q_zs
 
             rewards = elbos
             baseline = rewards.mean()
@@ -252,6 +229,10 @@ class VICatSR(Algorithm):
                 + str(self._q.pdf(z).item()) + '    p(z|x): '
                 + str(p_z_x)
             )
+
+        kl_divergence = self.kl_divergence(data)
+        print('KL divergence:', kl_divergence)
+        print('------------------------------')
 
         return self._q, true_posteriors, all_exps
 
@@ -327,11 +308,6 @@ class VICatSR(Algorithm):
         # Calculate p(z|x) for all expressions
         p_z_x = [self.posterior(data, z, all_z, p_x) for z in all_z]
 
-        '''
-        for z, posterior in zip(all_exps, p_z_x):
-            print('z: ' + z.get_infix() + '    posterior: ' + str(posterior))
-        '''
-
         return p_z_x, all_z
 
     # Calculate p(x) (evidence) over all models, zs
@@ -395,6 +371,52 @@ class VICatSR(Algorithm):
                                                args=(zs, num_distr_consts))
 
         return p_x
+
+    def log_evidence(self, data, zs):
+        return math.log(self.evidence(data, zs))
+
+    # Calculate list of values such that when you take the mean, you get the
+    # ELBO.
+    # Also returns sampled models
+    def elbos(self, data, num_samples):
+
+        # Sample z from surrogate q
+        sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
+                     for i in range(1000)]
+
+        # Calculate log likelihoods of sampled models
+        log_likelihoods = torch.tensor(
+            [log_likelihood(data, z) for z in sampled_z],
+            requires_grad=False
+        )
+
+        # Calculate log q(z) under the surrogate distribution for samples
+        # models
+        log_q_zs = torch.stack(
+            [self._q.log_pdf(z) for z in sampled_z]
+        ).detach()
+
+        # Calculate priors, ln p(z), for sampled models
+        log_priors = torch.tensor(
+            [self._log_prior(z) for z in sampled_z],
+            requires_grad=False
+        )
+
+        # Calculate ELBO
+        return log_likelihoods + log_priors - log_q_zs, sampled_z
+
+    # Calculate the KL divergence between q(z) and p(z|x)
+    def kl_divergence(self, data):
+
+        elbo = self.elbos(data, num_samples=1000)[0].mean()
+
+        # Enumerate all expressions
+        all_z = self._enumerate_expressions(data)
+
+        # Calculate KL divergence
+        kl_divergence = self.log_evidence(data, all_z) - elbo
+
+        return kl_divergence.item()
 
     # Enumerate all expressions according to a specific token set and a maximum
     def _enumerate_expressions(self, data=None):
@@ -511,6 +533,7 @@ class VICatSR(Algorithm):
         plt.show()
 
         # Check posterior integrates to 1
+        '''
         def post_func(*args):
 
             z = copy.deepcopy(args[1])
@@ -524,6 +547,7 @@ class VICatSR(Algorithm):
                                            args=(exps[0], data, evidence))
         print(out)
         print(error)
+        '''
 
 
 def log_likelihood(data, z):
