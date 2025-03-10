@@ -99,6 +99,12 @@ class VICatSR(Algorithm):
         # Plot if available
         self._plotting = config.get('plotting', False)
 
+        # Track KL divergence through training
+        self._track_kl_divergence = config.get('track_kl_divergence', False)
+
+        # Evidence only needs to be computed once
+        self._evidence = None
+
         # Seed random number generators
         self._seed = config.get('seed', None)
         if self._seed is not None:
@@ -185,6 +191,7 @@ class VICatSR(Algorithm):
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
         mus = []
+        kl_divs = []
         for i in range(self._num_steps):
 
             # Calculate ELBO
@@ -193,6 +200,10 @@ class VICatSR(Algorithm):
             if self._distr_over_consts:
                 mu = self._q.net_outs(sampled_z[0])[-1][-2]
                 mus.append(mu)
+
+            if self._track_kl_divergence:
+                kl_divergence = self.kl_divergence(data, num_samples=100)
+                kl_divs.append(kl_divergence)
 
             rewards = elbos
             baseline = rewards.mean()
@@ -213,6 +224,9 @@ class VICatSR(Algorithm):
         if self._plotting:
             plt.plot(range(self._num_steps), mus)
             plt.show()
+            if self._track_kl_divergence:
+                plt.plot(range(self._num_steps), kl_divs)
+                plt.show()
 
         '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
@@ -229,8 +243,10 @@ class VICatSR(Algorithm):
                 + str(self._q.pdf(z).item()) + '    p(z|x): '
                 + str(p_z_x)
             )
+            consts_params = self._q.get_consts_params(z)
+            print('     q consts params:', consts_params)
 
-        kl_divergence = self.kl_divergence(data)
+        kl_divergence = self.kl_divergence(data, num_samples=1000)
         print('KL divergence:', kl_divergence)
         print('------------------------------')
 
@@ -288,13 +304,8 @@ class VICatSR(Algorithm):
         return math.log(self._prior(z))
 
     # Calculate posterior for specific model z
-    def posterior(self, data, z, all_z, evidence=None):
-
-        # Calculate evidence if not provided
-        p_x = self.evidence(data, all_z) if evidence is None else evidence
-
-        # Calculate posterior
-        return likelihood(data, z) * self._prior(z) / p_x
+    def posterior(self, data, z, all_z):
+        return likelihood(data, z) * self._prior(z) / self.evidence(data, all_z)
 
     # Calculate the true posterior for all enumerated models
     def posteriors(self, data):
@@ -302,16 +313,18 @@ class VICatSR(Algorithm):
         # Enumerate all expressions
         all_z = self._enumerate_expressions(data)
 
-        # Precompute evidence
-        p_x = self.evidence(data, all_z)
-
         # Calculate p(z|x) for all expressions
-        p_z_x = [self.posterior(data, z, all_z, p_x) for z in all_z]
+        p_z_x = [self.posterior(data, z, all_z) for z in all_z]
 
         return p_z_x, all_z
 
-    # Calculate p(x) (evidence) over all models, zs
     def evidence(self, data, zs):
+        if self._evidence is None:
+            self._evidence = self._calculate_evidence(data, zs)
+        return self._evidence
+
+    # Calculate p(x) (evidence) over all models, zs
+    def _calculate_evidence(self, data, zs):
 
         num_distr_consts = [e.num_distr_consts() for e in zs]
         total_num_distr_consts = sum(num_distr_consts)
@@ -382,7 +395,7 @@ class VICatSR(Algorithm):
 
         # Sample z from surrogate q
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
-                     for i in range(1000)]
+                     for i in range(num_samples)]
 
         # Calculate log likelihoods of sampled models
         log_likelihoods = torch.tensor(
@@ -406,9 +419,9 @@ class VICatSR(Algorithm):
         return log_likelihoods + log_priors - log_q_zs, sampled_z
 
     # Calculate the KL divergence between q(z) and p(z|x)
-    def kl_divergence(self, data):
+    def kl_divergence(self, data, num_samples):
 
-        elbo = self.elbos(data, num_samples=1000)[0].mean()
+        elbo = self.elbos(data, num_samples)[0].mean()
 
         # Enumerate all expressions
         all_z = self._enumerate_expressions(data)
@@ -804,6 +817,13 @@ class q:
             x = one_hot.clone().detach()
 
         return torch.stack(net_outs).detach().numpy()
+
+    # Get means and variances output by the network for all constants in
+    # an equation
+    def get_consts_params(self, z):
+        return [[out[-2], out[-1]]
+                for out, token in zip(self.net_outs(z), z.tokens())
+                if token['op'] == 'distr_const']
 
 
 class NN(torch.nn.Module):
