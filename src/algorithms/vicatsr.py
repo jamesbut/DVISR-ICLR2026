@@ -507,7 +507,7 @@ class VICatSR(Algorithm):
 
         all_exps = self._enumerate_expressions(data)
 
-        if len(all_exps) > 1:
+        if len(all_exps) > 2:
             raise RuntimeError('Cannot plot distributions for more than y=c')
 
         x = np.arange(-5.0, 5.0, 0.01)

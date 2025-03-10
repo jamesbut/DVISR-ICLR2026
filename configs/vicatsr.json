@@ -20,14 +20,14 @@
         "num_steps": 500,
         "_learning_rate": 1e-3,
         "learning_rate": 2e-4,
-        "num_eq_samples": 10,
+        "num_eq_samples": 100,
         "_max_depth": 2,
         "max_num_tokens": 1,
         "rnn_hidden_layer_size": 256,
         "_rnn_hidden_layer_size": 0,
-        "remove_x_vars": true,
+        "remove_x_vars": false,
         "plotting": true,
-        "track_kl_divergence": true,
+        "track_kl_divergence": false,
         "x_seed": 18
     }
 }
