@@ -14,8 +14,8 @@
             "binary_ops": ["*"],
             "unary_ops": ["sin"]
         },
-        "prior_mean": 0.35,
-        "prior_variance": 1.0,
+        "prior_mean": 0.0,
+        "prior_variance": 100.0,
         "_q_const_variance": 0.1,
         "num_steps": 500,
         "_learning_rate": 1e-3,
@@ -26,7 +26,7 @@
         "rnn_hidden_layer_size": 256,
         "_rnn_hidden_layer_size": 0,
         "remove_x_vars": false,
-        "plotting": false,
+        "plotting": true,
         "track_kl_divergence": false,
         "calculate_posteriors": true,
         "x_seed": 18

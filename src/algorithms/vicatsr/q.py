@@ -100,14 +100,7 @@ class q:
 
     # Sample from q and also optimise const tokens of sampled equation
     def sample_and_optimise(self, data, log_likelihood_func):
-
-        eq = self.sample()
-
-        # Do not optimise if using distribution over constants
-        if self._distr_over_consts:
-            return eq
-        else:
-            return optimise_eq_consts(eq, data, log_likelihood_func)
+        return optimise_eq_consts(self.sample(), data, log_likelihood_func)
 
     # Calculate probability of an equation, z, under q
     def pdf(self, z):
