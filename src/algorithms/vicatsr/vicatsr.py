@@ -250,14 +250,14 @@ class VICatSR(Algorithm):
             all_exps = self._enumerate_expressions(data)
             true_posteriors = [None] * len(all_exps)
 
-            for p_z_x, z in zip(true_posteriors, all_exps):
-                print(
-                    'z: ' + z.get_infix() + '    q(z): '
-                    + str(self._q.pdf(z).item()) + '    p(z|x): '
-                    + str(p_z_x)
-                )
-                consts_params = self._q.get_consts_params(z)
-                print('     q consts params:', consts_params)
+        for p_z_x, z in zip(true_posteriors, all_exps):
+            print(
+                'z: ' + z.get_infix() + '    q(z): '
+                + str(self._q.pdf(z).item()) + '    p(z|x): '
+                + str(p_z_x)
+            )
+            consts_params = self._q.get_consts_params(z)
+            print('     q consts params:', consts_params)
 
         # Optimise constants according to maximum likelihood and print
         # Of course, this is not necessarily the mode of the posterior but
