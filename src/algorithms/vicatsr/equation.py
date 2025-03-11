@@ -1,5 +1,6 @@
 import copy
 import numpy as np
+import scipy
 
 
 # A class for representing analytic equations and evaluating them
@@ -188,6 +189,12 @@ class Equation:
                 case 'const':
                     num_consts_required -= 1
 
+    def convert_distr_to_opt_consts(self):
+        for t in self._eq:
+            t['op'] = 'opt_const' if t['op'] == 'distr_const' else t['op']
+        self._num_opt_consts = sum(1 for t in self._eq
+                                   if t['op'] == 'opt_const')
+
     # Replace opt_const with values
     def _replace_opt_consts(self, eq):
 
@@ -226,3 +233,35 @@ class Equation:
 
     def __repr__(self):
         return str(self._eq)
+
+
+# Optimise consts in equation to maximise log likelihood
+def optimise_eq_consts(eq, data, log_likelihood_func):
+
+    # If there are no consts to optimise just return original equation
+    if eq.num_opt_consts() == 0:
+        return eq
+
+    # Initial guess of all ones
+    init_x = np.ones(eq.num_opt_consts())
+
+    def min_func(x, eq, data, log_likelihood_func):
+
+        # Evaluate equation with opt consts set as x
+        eq.set_opt_consts(x)
+
+        log_likelihood = log_likelihood_func(data, eq)
+
+        return -log_likelihood
+
+    # Optimise log likelihood with respect to op constants
+    res = scipy.optimize.minimize(min_func, init_x,
+                                  args=(eq, data, log_likelihood_func),
+                                  method='bfgs')
+
+    if not res['success']:
+        raise RuntimeError('Scipy minimize failed')
+
+    eq.set_opt_consts(res['x'])
+
+    return eq

@@ -8,13 +8,13 @@
 from algorithms.algorithm import Algorithm
 import numpy as np
 import scipy
-import copy
-import torch
-torch.set_default_dtype(torch.float64)
 import math
 import itertools
 import matplotlib.pyplot as plt
-from equation import Equation
+import torch
+from .q import q
+from .equation import Equation, optimise_eq_consts
+import copy
 
 
 class VICatSR(Algorithm):
@@ -101,6 +101,9 @@ class VICatSR(Algorithm):
 
         # Track KL divergence through training
         self._track_kl_divergence = config.get('track_kl_divergence', False)
+
+        # Flag whether to calculate posteriors at the end of training
+        self._calc_posteriors_flag = config.get('calculate_posteriors', True)
 
         # Evidence only needs to be computed once
         self._evidence = None
@@ -235,20 +238,37 @@ class VICatSR(Algorithm):
             print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z)[0].item()))
         '''
 
-        true_posteriors, all_exps = self.posteriors(data)
+        if self._calc_posteriors_flag:
 
-        for p_z_x, z in zip(true_posteriors, all_exps):
-            print(
-                'z: ' + z.get_infix() + '    q(z): '
-                + str(self._q.pdf(z).item()) + '    p(z|x): '
-                + str(p_z_x)
-            )
-            consts_params = self._q.get_consts_params(z)
-            print('     q consts params:', consts_params)
+            true_posteriors, all_exps = self.posteriors(data)
 
-        kl_divergence = self.kl_divergence(data, num_samples=1000)
-        print('KL divergence:', kl_divergence)
-        print('------------------------------')
+            kl_divergence = self.kl_divergence(data, num_samples=1000)
+            print('KL divergence:', kl_divergence)
+            print('------------------------------')
+
+        else:
+            all_exps = self._enumerate_expressions(data)
+            true_posteriors = [None] * len(all_exps)
+
+            for p_z_x, z in zip(true_posteriors, all_exps):
+                print(
+                    'z: ' + z.get_infix() + '    q(z): '
+                    + str(self._q.pdf(z).item()) + '    p(z|x): '
+                    + str(p_z_x)
+                )
+                consts_params = self._q.get_consts_params(z)
+                print('     q consts params:', consts_params)
+
+        # Optimise constants according to maximum likelihood and print
+        # Of course, this is not necessarily the mode of the posterior but
+        # if the variance of the prior is wide enough, it will be close
+        all_z = self._enumerate_expressions(data)
+        for z in all_z:
+            z.convert_distr_to_opt_consts()
+        optimised_z = [optimise_eq_consts(z, data, log_likelihood) for z in all_z]
+        print('Optimised models:')
+        for z in optimised_z:
+            print(z.get_infix())
 
         return self._q, true_posteriors, all_exps
 
@@ -508,7 +528,8 @@ class VICatSR(Algorithm):
         all_exps = self._enumerate_expressions(data)
 
         if len(all_exps) > 2:
-            raise RuntimeError('Cannot plot distributions for more than y=c')
+            print('Cannot plot distributions for more than y=c')
+            return
 
         x = np.arange(-5.0, 5.0, 0.01)
         exps = [copy.deepcopy(all_exps[0]) for _ in range(len(x))]
@@ -618,320 +639,3 @@ def calculate_total_num_eqs(token_set, max_num_tokens):
 
     # Sum up to t_max
     return sum(b[:t_max + 1])
-
-
-# Surrogate distribution, q, which is optimised to approximate the
-# posterior.
-# It currently consists of a recurrent neural network that outputs
-# a sequence of categorical distribution parameters.
-class q:
-
-    def __init__(self, token_set, hidden_layer_size, max_depth,
-                 max_num_tokens, distr_over_consts, const_variance,
-                 consts_mask, un_ops_consts_mask):
-
-        # Create recurrent neural network
-        self._net = NN(len(token_set), len(token_set),
-                       hidden_layer_size, distr_over_consts,
-                       True if const_variance is None else False)
-
-        self._max_depth = max_depth
-        self._max_num_tokens = max_num_tokens
-        self._token_set = token_set
-        self._distr_over_consts = distr_over_consts
-
-        self._consts_mask = consts_mask
-        self._un_ops_consts_mask = un_ops_consts_mask
-
-        # Variance for normal distribution over constants
-        # If set to None, this is also optimised
-        self._const_variance = const_variance
-
-    def sample(self):
-
-        self._net.reset(1)
-
-        # Loop until max depth or sufficient number of constants have been
-        # sampled
-        tokens = []
-        x = torch.zeros(self._net.num_inputs())
-        num_consts_required = 1
-
-        while num_consts_required > 0:
-
-            pre_softmax_mask = None
-            # Apply mask to only sample unary operators and constants
-            if self._max_num_tokens - len(tokens) <= num_consts_required + 1:
-                pre_softmax_mask = self._un_ops_consts_mask
-
-            # Apply mask to only sample constants
-            if self._max_num_tokens - len(tokens) <= num_consts_required:
-                pre_softmax_mask = self._consts_mask
-
-            # Pass input through network
-            out = self._net.forward(x, pre_softmax_mask).detach().numpy()
-
-            # Sample token from categorical distribution
-            token = copy.deepcopy(
-                np.random.choice(
-                    self._token_set, 1, p=out[:len(self._token_set)]
-                )[0]
-            )
-
-            # If token is distr_const and distribution over constants is on
-            # then sample value from distribution
-            if self._distr_over_consts and token['op'] == 'distr_const':
-
-                # Variance of const distribution is either given in config
-                # or optimised
-                const_variance = out[-1] if self._const_variance is None \
-                                         else self._const_variance
-                # Sample
-                token['value'] = np.random.normal(loc=out[-2],
-                                                  scale=const_variance)
-
-            # Generate next network input
-            x = torch.zeros_like(x)
-            x[token['id']] = 1.0
-
-            # TODO: Might have to input sampled value for constants back into
-            # the network
-
-            # Increase or decrease the number of constants required
-            # depending on the sample token type
-            match token['type']:
-                case 'bin_op':
-                    num_consts_required += 1
-                case 'const':
-                    num_consts_required -= 1
-
-            token['pre_softmax_mask'] = copy.deepcopy(pre_softmax_mask)
-
-            tokens.append(token)
-
-        return Equation(tokens)
-
-    # Sample from q and also optimise const tokens of sampled equation
-    def sample_and_optimise(self, data, log_likelihood_func):
-
-        eq = self.sample()
-
-        # Do not optimise if using distribution over constants
-        if self._distr_over_consts:
-            return eq
-        else:
-            return optimise_eq_consts(eq, data, log_likelihood_func)
-
-    # Calculate probability of an equation, z, under q
-    def pdf(self, z):
-
-        self._net.reset(1)
-
-        x = torch.zeros(self._net.num_inputs())
-
-        probs = []
-        for t in z.tokens():
-
-            out = self._net.forward(x, t['pre_softmax_mask'])
-
-            # TODO: I might not have to generate a one hot encoding and
-            # multiply, I might just be able to index the tensor?
-            # Generate one hot vector for current token
-            one_hot = torch.zeros(self._net.num_inputs())
-            one_hot[t['id']] = 1.0
-
-            probs.append(torch.sum(out[:len(self._token_set)] * one_hot))
-
-            if self._distr_over_consts and t['sub_type'] == 'float_const':
-
-                # Variance of const distribution is either given in config
-                # or optimised
-                const_variance = out[-1] if self._const_variance is None \
-                                         else self._const_variance
-
-                probs.append(torch.exp(torch.distributions.normal.Normal(
-                    loc=out[-2], scale=const_variance
-                ).log_prob(torch.tensor(t['value']))))
-
-            # Set next network input
-            x = one_hot.clone().detach()
-
-        return math.prod(probs)
-
-    # Calculate log probability of an equation, z, under q
-    def log_pdf(self, z):
-
-        self._net.reset(1)
-
-        x = torch.zeros(self._net.num_inputs())
-
-        log_probs = []
-        for t in z.tokens():
-
-            out = self._net.forward(x, t['pre_softmax_mask'])
-
-            # Generate one hot vector for current token
-            one_hot = torch.zeros(self._net.num_inputs())
-            one_hot[t['id']] = 1.0
-
-            log_probs.append(torch.log(
-                torch.sum(out[:len(self._token_set)] * one_hot)
-            ))
-
-            if self._distr_over_consts and t['sub_type'] == 'float_const':
-
-                # Variance of const distribution is either given in config
-                # or optimised
-                const_variance = out[-1] if self._const_variance is None \
-                                         else self._const_variance
-
-                log_probs.append(torch.distributions.normal.Normal(
-                    loc=out[-2], scale=const_variance
-                ).log_prob(torch.tensor(t['value'])))
-
-            # Set next network input
-            x = one_hot.clone().detach()
-
-        return sum(log_probs)
-
-    # Get all network outputs for a particular equation
-    def net_outs(self, z):
-
-        self._net.reset(1)
-
-        x = torch.zeros(self._net.num_inputs())
-
-        net_outs = []
-        for t in z.tokens():
-
-            out = self._net.forward(x, t['pre_softmax_mask'])
-            net_outs.append(out)
-
-            # TODO: I might not have to generate a one hot encoding and
-            # multiply, I might just be able to index the tensor?
-            # Generate one hot vector for current token
-            one_hot = torch.zeros(self._net.num_inputs())
-            one_hot[t['id']] = 1.0
-
-            # Set next network input
-            x = one_hot.clone().detach()
-
-        return torch.stack(net_outs).detach().numpy()
-
-    # Get means and variances output by the network for all constants in
-    # an equation
-    def get_consts_params(self, z):
-        return [[out[-2], out[-1]]
-                for out, token in zip(self.net_outs(z), z.tokens())
-                if token['op'] == 'distr_const']
-
-
-class NN(torch.nn.Module):
-
-    def __init__(self, num_inputs, num_outputs, hidden_size,
-                 distr_over_consts: bool, const_variance: bool):
-        super().__init__()
-
-        self._hidden_size = hidden_size
-
-        self._l1 = None
-        self._consts_layer = None
-
-        if hidden_size == 0:
-
-            self._l2 = torch.nn.Linear(num_inputs, num_outputs)
-
-            if distr_over_consts:
-                self._consts_layer = torch.nn.Linear(num_inputs, 2)
-
-        else:
-            self._l1 = torch.nn.GRUCell(num_inputs, self._hidden_size)
-            self._l2 = torch.nn.Linear(self._hidden_size, num_outputs)
-
-            if distr_over_consts:
-                self._consts_layer = torch.nn.Linear(self._hidden_size, 2)
-
-        self._num_inputs = num_inputs
-        self._num_outputs = num_outputs
-
-        self._const_variance = const_variance
-
-    def forward(self, x, pre_softmax_mask=None):
-
-        # Check hidden state has been initialised
-        if not hasattr(self, '_hx'):
-            raise RuntimeError('Must call reset() before forward()')
-
-        # GRU layer
-        if self._l1 is not None:
-            x = self._l1(x, self._hx)
-            self._hx = x
-
-        # Linear layer that produces logits for the categorical distribution
-        cat_logits = self._l2(x)
-
-        # Apply binary mask before the softmax - this is equivalent to
-        # preventing some of the tokens being sampled
-        # TODO: I do not know whether this should be in-place
-        if pre_softmax_mask is not None:
-            cat_logits += pre_softmax_mask
-
-        # Softmax layer that converts logits to probabilities
-        cat_params = torch.nn.functional.softmax(cat_logits, dim=0)
-        output = cat_params
-
-        # Output parameter of constant distribution
-        if self._consts_layer is not None:
-            const_out = self._consts_layer(x)
-
-            if self._const_variance:
-                const_out = torch.where(
-                    torch.tensor([False, True]),
-                    torch.nn.functional.softplus(const_out),
-                    const_out
-                )
-
-            output = torch.cat((output, const_out), dim=0)
-
-        return output
-
-    def reset(self, batch_size):
-        self._hx = torch.zeros(self._hidden_size)
-
-    def num_inputs(self):
-        return self._num_inputs
-
-    def num_outputs(self):
-        return self._num_outputs
-
-
-# Optimise consts in equation to maximise log likelihood
-def optimise_eq_consts(eq, data, log_likelihood_func):
-
-    # If there are no consts to optimise just return original equation
-    if eq.num_opt_consts() == 0:
-        return eq
-
-    # Initial guess of all ones
-    init_x = np.ones(eq.num_opt_consts())
-
-    def min_func(x, eq, data, log_likelihood_func):
-
-        # Evaluate equation with opt consts set as x
-        eq.set_opt_consts(x)
-
-        log_likelihood = log_likelihood_func(data, eq)
-
-        return -log_likelihood
-
-    # Optimise log likelihood with respect to op constants
-    res = scipy.optimize.minimize(min_func, init_x,
-                                  args=(eq, data, log_likelihood_func),
-                                  method='bfgs')
-
-    if not res['success']:
-        raise RuntimeError('Scipy minimize failed')
-
-    eq.set_opt_consts(res['x'])
-
-    return eq

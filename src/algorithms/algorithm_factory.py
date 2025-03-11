@@ -28,7 +28,7 @@ except ImportError as e:
 '''
 
 try:
-    from algorithms.vicatsr import VICatSR
+    from algorithms.vicatsr.vicatsr import VICatSR
 except ImportError as e:
     print('Could not import the VICatSR algorithm')
     print(e)
