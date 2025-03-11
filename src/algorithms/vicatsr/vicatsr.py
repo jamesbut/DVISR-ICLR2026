@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import torch
 from .q import q
 from .equation import Equation, optimise_eq_consts
+from .behaviour_policy import BehaviourPolicy
 import copy
 
 
@@ -134,9 +135,10 @@ class VICatSR(Algorithm):
 
         for i in range(self._num_steps):
 
-            # Sample z from surrogate q
-            sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
-                         for i in range(self._num_eq_samples)]
+            # Sample z from behaviour policy
+            sampled_z = \
+                [self._behaviour_policy.sample_and_optimise(data, log_likelihood)
+                 for i in range(self._num_eq_samples)]
 
             # Calculate likelihoods of sampled models
             log_likelihoods = torch.tensor(
@@ -144,20 +146,14 @@ class VICatSR(Algorithm):
                 requires_grad=False
             )
 
-            '''
-            all_exps = enumerate_expressions(self._token_set, self._max_num_tokens)
-            for e in all_exps:
-                print(e.get_infix())
-            exit()
-            '''
-
-            '''
-            for z, l in zip(sampled_z, log_likelihoods):
-                print('z: ' + z.get_infix() + '    likelihood: ' + str(l))
-            exit()
-            '''
-
+            # Set the reward to the log likelihood
             rewards = log_likelihoods
+
+            # Apply importance weights
+            rewards = [self._behaviour_policy.importance_weight(z) * r
+                       for r, z in zip(rewards, sampled_z)]
+
+            # Subtract baseline from rewards
             baseline = rewards.mean()
             rewards = rewards - baseline
 
@@ -197,9 +193,15 @@ class VICatSR(Algorithm):
         kl_divs = []
         for i in range(self._num_steps):
 
-            # Calculate ELBO
-            elbos, sampled_z = self.elbos(data, self._num_eq_samples)
+            # Sample z from behaviour policy
+            sampled_z = \
+                [self._behaviour_policy.sample_and_optimise(data, log_likelihood)
+                 for i in range(self._num_eq_samples)]
 
+            # Calculate ELBO
+            elbos = self.elbos(data, sampled_z)
+
+            # Track values of interest
             if self._distr_over_consts:
                 mu = self._q.net_outs(sampled_z[0])[-1][-2]
                 mus.append(mu)
@@ -208,7 +210,14 @@ class VICatSR(Algorithm):
                 kl_divergence = self.kl_divergence(data, num_samples=100)
                 kl_divs.append(kl_divergence)
 
+            # Set reward to the elbo
             rewards = elbos
+
+            # Apply importance weights
+            rewards = [self._behaviour_policy.importance_weight(z) * r
+                       for r, z in zip(rewards, sampled_z)]
+
+            # Subtract baseline from rewards
             baseline = rewards.mean()
             rewards = rewards - baseline
 
@@ -303,6 +312,10 @@ class VICatSR(Algorithm):
                     self._max_depth, self._max_num_tokens,
                     self._distr_over_consts, self._q_const_variance,
                     self._consts_mask, self._un_ops_consts_mask)
+
+        # Use separate behaviour policy if specified
+        self._behaviour_policy = BehaviourPolicy(self._q, self._token_set,
+                                                 self._max_num_tokens)
 
     def _prior(self, z):
 
@@ -411,37 +424,37 @@ class VICatSR(Algorithm):
     # Calculate list of values such that when you take the mean, you get the
     # ELBO.
     # Also returns sampled models
-    def elbos(self, data, num_samples):
-
-        # Sample z from surrogate q
-        sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
-                     for i in range(num_samples)]
+    def elbos(self, data, samples):
 
         # Calculate log likelihoods of sampled models
         log_likelihoods = torch.tensor(
-            [log_likelihood(data, z) for z in sampled_z],
+            [log_likelihood(data, z) for z in samples],
             requires_grad=False
         )
 
         # Calculate log q(z) under the surrogate distribution for samples
         # models
         log_q_zs = torch.stack(
-            [self._q.log_pdf(z) for z in sampled_z]
+            [self._q.log_pdf(z) for z in samples]
         ).detach()
 
         # Calculate priors, ln p(z), for sampled models
         log_priors = torch.tensor(
-            [self._log_prior(z) for z in sampled_z],
+            [self._log_prior(z) for z in samples],
             requires_grad=False
         )
 
         # Calculate ELBO
-        return log_likelihoods + log_priors - log_q_zs, sampled_z
+        return log_likelihoods + log_priors - log_q_zs
 
     # Calculate the KL divergence between q(z) and p(z|x)
     def kl_divergence(self, data, num_samples):
 
-        elbo = self.elbos(data, num_samples)[0].mean()
+        # Sample z from q
+        samples = [self._behaviour_policy.sample(data, log_likelihood)
+                   for i in range(num_samples)]
+
+        elbo = self.elbos(data, samples)[0].mean()
 
         # Enumerate all expressions
         all_z = self._enumerate_expressions(data)

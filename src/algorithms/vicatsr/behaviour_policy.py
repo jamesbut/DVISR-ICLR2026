@@ -44,6 +44,16 @@ class BehaviourPolicy:
         else:
             return self._pdf(z)
 
+    # Determine importance weight for a particular equation
+    def importance_weight(self, z):
+
+        # If target policy is used as the behavioural policy importance weight
+        # is 1.0
+        if self._use_target_policy:
+            return 1.0
+
+        return self._target_policy.pdf(z) / self.pdf(z)
+
     # Sample from this behavioural policy
     def _sample(self):
 
@@ -129,5 +139,5 @@ class BehaviourPolicy:
             return [prob if t['type'] == 'const' else 0.0
                     for t in self._token_set]
 
-        # The default case - sample everything
+        # The default case - sample from all tokens
         return [1 / len(self._token_set)] * len(self._token_set)
