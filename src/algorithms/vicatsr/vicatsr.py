@@ -245,11 +245,12 @@ class VICatSR(Algorithm):
                 plt.plot(range(self._num_steps), kl_divs)
                 plt.show()
 
+        '''
         sampled_z = [self._behaviour_policy.sample_and_optimise(data, log_likelihood)
                      for i in range(self._num_eq_samples)]
         for z in sampled_z:
             print('z: ' + z.get_infix())
-        print('---------------------')
+        '''
 
         if self._calc_posteriors_flag:
 

@@ -112,11 +112,37 @@ class VICatSR(unittest.TestCase):
         self.assertLessEqual(q.pdf(all_exps[0]).item(), 0.01)
         self.assertGreaterEqual(q.pdf(all_exps[1]).item(), 0.99)
 
-    def test_elbo_distr_consts(self):
+    def test_elbo_distr_consts_no_x(self):
 
         self._config['algorithm']['learning_rate'] = 2e-4
         self._config['algorithm']['remove_x_vars'] = True
-        self._config['algorithm']['plotting'] = False
+
+        # Create algoritm
+        alg = create_algorithm(self._config['algorithm'])
+
+        # Train
+        q, true_pos, all_exps = alg.train(self._data)
+
+        # Get const mean and variance
+        consts_params = q.get_consts_params(all_exps[0])
+        mean = consts_params[0][0]
+        variance = consts_params[0][1]
+
+        print('Mean:', mean)
+        print('Variance:', variance)
+
+        # Check the parameters for the distribution over constants has
+        # optimised
+        self.assertLessEqual(mean, 0.37)
+        self.assertGreaterEqual(mean, 0.33)
+        self.assertLessEqual(variance, 0.32)
+        self.assertGreaterEqual(variance, 0.28)
+
+    def test_elbo_distr_consts_separate_behaviour_policy(self):
+
+        self._config['algorithm']['learning_rate'] = 2e-4
+        self._config['algorithm']['use_target_as_behaviour_policy'] = False
+        self._config['algorithm']['num_eq_samples'] = 25
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
