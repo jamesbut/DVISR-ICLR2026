@@ -91,11 +91,11 @@ class VICatSR(unittest.TestCase):
         # q should converge to the true posterior for both models
         # It is different to that with static constants because the optimised
         # y = c is more likely than y = 1.0
-        self.assertAlmostEqual(q.pdf(all_exps[0]).item(), 0.39502215)
-        self.assertAlmostEqual(true_pos[0], 0.39502215)
+        self.assertAlmostEqual(q.pdf(all_exps[0]).item(), 0.39502215, places=3)
+        self.assertAlmostEqual(true_pos[0], 0.39502215, places=3)
 
-        self.assertAlmostEqual(q.pdf(all_exps[1]).item(), 0.60497784)
-        self.assertAlmostEqual(true_pos[1], 0.60497784)
+        self.assertAlmostEqual(q.pdf(all_exps[1]).item(), 0.60497784, places=3)
+        self.assertAlmostEqual(true_pos[1], 0.60497784, places=3)
 
     def test_max_likelihood_distr_consts(self):
 

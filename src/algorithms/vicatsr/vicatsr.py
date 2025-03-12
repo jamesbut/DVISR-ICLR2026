@@ -141,17 +141,16 @@ class VICatSR(Algorithm):
                  for i in range(self._num_eq_samples)]
 
             # Calculate likelihoods of sampled models
-            log_likelihoods = torch.tensor(
-                [log_likelihood(data, z) for z in sampled_z],
-                requires_grad=False
-            )
+            log_likelihoods = [log_likelihood(data, z) for z in sampled_z]
 
             # Set the reward to the log likelihood
             rewards = log_likelihoods
 
             # Apply importance weights
-            rewards = [self._behaviour_policy.importance_weight(z) * r
-                       for r, z in zip(rewards, sampled_z)]
+            rewards = np.array(
+                [self._behaviour_policy.importance_weight(z) * r
+                 for r, z in zip(rewards, sampled_z)]
+            )
 
             # Subtract baseline from rewards
             baseline = rewards.mean()
@@ -214,8 +213,10 @@ class VICatSR(Algorithm):
             rewards = elbos
 
             # Apply importance weights
-            rewards = [self._behaviour_policy.importance_weight(z) * r
-                       for r, z in zip(rewards, sampled_z)]
+            rewards = np.array(
+                [self._behaviour_policy.importance_weight(z) * r
+                 for r, z in zip(rewards, sampled_z)]
+            )
 
             # Subtract baseline from rewards
             baseline = rewards.mean()
@@ -451,7 +452,8 @@ class VICatSR(Algorithm):
     def kl_divergence(self, data, num_samples):
 
         # Sample z from q
-        samples = [self._behaviour_policy.sample(data, log_likelihood)
+        samples = [self._behaviour_policy.sample_and_optimise(data,
+                                                              log_likelihood)
                    for i in range(num_samples)]
 
         elbo = self.elbos(data, samples)[0].mean()

@@ -52,7 +52,7 @@ class BehaviourPolicy:
         if self._use_target_policy:
             return 1.0
 
-        return self._target_policy.pdf(z) / self.pdf(z)
+        return (self._target_policy.pdf(z) / self.pdf(z)).item()
 
     # Sample from this behavioural policy
     def _sample(self):
