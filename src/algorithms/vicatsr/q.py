@@ -204,3 +204,9 @@ class q:
         return [[out[-2], out[-1]]
                 for out, token in zip(self.net_outs(z), z.tokens())
                 if token['op'] == 'distr_const']
+
+    def consts_mask(self):
+        return self._consts_mask
+
+    def un_ops_consts_mask(self):
+        return self._un_ops_consts_mask

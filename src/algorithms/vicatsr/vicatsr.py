@@ -106,6 +106,10 @@ class VICatSR(Algorithm):
         # Flag whether to calculate posteriors at the end of training
         self._calc_posteriors_flag = config.get('calculate_posteriors', True)
 
+        # Flag to determine which behaviour policy to use
+        self._use_target_policy = config.get('use_target_as_behaviour_policy',
+                                             True)
+
         # Evidence only needs to be computed once
         self._evidence = None
 
@@ -241,12 +245,11 @@ class VICatSR(Algorithm):
                 plt.plot(range(self._num_steps), kl_divs)
                 plt.show()
 
-        '''
-        sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
+        sampled_z = [self._behaviour_policy.sample_and_optimise(data, log_likelihood)
                      for i in range(self._num_eq_samples)]
         for z in sampled_z:
-            print('z: ' + z.get_infix() + '    pdf: ' + str(self._q.pdf(z)[0].item()))
-        '''
+            print('z: ' + z.get_infix())
+        print('---------------------')
 
         if self._calc_posteriors_flag:
 
@@ -316,7 +319,8 @@ class VICatSR(Algorithm):
 
         # Use separate behaviour policy if specified
         self._behaviour_policy = BehaviourPolicy(self._q, self._token_set,
-                                                 self._max_num_tokens)
+                                                 self._max_num_tokens,
+                                                 self._use_target_policy)
 
     def _prior(self, z):
 

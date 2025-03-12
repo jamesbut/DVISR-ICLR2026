@@ -29,6 +29,7 @@
         "plotting": true,
         "track_kl_divergence": false,
         "calculate_posteriors": true,
+        "use_target_as_behaviour_policy": false,
         "x_seed": 18
     }
 }
