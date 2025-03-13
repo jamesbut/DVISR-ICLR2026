@@ -2,6 +2,7 @@ from domains.domain import Domain
 import pandas as pd
 import ast
 import numpy as np
+from utils.function import surround_sub_strings_with_delimiters, Function
 
 
 class DSOBenchmarks(Domain):
@@ -29,13 +30,23 @@ class DSOBenchmarks(Domain):
 
         super().__init__(config)
 
-        self._expr = this_benchmark['expression']
+        # Build expression
+        self._expr_str = this_benchmark['expression']
+        self._expr_str = surround_sub_strings_with_delimiters(
+            self._expr_str,
+            ['x' + str(i) for i in range(1, self._num_vars + 1)]
+        )
+        self._expr = Function(self._expr_str)
 
     def evaluate(self, x):
 
-        print(x)
+        # Build function argument dictionary from x values
+        func_kwargs = {f'x{i+1}': x[:, i] for i in range(self._num_vars)}
 
-        exit()
+        # Evaluate expression
+        y = self._expr(**func_kwargs)
+
+        return y
 
     def create_x(self, config):
 
