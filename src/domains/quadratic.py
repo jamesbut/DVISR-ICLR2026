@@ -19,3 +19,6 @@ class Quadratic(Domain):
         y = self._a * x * x + self._b * x + self._c
 
         return np.ravel(y)
+
+    def create_x(self, config):
+        return Domain.evenly_spaced_x(config)

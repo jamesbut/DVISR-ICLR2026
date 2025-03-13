@@ -1,0 +1,30 @@
+{
+    "domain": {
+        "name": "DSOBenchmarks",
+        "dataset": "Nguyen-1"
+    },
+    "algorithm": {
+        "name": "VICatSR",
+        "operators": {
+            "binary_ops": ["*"],
+            "unary_ops": ["sin"]
+        },
+        "prior_mean": 0.0,
+        "prior_variance": 100.0,
+        "_q_const_variance": 0.1,
+        "num_steps": 500,
+        "_learning_rate": 1e-3,
+        "learning_rate": 2e-4,
+        "num_eq_samples": 100,
+        "_max_depth": 2,
+        "max_num_tokens": 1,
+        "rnn_hidden_layer_size": 256,
+        "_rnn_hidden_layer_size": 0,
+        "remove_x_vars": false,
+        "plotting": true,
+        "track_kl_divergence": false,
+        "calculate_posteriors": true,
+        "use_target_as_behaviour_policy": false,
+        "x_seed": 18
+    }
+}

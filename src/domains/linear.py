@@ -18,3 +18,6 @@ class Linear(Domain):
         y = self._m * x + self._c
 
         return np.ravel(y)
+
+    def create_x(self, config):
+        return Domain.evenly_spaced_x(config)
