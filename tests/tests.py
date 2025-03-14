@@ -143,6 +143,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['learning_rate'] = 2e-4
         self._config['algorithm']['use_target_as_behaviour_policy'] = False
         self._config['algorithm']['num_eq_samples'] = 25
+        self._config['algorithm']['plotting'] = True
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])

@@ -1,12 +1,15 @@
 {
     "domain": {
-        "name": "DSOBenchmarks",
-        "dataset": "Nguyen-1"
+        "name": "WrittenExpression",
+        "expression": "`x1` * `x1` + `x1`",
+        "x_mins": [-1.0],
+        "x_maxs": [1.0],
+        "x_step_sizes": [0.1]
     },
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "binary_ops": ["*"],
+            "binary_ops": ["*", "+"],
             "_unary_ops": ["sin"]
         },
         "prior_mean": 0.0,
@@ -14,10 +17,10 @@
         "_q_const_variance": 0.1,
         "num_steps": 500,
         "_learning_rate": 1e-3,
-        "learning_rate": 2e-4,
-        "num_eq_samples": 100,
+        "learning_rate": 5e-4,
+        "num_eq_samples": 10,
         "_max_depth": 2,
-        "max_num_tokens": 12,
+        "max_num_tokens": 5,
         "rnn_hidden_layer_size": 256,
         "_rnn_hidden_layer_size": 0,
         "remove_x_vars": false,

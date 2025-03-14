@@ -59,13 +59,19 @@ class VICatSR(Algorithm):
 
         else:
 
-            self._token_set.append({"op": "distr_const", "type": "const",
-                                    "sub_type": "float_const",
-                                    "value": None,
-                                    "id": self._token_id})
-            self._token_id += 1
-            self._distr_over_consts = True
-            self._q_const_variance = config.get('q_const_variance', None)
+            if 'distr_over_consts' in config and not config['distr_over_consts']:
+                self._distr_over_consts = False
+                self._q_const_variance = None
+
+            else:
+
+                self._token_set.append({"op": "distr_const", "type": "const",
+                                        "sub_type": "float_const",
+                                        "value": None,
+                                        "id": self._token_id})
+                self._token_id += 1
+                self._distr_over_consts = True
+                self._q_const_variance = config.get('q_const_variance', None)
 
         # Number of equations sampled to calculate expected loss
         self._num_eq_samples = config['num_eq_samples']
@@ -150,15 +156,24 @@ class VICatSR(Algorithm):
             # Set the reward to the log likelihood
             rewards = log_likelihoods
 
+            # Calculate importance weights
+            importance_weights = [self._behaviour_policy.importance_weight(z)
+                                  for z in sampled_z]
+
+            for z, r, w in zip(sampled_z, rewards, importance_weights):
+                print(f"{z.get_infix()}      {r}                {w}")
+            exit()
+
             # Apply importance weights
             rewards = np.array(
-                [self._behaviour_policy.importance_weight(z) * r
-                 for r, z in zip(rewards, sampled_z)]
+                [w * r for r, w in zip(rewards, importance_weights)]
             )
 
             # Subtract baseline from rewards
             baseline = rewards.mean()
             rewards = rewards - baseline
+
+            # exit()
 
             loss = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
@@ -181,7 +196,9 @@ class VICatSR(Algorithm):
         '''
 
         all_exps = self._enumerate_expressions(data)
-        for z in all_exps:
+        all_exps_sorted = sorted(all_exps, key=lambda z: self._q.pdf(z).item(),
+                                 reverse=True)
+        for z in all_exps_sorted:
             print('z: ' + z.get_infix() + '    q(z): '
                   + str(self._q.pdf(z).item()) + '     p(x|z): '
                   + str(likelihood(data, z)))
@@ -216,10 +233,19 @@ class VICatSR(Algorithm):
             # Set reward to the elbo
             rewards = elbos
 
+            # Calculate importance weights
+            importance_weights = [self._behaviour_policy.importance_weight(z)
+                                  for z in sampled_z]
+
+            '''
+            for z, r, w in zip(sampled_z, rewards, importance_weights):
+                print(f"{z.get_infix()}      {r}                {w}")
+            exit()
+            '''
+
             # Apply importance weights
             rewards = np.array(
-                [self._behaviour_policy.importance_weight(z) * r
-                 for r, z in zip(rewards, sampled_z)]
+                [w * r for r, w in zip(rewards, importance_weights)]
             )
 
             # Subtract baseline from rewards

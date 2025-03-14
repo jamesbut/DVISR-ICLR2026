@@ -38,8 +38,7 @@ class BehaviourPolicy:
 
     # Determine the pdf of a particular equation under the behavioural policy
     def pdf(self, z):
-
-        if self._use_target_policy is not None:
+        if self._use_target_policy:
             return self._target_policy.pdf(z)
         else:
             return self._pdf(z)
@@ -47,12 +46,17 @@ class BehaviourPolicy:
     # Determine importance weight for a particular equation
     def importance_weight(self, z):
 
+        # TODO: Remove
+        # When I uncomment this the posterior and q line up perfectly for
+        # the last test, otherwise the the q is much bigger, why?
+        # return 1.0
+
         # If target policy is used as the behavioural policy importance weight
         # is 1.0
         if self._use_target_policy:
             return 1.0
 
-        return (self._target_policy.pdf(z) / self.pdf(z)).item()
+        return (self._target_policy.pdf(z) / self._pdf(z)).item()
 
     # Sample from this behavioural policy
     def _sample(self):
@@ -64,7 +68,7 @@ class BehaviourPolicy:
 
             # Determine parameters of categorical distribution
             p, pre_softmax_mask = self._determine_p(num_consts_required,
-                                                    tokens)
+                                                    len(tokens))
 
             # Sample token
             token = copy.deepcopy(np.random.choice(self._token_set, 1, p=p)[0])
@@ -103,7 +107,7 @@ class BehaviourPolicy:
         for i, t in enumerate(z.tokens()):
 
             # Determine parameters of categorical distribution
-            p = self._determine_p(num_consts_required, z.tokens()[:i + 1])
+            p, _ = self._determine_p(num_consts_required, i)
 
             # Determine probability of selecting token
             pdfs.append(p[t['id']])
@@ -129,21 +133,21 @@ class BehaviourPolicy:
         return math.prod(pdfs)
 
     # Also returns pre_softmax_mask for token
-    def _determine_p(self, num_consts_required, sampled_tokens):
+    def _determine_p(self, num_consts_required, num_sampled_tokens):
 
         # The default case - sample from all tokens
         p = [1 / len(self._token_set)] * len(self._token_set)
         pre_softmax_mask = None
 
         # Only sample unary operators and constants
-        if self._max_num_tokens - len(sampled_tokens) <= num_consts_required + 1:
+        if self._max_num_tokens - num_sampled_tokens <= num_consts_required + 1:
             prob = 1 / (self._num_consts + self._num_unary_ops)
             p = [prob if t['type'] == 'const' or t['type'] == 'un_op' else 0.0
                  for t in self._token_set]
             pre_softmax_mask = self._target_policy.un_ops_consts_mask()
 
         # Only sample constants
-        if self._max_num_tokens - len(sampled_tokens) <= num_consts_required:
+        if self._max_num_tokens - num_sampled_tokens <= num_consts_required:
             prob = 1 / self._num_consts
             p = [prob if t['type'] == 'const' else 0.0
                  for t in self._token_set]

@@ -22,6 +22,14 @@ class Function():
 
         self._func = scope['func']
 
+    # Get the number of distinct variables in the function
+    def num_vars(self):
+
+        # Extract all 'var' values
+        matches = re.findall(r"kwargs\['(.*?)'\]", self._kwargs_func)
+        # Count unique ones
+        return len(set(matches))
+
     def __call__(self, **kwargs):
         return self._func(**kwargs)
 
