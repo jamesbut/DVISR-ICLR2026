@@ -151,29 +151,31 @@ class VICatSR(Algorithm):
                  for i in range(self._num_eq_samples)]
 
             # Calculate likelihoods of sampled models
-            log_likelihoods = [log_likelihood(data, z) for z in sampled_z]
+            log_likelihoods = np.array(
+                [log_likelihood(data, z) for z in sampled_z]
+            )
 
             # Set the reward to the log likelihood
             rewards = log_likelihoods
 
+            # Subtract baseline from rewards
+            baseline = rewards.mean()
+            rewards = rewards - baseline
+
             # Calculate importance weights
             importance_weights = [self._behaviour_policy.importance_weight(z)
                                   for z in sampled_z]
-
-            for z, r, w in zip(sampled_z, rewards, importance_weights):
-                print(f"{z.get_infix()}      {r}                {w}")
-            exit()
 
             # Apply importance weights
             rewards = np.array(
                 [w * r for r, w in zip(rewards, importance_weights)]
             )
 
-            # Subtract baseline from rewards
-            baseline = rewards.mean()
-            rewards = rewards - baseline
-
-            # exit()
+            '''
+            for z, r, w in zip(sampled_z, rewards, importance_weights):
+                print(f"{z.get_infix()}      {r}                {w}")
+            exit()
+            '''
 
             loss = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
@@ -233,6 +235,10 @@ class VICatSR(Algorithm):
             # Set reward to the elbo
             rewards = elbos
 
+            # Subtract baseline from rewards
+            baseline = rewards.mean()
+            rewards = rewards - baseline
+
             # Calculate importance weights
             importance_weights = [self._behaviour_policy.importance_weight(z)
                                   for z in sampled_z]
@@ -240,17 +246,13 @@ class VICatSR(Algorithm):
             '''
             for z, r, w in zip(sampled_z, rewards, importance_weights):
                 print(f"{z.get_infix()}      {r}                {w}")
-            exit()
+            # exit()
             '''
 
             # Apply importance weights
             rewards = np.array(
                 [w * r for r, w in zip(rewards, importance_weights)]
             )
-
-            # Subtract baseline from rewards
-            baseline = rewards.mean()
-            rewards = rewards - baseline
 
             loss = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]

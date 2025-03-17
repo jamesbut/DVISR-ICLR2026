@@ -141,9 +141,9 @@ class VICatSR(unittest.TestCase):
     def test_elbo_distr_consts_separate_behaviour_policy(self):
 
         self._config['algorithm']['learning_rate'] = 2e-4
-        self._config['algorithm']['use_target_as_behaviour_policy'] = False
-        self._config['algorithm']['num_eq_samples'] = 25
-        self._config['algorithm']['plotting'] = True
+        self._config['algorithm']['use_target_as_behaviour_policy'] = True
+        self._config['algorithm']['num_eq_samples'] = 100
+        self._config['algorithm']['plotting'] = False
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
