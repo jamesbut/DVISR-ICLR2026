@@ -179,13 +179,16 @@ class VICatSR(Algorithm):
             '''
             for z, r, w in zip(sampled_z, rewards, importance_weights):
                 print(f"{z.get_infix()}      {r}                {w}")
-            exit()
+                net_outs = self._q.net_outs(z)
+                print(net_outs)
             '''
 
             losses = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
             )
             loss = losses.mean()
+            # print('loss:', loss)
+            # exit()
 
             print('Step: {}   Loss: {}'.format(str(i), loss.item()))
 

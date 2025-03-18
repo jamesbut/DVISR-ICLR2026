@@ -137,7 +137,7 @@ class q:
             # Set next network input
             x = one_hot.clone().detach()
 
-        return math.prod(probs)
+        return torch.prod(torch.stack(probs))
 
     # Calculate log probability of an equation, z, under q
     def log_pdf(self, z):
@@ -173,7 +173,7 @@ class q:
             # Set next network input
             x = one_hot.clone().detach()
 
-        return sum(log_probs)
+        return torch.sum(torch.stack(log_probs))
 
     # Get all network outputs for a particular equation
     def net_outs(self, z):
