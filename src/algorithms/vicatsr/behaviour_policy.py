@@ -6,15 +6,40 @@ import copy
 import numpy as np
 import math
 import scipy
+import random
+from enum import Enum, auto
+
+
+class BPStrategy(Enum):
+    target = auto()
+    enumerate_all = auto()
+    equal_prob_tokens = auto()
 
 
 class BehaviourPolicy:
 
-    def __init__(self, target_policy, token_set, max_num_tokens,
-                 use_target_policy=False):
+    def __init__(self, name, target_policy, token_set, max_num_tokens,
+                 all_eqs=None):
 
-        # Use target policy as behavioural policy
-        self._use_target_policy = use_target_policy
+        if name not in BPStrategy.__members__.keys():
+            raise KeyError(f'{name} not a behaviour policy strategy')
+
+        self._strategy = BPStrategy[name]
+
+        # All enumerated equations need to be provided for the 'enumerate_all'
+        # behaviour policy
+        if name == 'enumerate_all' and all_eqs is None:
+            raise ValueError('Must provided enumerate equations in order to '
+                             'use the enumerate_all behaviour strategy')
+        else:
+            self._all_eqs = all_eqs
+
+        # Enumerate all policy cannot be used if there are distr_consts in the
+        # token set
+        if sum(1 for t in token_set if t['op'] == 'dist_const') > 0:
+            raise ValueError('Enumerate all policy cannot be used if there '
+                             'are dist_const in the token set')
+
         self._target_policy = target_policy
 
         self._token_set = token_set
@@ -28,33 +53,42 @@ class BehaviourPolicy:
 
     def sample(self):
 
-        if self._use_target_policy:
-            return self._target_policy.sample()
-        else:
-            return self._sample()
+        # Sample according to the particular behavioural policy
+        match self._strategy:
+            case BPStrategy.target:
+                return self._target_policy.sample()
+            case BPStrategy.enumerate_all:
+                return self._sample_enum_all()
+            case BPStrategy.equal_prob_tokens:
+                return self._sample_eq_prob_tokens()
 
     def sample_and_optimise(self, data, log_likelihood_func):
         return optimise_eq_consts(self.sample(), data, log_likelihood_func)
 
     # Determine the pdf of a particular equation under the behavioural policy
     def pdf(self, z):
-        if self._use_target_policy:
-            return self._target_policy.pdf(z)
-        else:
-            return self._pdf(z)
+
+        match self._strategy:
+            case BPStrategy.target:
+                return self._target_policy.pdf(z)
+            case BPStrategy.enumerate_all:
+                return self._pdf_enum_all(z)
+            case BPStrategy.equal_prob_tokens:
+                return self._pdf_eq_prob_tokens(z)
 
     # Determine importance weight for a particular equation
     def importance_weight(self, z):
 
         # If target policy is used as the behavioural policy importance weight
         # is 1.0
-        if self._use_target_policy:
+        if self._strategy == BPStrategy.target:
             return 1.0
 
-        return (self._target_policy.pdf(z) / self._pdf(z)).item()
+        return (self._target_policy.pdf(z) / self.pdf(z)).item()
 
-    # Sample from this behavioural policy
-    def _sample(self):
+    # Sample from behavioural policy that assigns an equal probability to all
+    # tokens for each step of the equation building
+    def _sample_eq_prob_tokens(self):
 
         tokens = []
         num_consts_required = 1
@@ -90,8 +124,14 @@ class BehaviourPolicy:
 
         return eq
 
-    # Determine pdf of using this behavioural policy
-    def _pdf(self, z):
+    # Samples uniformly according to all enumerated equations
+    def _sample_enum_all(self):
+        return random.choice(self._all_eqs)
+
+    # Determine pdf according to the behaviour policy where an equal
+    # probability is assigned to each token at each step of the equation
+    # building
+    def _pdf_eq_prob_tokens(self, z):
 
         pdfs = []
         num_consts_required = 1
@@ -126,6 +166,10 @@ class BehaviourPolicy:
                     num_consts_required -= 1
 
         return math.prod(pdfs)
+
+    # Determines pdf of policy that samples uniformly over all models
+    def _pdf_enum_all(self, z):
+        return 1.0 / len(self._all_eqs)
 
     # Also returns pre_softmax_mask for token
     def _determine_p(self, num_consts_required, num_sampled_tokens):

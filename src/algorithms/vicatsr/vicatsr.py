@@ -113,8 +113,7 @@ class VICatSR(Algorithm):
         self._calc_posteriors_flag = config.get('calculate_posteriors', True)
 
         # Flag to determine which behaviour policy to use
-        self._use_target_policy = config.get('use_target_as_behaviour_policy',
-                                             True)
+        self._behaviour_policy_name = config.get('behaviour_policy', 'target')
 
         # Evidence only needs to be computed once
         self._evidence = None
@@ -354,10 +353,17 @@ class VICatSR(Algorithm):
                     self._distr_over_consts, self._q_const_variance,
                     self._consts_mask, self._un_ops_consts_mask)
 
+        # If enumerate all behaviour policy is being used, enumerate models
+        # here
+        all_models = None
+        if self._behaviour_policy_name == 'enumerate_all':
+            all_models = self._enumerate_expressions(data)
+
         # Use separate behaviour policy if specified
-        self._behaviour_policy = BehaviourPolicy(self._q, self._token_set,
+        self._behaviour_policy = BehaviourPolicy(self._behaviour_policy_name,
+                                                 self._q, self._token_set,
                                                  self._max_num_tokens,
-                                                 self._use_target_policy)
+                                                 all_models)
 
     def _prior(self, z):
 
