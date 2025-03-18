@@ -18,13 +18,14 @@
         "prior_variance": 1.0,
         "_q_const_variance": 0.1,
         "num_steps": 500,
-        "_learning_rate": 1e-3,
-        "learning_rate": 2e-4,
         "num_eq_samples": 10,
-        "_max_depth": 2,
+        "target_policy": {
+            "_learning_rate": 1e-3,
+            "learning_rate": 3e-4,
+            "rnn_hidden_layer_size": 256,
+            "_rnn_hidden_layer_size": 0
+        },
         "max_num_tokens": 1,
-        "rnn_hidden_layer_size": 256,
-        "_rnn_hidden_layer_size": 0,
         "remove_x_vars": false,
         "plotting": false,
         "x_seed": 18

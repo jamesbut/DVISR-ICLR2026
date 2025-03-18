@@ -5,7 +5,8 @@ torch.set_default_dtype(torch.float64)
 class NN(torch.nn.Module):
 
     def __init__(self, num_inputs, num_outputs, hidden_size,
-                 distr_over_consts: bool, const_variance: bool):
+                 distr_over_consts: bool, const_variance: bool,
+                 init_gru_zero: bool):
         super().__init__()
 
         self._hidden_size = hidden_size
@@ -23,6 +24,14 @@ class NN(torch.nn.Module):
         else:
             self._l1 = torch.nn.GRUCell(num_inputs, self._hidden_size)
             self._l2 = torch.nn.Linear(self._hidden_size, num_outputs)
+
+            if init_gru_zero:
+                self._l1.apply(init_gru_weights_zero)
+
+            '''
+            print(self._l1.state_dict())
+            exit()
+            '''
 
             if distr_over_consts:
                 self._consts_layer = torch.nn.Linear(self._hidden_size, 2)
@@ -79,3 +88,15 @@ class NN(torch.nn.Module):
 
     def num_outputs(self):
         return self._num_outputs
+
+
+import torch.nn.init as init
+
+
+def init_gru_weights_zero(gru_cell):
+
+    # init.xavier_uniform_(gru_cell.weight_ih)  # Input-to-hidden weights
+    init.zeros_(gru_cell.weight_ih)  # Input-to-hidden weights
+    init.orthogonal_(gru_cell.weight_hh)      # Hidden-to-hidden weights
+    init.zeros_(gru_cell.bias_ih)             # Zero biases
+    init.zeros_(gru_cell.bias_hh)

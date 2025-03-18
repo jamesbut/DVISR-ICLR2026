@@ -13,14 +13,15 @@ from .equation import Equation, optimise_eq_consts
 
 class q:
 
-    def __init__(self, token_set, hidden_layer_size, max_depth,
+    def __init__(self, token_set, hidden_layer_size, init_gru_zero, max_depth,
                  max_num_tokens, distr_over_consts, const_variance,
                  consts_mask, un_ops_consts_mask):
 
         # Create recurrent neural network
         self._net = NN(len(token_set), len(token_set),
                        hidden_layer_size, distr_over_consts,
-                       True if const_variance is None else False)
+                       True if const_variance is None else False,
+                       init_gru_zero)
 
         self._max_depth = max_depth
         self._max_num_tokens = max_num_tokens

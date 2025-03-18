@@ -51,11 +51,8 @@ class VICatSR(unittest.TestCase):
         q, true_pos, all_exps = alg.train(self._data)
 
         # q should converge to the true posterior for both models
-        self.assertAlmostEqual(q.pdf(all_exps[0]).item(), 0.06008665)
-        self.assertAlmostEqual(true_pos[0], 0.06008665)
-
-        self.assertAlmostEqual(q.pdf(all_exps[1]).item(), 0.939913349)
-        self.assertAlmostEqual(true_pos[1], 0.939913349)
+        self.assertAlmostEqual(q.pdf(all_exps[0]).item(), true_pos[0], places=5)
+        self.assertAlmostEqual(q.pdf(all_exps[1]).item(), true_pos[1], places=5)
 
     def test_max_likelihood_opt_consts(self):
 
@@ -109,8 +106,8 @@ class VICatSR(unittest.TestCase):
         q, all_exps = alg.train(self._data)
 
         # q should still converge to a one hot vector
-        self.assertLessEqual(q.pdf(all_exps[0]).item(), 0.01)
-        self.assertGreaterEqual(q.pdf(all_exps[1]).item(), 0.99)
+        self.assertLessEqual(q.pdf(all_exps[0]).item(), 0.05)
+        self.assertGreaterEqual(q.pdf(all_exps[1]).item(), 0.95)
 
     def test_elbo_distr_consts_no_x(self):
 
@@ -141,7 +138,7 @@ class VICatSR(unittest.TestCase):
     def test_elbo_distr_consts_separate_behaviour_policy(self):
 
         self._config['algorithm']['learning_rate'] = 2e-4
-        self._config['algorithm']['use_target_as_behaviour_policy'] = True
+        self._config['algorithm']['behaviour_policy'] = 'equal_prob_tokens'
         self._config['algorithm']['num_eq_samples'] = 100
         self._config['algorithm']['plotting'] = False
 

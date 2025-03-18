@@ -85,13 +85,19 @@ class VICatSR(Algorithm):
         self._max_num_tokens = config['max_num_tokens']
 
         # Learning rate for optimiser
-        self._lr = config['learning_rate']
+        self._lr = config['target_policy']['learning_rate']
+
+        # Size of RNN hidden layer
+        self._hidden_layer_size = \
+            config['target_policy']['rnn_hidden_layer_size']
+
+        # Initialise GRU weights to 0
+        self._init_gru_zero = config['target_policy'].get(
+            'init_gru_weights_zero', False
+        )
 
         # Number of training steps
         self._num_steps = config['num_steps']
-
-        # Size of RNN hidden layer
-        self._hidden_layer_size = config['rnn_hidden_layer_size']
 
         # Flag as to whether to run max likelihood or ELBO optimisation
         self._max_likelihood_flag = config.get('max_likelihood', False)
@@ -170,9 +176,9 @@ class VICatSR(Algorithm):
                 [w * r for r, w in zip(rewards, importance_weights)]
             )
 
+            '''
             for z, r, w in zip(sampled_z, rewards, importance_weights):
                 print(f"{z.get_infix()}      {r}                {w}")
-            '''
             exit()
             '''
 
@@ -349,7 +355,7 @@ class VICatSR(Algorithm):
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
         self._q = q(self._token_set, self._hidden_layer_size,
-                    self._max_depth, self._max_num_tokens,
+                    self._init_gru_zero, self._max_depth, self._max_num_tokens,
                     self._distr_over_consts, self._q_const_variance,
                     self._consts_mask, self._un_ops_consts_mask)
 
