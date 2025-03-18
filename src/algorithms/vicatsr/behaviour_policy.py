@@ -46,11 +46,6 @@ class BehaviourPolicy:
     # Determine importance weight for a particular equation
     def importance_weight(self, z):
 
-        # TODO: Remove
-        # When I uncomment this the posterior and q line up perfectly for
-        # the last test, otherwise the the q is much bigger, why?
-        # return 1.0
-
         # If target policy is used as the behavioural policy importance weight
         # is 1.0
         if self._use_target_policy:

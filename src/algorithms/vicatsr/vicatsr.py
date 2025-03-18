@@ -171,15 +171,16 @@ class VICatSR(Algorithm):
                 [w * r for r, w in zip(rewards, importance_weights)]
             )
 
-            '''
             for z, r, w in zip(sampled_z, rewards, importance_weights):
                 print(f"{z.get_infix()}      {r}                {w}")
+            '''
             exit()
             '''
 
-            loss = torch.stack(
+            losses = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
-            ).mean()
+            )
+            loss = losses.mean()
 
             print('Step: {}   Loss: {}'.format(str(i), loss.item()))
 
@@ -200,10 +201,17 @@ class VICatSR(Algorithm):
         all_exps = self._enumerate_expressions(data)
         all_exps_sorted = sorted(all_exps, key=lambda z: self._q.pdf(z).item(),
                                  reverse=True)
-        for z in all_exps_sorted:
+        for i, z in enumerate(all_exps_sorted):
+            print(f'{i+1}  z: {z.get_infix()}    q(z): {self._q.pdf(z).item()} '
+                  f'p(x|z): {likelihood(data, z)} '
+                  f'q_b(z): {self._behaviour_policy.pdf(z)}')
+            '''
             print('z: ' + z.get_infix() + '    q(z): '
                   + str(self._q.pdf(z).item()) + '     p(x|z): '
                   + str(likelihood(data, z)))
+            '''
+            # if i > 20:
+                # break
 
         return self._q, all_exps
 
