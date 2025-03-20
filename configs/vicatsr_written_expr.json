@@ -18,7 +18,7 @@
         "prior_variance": 100.0,
         "_q_const_variance": 0.1,
         "num_steps": 1000,
-        "num_eq_samples": 25,
+        "num_eq_samples": 10,
         "_max_num_tokens": 5,
         "max_num_tokens": 9,
         "target_policy": {
@@ -32,9 +32,10 @@
         "plotting": false,
         "track_kl_divergence": false,
         "calculate_posteriors": true,
-        "_behaviour_policy": "target",
+        "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
-        "behaviour_policy": "enumerate_all",
+        "_behaviour_policy": "enumerate_all",
+        "risk_seeking_epsilon": 0.1,
         "max_likelihood": true,
         "distr_over_consts": false,
         "x_seed": 18

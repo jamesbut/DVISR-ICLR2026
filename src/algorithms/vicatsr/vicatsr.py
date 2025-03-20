@@ -124,6 +124,9 @@ class VICatSR(Algorithm):
         # Evidence only needs to be computed once
         self._evidence = None
 
+        # Specifying a risk-seeking RL epsilon value turns on risk-seeking RL
+        self._epsilon = config.get('risk_seeking_epsilon', None)
+
         # Seed random number generators
         self._seed = config.get('seed', None)
         if self._seed is not None:
@@ -163,9 +166,29 @@ class VICatSR(Algorithm):
             # Set the reward to the log likelihood
             rewards = log_likelihoods
 
-            # Subtract baseline from rewards
-            baseline = rewards.mean()
-            rewards = rewards - baseline
+            # Filter if using risk-seeking policy gradient
+            if self._epsilon is not None:
+
+                # Calculate quantile according to 1 - ε
+                quantile = np.quantile(rewards, 1 - self._epsilon)
+
+                # Filter equations and rewards
+                filtered_z, filtered_r = zip(
+                    *[(z, r) for z, r in zip(sampled_z, rewards)
+                      if r >= quantile]
+                )
+
+                # Convert filtered values back to lists
+                sampled_z = list(filtered_z)
+                rewards = list(filtered_r)
+
+                rewards = [r - quantile for r in rewards]
+
+            else:
+
+                # Subtract baseline from rewards
+                baseline = rewards.mean()
+                rewards = rewards - baseline
 
             # Calculate importance weights
             importance_weights = [self._behaviour_policy.importance_weight(z)
@@ -176,20 +199,21 @@ class VICatSR(Algorithm):
                 [w * r for r, w in zip(rewards, importance_weights)]
             )
 
+            '''
             for z, r, w in zip(sampled_z, rewards, importance_weights):
-                print(f"{z.get_infix()}      {r}                {self._behaviour_policy.importance_weight(z)}")
+                print(f"{z.get_infix()}      {r}                "
+                       "{self._behaviour_policy.importance_weight(z)}")
                 for t in z.tokens():
                     print(f"{t['op']}")
                 net_outs = self._q.net_outs(z)
                 print(net_outs)
             # exit()
+            '''
 
             losses = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
             )
             loss = losses.mean()
-            # print('loss:', loss)
-            # exit()
 
             print('Step: {}   Loss: {}'.format(str(i), loss.item()))
 
