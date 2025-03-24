@@ -17,8 +17,8 @@
         "prior_mean": 0.0,
         "prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 1000,
-        "num_eq_samples": 10,
+        "num_steps": 250,
+        "num_eq_samples": 100,
         "_max_num_tokens": 5,
         "max_num_tokens": 9,
         "target_policy": {

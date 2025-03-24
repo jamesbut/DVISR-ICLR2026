@@ -151,6 +151,10 @@ class VICatSR(Algorithm):
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
+        # Keep track of sampled z with the highest maximum likelihood
+        r_max = None
+        best_z = None
+
         for i in range(self._num_steps):
 
             # Sample z from behaviour policy
@@ -165,6 +169,12 @@ class VICatSR(Algorithm):
 
             # Set the reward to the log likelihood
             rewards = log_likelihoods
+
+            # Keep track of best performing sample
+            r_m = np.max(rewards)
+            if r_max is None or r_m > r_max:
+                r_max = r_m
+                best_z = copy.deepcopy(sampled_z[np.argmax(rewards)])
 
             # Filter if using risk-seeking policy gradient
             if self._epsilon is not None:
@@ -202,11 +212,11 @@ class VICatSR(Algorithm):
             '''
             for z, r, w in zip(sampled_z, rewards, importance_weights):
                 print(f"{z.get_infix()}      {r}                "
-                       "{self._behaviour_policy.importance_weight(z)}")
-                for t in z.tokens():
-                    print(f"{t['op']}")
-                net_outs = self._q.net_outs(z)
-                print(net_outs)
+                      f"{self._behaviour_policy.importance_weight(z)}")
+                # for t in z.tokens():
+                #     print(f"{t['op']}")
+                # net_outs = self._q.net_outs(z)
+                # print(net_outs)
             # exit()
             '''
 
@@ -245,6 +255,8 @@ class VICatSR(Algorithm):
             '''
             # if i > 20:
                 # break
+
+        print(f'\nBest z located: {best_z.get_infix()}   reward: {r_max}')
 
         return self._q, all_exps
 
