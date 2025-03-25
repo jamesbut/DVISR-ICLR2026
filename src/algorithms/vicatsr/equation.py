@@ -7,17 +7,33 @@ import scipy
 class Equation:
 
     # Tokens should be input in polish notation
-    def __init__(self, tokens):
+    def __init__(self, tokens=None, infix_str=None, token_set=None):
 
-        # Equation is represented in polish notation
-        self._eq = tokens
+        if tokens is not None:
+
+            # Token given in polish notation
+            self._eq = tokens
+
+        # Written expression can be given in infix notation
+        else:
+
+            polish_str = infix_to_polish(infix_str)
+            token_strs = polish_str.split()
+
+            self._eq = []
+
+            for t_str in token_strs:
+                token = next((
+                    copy.deepcopy(token) for token in token_set
+                    if token['op'] == t_str), None)
+                self._eq.append(token)
 
         # Check number of opt_consts
-        self._num_opt_consts = sum(1 for t in tokens
+        self._num_opt_consts = sum(1 for t in self._eq
                                    if t['op'] == 'opt_const')
 
         # Calculate number of distr_consts
-        self._num_distr_consts = sum(1 for t in tokens
+        self._num_distr_consts = sum(1 for t in self._eq
                                      if t['op'] == 'distr_const')
 
     # Evaluate equation according to data variable values, x.
@@ -265,3 +281,109 @@ def optimise_eq_consts(eq, data, log_likelihood_func):
     eq.set_opt_consts(res['x'])
 
     return eq
+
+
+def infix_to_polish(infix):
+    """
+    Convert an infix equation string to Polish (prefix) notation.
+
+    Parameters:
+    - infix: String representing an infix equation (e.g., "a + b * c")
+
+    Returns:
+    - String in Polish notation (e.g., "+ a * b c")
+    """
+    # Operator precedence
+    precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '^': 3}
+    # Unary operator flag (e.g., "-a" at start or after operator)
+    unary_ops = {'-'}  # Could add '+' for unary plus if needed
+
+    # Tokenize the infix expression
+    tokens = tokenize_infix(infix)
+    if not tokens:
+        return ""
+
+    output = []
+    operator_stack = []
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+
+        # Operand (variable or constant)
+        if token.isalnum() or '_' in token:
+            output.append(token)
+
+        # Left parenthesis
+        elif token == '(':
+            operator_stack.append(token)
+
+        # Right parenthesis
+        elif token == ')':
+            while operator_stack and operator_stack[-1] != '(':
+                output.insert(0, operator_stack.pop())
+            if operator_stack and operator_stack[-1] == '(':
+                operator_stack.pop()  # Discard '('
+            else:
+                raise ValueError("Mismatched parentheses")
+
+        # Operator
+        elif token in precedence or token in unary_ops:
+            # Check if unary (at start or after another operator/parenthesis)
+            is_unary = (i == 0) or (i > 0 and (tokens[i-1] in precedence or tokens[i-1] in unary_ops or tokens[i-1] == '('))
+
+            if is_unary and token in unary_ops:
+                # Treat as unary: push and wait for operand
+                operator_stack.append('u' + token)  # Prefix with 'u' to distinguish
+            else:
+                # Binary operator
+                while (operator_stack and operator_stack[-1] not in '(' and
+                       (operator_stack[-1].startswith('u') or
+                        precedence.get(operator_stack[-1], 0) >= precedence.get(token, 0))):
+                    output.insert(0, operator_stack.pop().lstrip('u'))
+                operator_stack.append(token)
+
+        i += 1
+
+    # Pop remaining operators
+    while operator_stack:
+        op = operator_stack.pop()
+        if op == '(':
+            raise ValueError("Mismatched parentheses")
+        output.insert(0, op.lstrip('u'))
+
+    # Return as string
+    return " ".join(output)
+
+
+def tokenize_infix(infix):
+    """
+    Convert infix string into a list of tokens, handling multi-character operands.
+    """
+    tokens = []
+    i = 0
+    infix = infix.replace(' ', '')  # Remove spaces
+
+    while i < len(infix):
+        char = infix[i]
+
+        # Multi-character alphanumeric (e.g., "abc")
+        if char.isalnum() or char == '_':
+            operand = char
+            i += 1
+            while i < len(infix) and (infix[i].isalnum() or infix[i] == '_'):
+                operand += infix[i]
+                i += 1
+            tokens.append(operand)
+            continue
+
+        # Operators or parentheses
+        elif char in '+-*/^()':
+            tokens.append(char)
+
+        else:
+            raise ValueError(f"Invalid character: {char}")
+
+        i += 1
+
+    return tokens

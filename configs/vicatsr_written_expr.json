@@ -35,8 +35,8 @@
         "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
         "_behaviour_policy": "enumerate_all",
-        "risk_seeking_epsilon": 0.1,
-        "entropy_lambda": 0.005,
+        "_risk_seeking_epsilon": 0.1,
+        "_entropy_lambda": 0.005,
         "max_likelihood": true,
         "distr_over_consts": false,
         "x_seed": 18
