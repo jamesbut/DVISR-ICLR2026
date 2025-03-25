@@ -134,7 +134,7 @@ class VICatSR(Algorithm):
         # Specify baseline to use during reinforce
         self._baseline = config.get('baseline', {'name': 'mean'})
         if self._baseline['name'] == 'ewma':
-            self._ewma = 0.0
+            self._ewma = None if self._baseline.get('jumpstart', False) else 0.0
             self._ewma_alpha = self._baseline['alpha']
 
         # Seed random number generators
@@ -209,13 +209,21 @@ class VICatSR(Algorithm):
                 # Calculate baseline
                 baseline = None
                 match self._baseline['name']:
+
                     # Use mean as baseline
                     case 'mean':
                         baseline = rewards.mean()
+
                     # Use exponentially weighted moving average as baseline
                     case 'ewma':
-                        self._emwa = (self._ewma_alpha * rewards.mean()
-                                      + (1.0 - self._ewma_alpha) * self._ewma)
+
+                        if self._ewma is None:
+                            self._emwa = rewards.mean()
+                        else:
+                            self._emwa = (self._ewma_alpha * rewards.mean()
+                                          + (1.0 - self._ewma_alpha)
+                                            * self._ewma)
+
                         baseline = self._emwa
 
                 # Apply baseline

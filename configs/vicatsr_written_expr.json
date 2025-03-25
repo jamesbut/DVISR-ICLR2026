@@ -42,7 +42,8 @@
         },
         "baseline": {
             "name": "ewma",
-            "alpha": 0.25
+            "alpha": 0.25,
+            "jumpstart": true
         },
         "max_likelihood": true,
         "distr_over_consts": false,
