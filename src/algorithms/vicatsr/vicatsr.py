@@ -127,6 +127,10 @@ class VICatSR(Algorithm):
         # Specifying a risk-seeking RL epsilon value turns on risk-seeking RL
         self._epsilon = config.get('risk_seeking_epsilon', None)
 
+        # Specify lambda for max entropy reward
+        # If no lambda is given, max entropy reward is not included
+        self._entropy_lambda = config.get('entropy_lambda', None)
+
         # Seed random number generators
         self._seed = config.get('seed', None)
         if self._seed is not None:
@@ -224,6 +228,12 @@ class VICatSR(Algorithm):
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
             )
             loss = losses.mean()
+
+            # Apply entropy loss if specified
+            if self._epsilon is not None and self._entropy_lambda is not None:
+                entropy = self.calculate_entropy(sampled_z)
+                entropy_loss = -self._entropy_lambda * entropy
+                loss += entropy_loss
 
             print('Step: {}   Loss: {}'.format(str(i), loss.item()))
 
@@ -558,6 +568,16 @@ class VICatSR(Algorithm):
         kl_divergence = self.log_evidence(data, all_z) - elbo
 
         return kl_divergence.item()
+
+    # Calculate entropy of batch of sampled zs
+    def calculate_entropy(self, zs):
+
+        probs = torch.stack([self._q.pdf(z) for z in zs])
+        log_probs = torch.stack([self._q.log_pdf(z) for z in zs])
+
+        entropy = torch.sum(probs * log_probs)
+
+        return entropy
 
     # Enumerate all expressions according to a specific token set and a maximum
     def _enumerate_expressions(self, data=None):
