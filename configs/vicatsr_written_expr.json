@@ -37,6 +37,13 @@
         "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
+        "_baseline": {
+            "name": "mean"
+        },
+        "baseline": {
+            "name": "ewma",
+            "alpha": 0.25
+        },
         "max_likelihood": true,
         "distr_over_consts": false,
         "x_seed": 18

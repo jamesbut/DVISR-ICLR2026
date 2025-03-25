@@ -131,6 +131,12 @@ class VICatSR(Algorithm):
         # If no lambda is given, max entropy reward is not included
         self._entropy_lambda = config.get('entropy_lambda', None)
 
+        # Specify baseline to use during reinforce
+        self._baseline = config.get('baseline', {'name': 'mean'})
+        if self._baseline['name'] == 'ewma':
+            self._ewma = 0.0
+            self._ewma_alpha = self._baseline['alpha']
+
         # Seed random number generators
         self._seed = config.get('seed', None)
         if self._seed is not None:
@@ -200,9 +206,21 @@ class VICatSR(Algorithm):
 
             else:
 
-                # Subtract baseline from rewards
-                baseline = rewards.mean()
-                rewards = rewards - baseline
+                # Calculate baseline
+                baseline = None
+                match self._baseline['name']:
+                    # Use mean as baseline
+                    case 'mean':
+                        baseline = rewards.mean()
+                    # Use exponentially weighted moving average as baseline
+                    case 'ewma':
+                        self._emwa = (self._ewma_alpha * rewards.mean()
+                                      + (1.0 - self._ewma_alpha) * self._ewma)
+                        baseline = self._emwa
+
+                # Apply baseline
+                if baseline is not None:
+                    rewards = rewards - baseline
 
             # Calculate importance weights
             importance_weights = [self._behaviour_policy.importance_weight(z)
