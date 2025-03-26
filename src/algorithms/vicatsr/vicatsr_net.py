@@ -28,11 +28,6 @@ class NN(torch.nn.Module):
             if init_gru_zero:
                 self._l1.apply(init_gru_weights_zero)
 
-            '''
-            print(self._l1.state_dict())
-            exit()
-            '''
-
             if distr_over_consts:
                 self._consts_layer = torch.nn.Linear(self._hidden_size, 2)
 

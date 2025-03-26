@@ -42,7 +42,6 @@ class q:
         # Loop until max depth or sufficient number of constants have been
         # sampled
         tokens = []
-        x = torch.zeros(self._net.num_inputs())
         num_consts_required = 1
 
         while num_consts_required > 0:
@@ -56,8 +55,10 @@ class q:
             if self._max_num_tokens - len(tokens) <= num_consts_required:
                 pre_softmax_mask = self._consts_mask
 
+            net_input = self.get_net_inputs(tokens)
+
             # Pass input through network
-            out = self._net.forward(x, pre_softmax_mask).detach().numpy()
+            out = self._net.forward(net_input, pre_softmax_mask).detach().numpy()
 
             # Sample token from categorical distribution
             token = copy.deepcopy(
@@ -77,13 +78,6 @@ class q:
                 # Sample
                 token['value'] = np.random.normal(loc=out[-2],
                                                   scale=const_variance)
-
-            # Generate next network input
-            x = torch.zeros_like(x)
-            x[token['id']] = 1.0
-
-            # TODO: Might have to input sampled value for constants back into
-            # the network
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
@@ -108,15 +102,12 @@ class q:
 
         self._net.reset(1)
 
-        x = torch.zeros(self._net.num_inputs())
-
         probs = []
-        for t in z.tokens():
+        for i, t in enumerate(z.tokens()):
 
-            out = self._net.forward(x, t['pre_softmax_mask'])
+            net_inputs = self.get_net_inputs(z.tokens()[:i])
+            out = self._net.forward(net_inputs, t['pre_softmax_mask'])
 
-            # TODO: I might not have to generate a one hot encoding and
-            # multiply, I might just be able to index the tensor?
             # Generate one hot vector for current token
             one_hot = torch.zeros(self._net.num_inputs())
             one_hot[t['id']] = 1.0
@@ -134,9 +125,6 @@ class q:
                     loc=out[-2], scale=const_variance
                 ).log_prob(torch.tensor(t['value']))))
 
-            # Set next network input
-            x = one_hot.clone().detach()
-
         return torch.prod(torch.stack(probs))
 
     # Calculate log probability of an equation, z, under q
@@ -144,12 +132,11 @@ class q:
 
         self._net.reset(1)
 
-        x = torch.zeros(self._net.num_inputs())
-
         log_probs = []
-        for t in z.tokens():
+        for i, t in enumerate(z.tokens()):
 
-            out = self._net.forward(x, t['pre_softmax_mask'])
+            net_inputs = self.get_net_inputs(z.tokens()[:i])
+            out = self._net.forward(net_inputs, t['pre_softmax_mask'])
 
             # Generate one hot vector for current token
             one_hot = torch.zeros(self._net.num_inputs())
@@ -169,9 +156,6 @@ class q:
                 log_probs.append(torch.distributions.normal.Normal(
                     loc=out[-2], scale=const_variance
                 ).log_prob(torch.tensor(t['value'])))
-
-            # Set next network input
-            x = one_hot.clone().detach()
 
         return torch.sum(torch.stack(log_probs))
 
@@ -211,3 +195,16 @@ class q:
 
     def un_ops_consts_mask(self):
         return self._un_ops_consts_mask
+
+    # Calculate network inputs
+    def get_net_inputs(self, tokens):
+
+        if len(tokens) == 0:
+            return torch.zeros(self._net.num_inputs())
+        else:
+            x = torch.zeros(self._net.num_intputs())
+            x[tokens[-1]['id']] = 1.0
+            return x
+
+        # TODO: Might have to input sampled value for constants back into
+        # the network
