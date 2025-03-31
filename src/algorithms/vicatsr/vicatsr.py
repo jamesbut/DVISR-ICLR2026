@@ -22,7 +22,7 @@ class VICatSR(Algorithm):
 
     def __init__(self, config):
 
-        # Prepare binary and unary operations as tokens
+        # Prepare binary and unary operations and constants as tokens
         self._token_set = []
         self._token_id = 0
 
@@ -95,6 +95,14 @@ class VICatSR(Algorithm):
         self._init_gru_zero = config['target_policy'].get(
             'init_gru_weights_zero', False
         )
+
+        # Specification for RNN inputs
+        self._previous_input = config['target_policy'].get('previous_input',
+                                                           True)
+        self._parent_input = config['target_policy'].get('parent_input',
+                                                         False)
+        self._sibling_input = config['target_policy'].get('sibling_input',
+                                                          False)
 
         # Number of training steps
         self._num_steps = config['num_steps']
@@ -433,7 +441,9 @@ class VICatSR(Algorithm):
         self._q = q(self._token_set, self._hidden_layer_size,
                     self._init_gru_zero, self._max_depth, self._max_num_tokens,
                     self._distr_over_consts, self._q_const_variance,
-                    self._consts_mask, self._un_ops_consts_mask)
+                    self._consts_mask, self._un_ops_consts_mask,
+                    self._previous_input, self._parent_input,
+                    self._sibling_input)
 
         # If enumerate all behaviour policy is being used, enumerate models
         # here
