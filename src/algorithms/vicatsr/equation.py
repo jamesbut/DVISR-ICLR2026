@@ -17,7 +17,7 @@ class Equation:
         # Written expression can be given in infix notation
         else:
 
-            polish_str = infix_to_polish(infix_str)
+            polish_str = infix_to_polish(infix_str, token_set)
             token_strs = polish_str.split()
 
             self._eq = []
@@ -283,107 +283,87 @@ def optimise_eq_consts(eq, data, log_likelihood_func):
     return eq
 
 
-def infix_to_polish(infix):
-    """
-    Convert an infix equation string to Polish (prefix) notation.
+def infix_to_polish(infix, token_set):
 
-    Parameters:
-    - infix: String representing an infix equation (e.g., "a + b * c")
-
-    Returns:
-    - String in Polish notation (e.g., "+ a * b c")
-    """
-    # Operator precedence
+    # Operator precedence and associativity
     precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '^': 3}
-    # Unary operator flag (e.g., "-a" at start or after operator)
-    unary_ops = {'-'}  # Could add '+' for unary plus if needed
+    precedence.update({t['op']: 4 for t in token_set if t['type'] == 'un_op'})
 
-    # Tokenize the infix expression
-    tokens = tokenize_infix(infix)
-    if not tokens:
-        return ""
+    associativity = {'+': 'L', '-': 'L', '*': 'L', '/': 'L', '^': 'R'}
+    associativity.update({t['op']: 'R' for t in token_set if t['type'] == 'un_op'})
 
-    output = []
-    operator_stack = []
+    is_unary = {'+': False, '-': False, '*': False, '/': False, '^': False}
+    is_unary.update({t['op']: True for t in token_set if t['type'] == 'un_op'})
 
-    i = 0
-    while i < len(tokens):
-        token = tokens[i]
+    tokens = tokenize(infix)  # Use the new tokenizer
 
-        # Operand (variable or constant)
-        if token.isalnum() or '_' in token:
-            output.append(token)
-
-        # Left parenthesis
-        elif token == '(':
-            operator_stack.append(token)
-
-        # Right parenthesis
-        elif token == ')':
-            while operator_stack and operator_stack[-1] != '(':
-                output.insert(0, operator_stack.pop())
-            if operator_stack and operator_stack[-1] == '(':
-                operator_stack.pop()  # Discard '('
-            else:
-                raise ValueError("Mismatched parentheses")
-
-        # Operator
-        elif token in precedence or token in unary_ops:
-            # Check if unary (at start or after another operator/parenthesis)
-            is_unary = (i == 0) or (i > 0 and (tokens[i-1] in precedence or tokens[i-1] in unary_ops or tokens[i-1] == '('))
-
-            if is_unary and token in unary_ops:
-                # Treat as unary: push and wait for operand
-                operator_stack.append('u' + token)  # Prefix with 'u' to distinguish
-            else:
-                # Binary operator
-                while (operator_stack and operator_stack[-1] not in '(' and
-                       (operator_stack[-1].startswith('u') or
-                        precedence.get(operator_stack[-1], 0) >= precedence.get(token, 0))):
-                    output.insert(0, operator_stack.pop().lstrip('u'))
-                operator_stack.append(token)
-
-        i += 1
-
-    # Pop remaining operators
-    while operator_stack:
-        op = operator_stack.pop()
-        if op == '(':
-            raise ValueError("Mismatched parentheses")
-        output.insert(0, op.lstrip('u'))
-
-    # Return as string
-    return " ".join(output)
-
-
-def tokenize_infix(infix):
-    """
-    Convert infix string into a list of tokens, handling multi-character operands.
-    """
-    tokens = []
-    i = 0
-    infix = infix.replace(' ', '')  # Remove spaces
-
-    while i < len(infix):
-        char = infix[i]
-
-        # Multi-character alphanumeric (e.g., "abc")
-        if char.isalnum() or char == '_':
-            operand = char
-            i += 1
-            while i < len(infix) and (infix[i].isalnum() or infix[i] == '_'):
-                operand += infix[i]
-                i += 1
-            tokens.append(operand)
+    # Check all tokens are in token set
+    for t_str in tokens:
+        if t_str == '(' or t_str == ')':
             continue
+        found = False
+        for t in token_set:
+            if t_str == t['op']:
+                found = True
+                break
+        if not found:
+            raise ValueError(f'{t_str} is not in the token set')
 
-        # Operators or parentheses
-        elif char in '+-*/^()':
-            tokens.append(char)
+    op_stack = []
+    operand_stack = []
 
+    for token in tokens:
+        if token == '(':
+            op_stack.append(token)
+        elif token == ')':
+            while op_stack and op_stack[-1] != '(':
+                op = op_stack.pop()
+                if is_unary.get(op, False):
+                    operand = operand_stack.pop()
+                    operand_stack.append(f"{op} {operand}")
+                else:
+                    operand2 = operand_stack.pop()
+                    operand1 = operand_stack.pop()
+                    operand_stack.append(f"{op} {operand1} {operand2}")
+            op_stack.pop()  # Remove '('
+            if op_stack and is_unary.get(op_stack[-1], False):
+                func = op_stack.pop()
+                operand = operand_stack.pop()
+                operand_stack.append(f"{func} {operand}")
+        elif token in precedence:
+            while (op_stack and op_stack[-1] != '(' and
+                   ((associativity[token] == 'L' and precedence[token] <= precedence.get(op_stack[-1], 0)) or
+                    (associativity[token] == 'R' and precedence[token] < precedence.get(op_stack[-1], 0)))):
+                op = op_stack.pop()
+                if is_unary.get(op, False):
+                    operand = operand_stack.pop()
+                    operand_stack.append(f"{op} {operand}")
+                else:
+                    operand2 = operand_stack.pop()
+                    operand1 = operand_stack.pop()
+                    operand_stack.append(f"{op} {operand1} {operand2}")
+            op_stack.append(token)
         else:
-            raise ValueError(f"Invalid character: {char}")
+            operand_stack.append(token)  # Operands like x_0, 3.14
 
-        i += 1
+    while op_stack:
+        op = op_stack.pop()
+        if is_unary.get(op, False):
+            operand = operand_stack.pop()
+            operand_stack.append(f"{op} {operand}")
+        else:
+            operand2 = operand_stack.pop()
+            operand1 = operand_stack.pop()
+            operand_stack.append(f"{op} {operand1} {operand2}")
 
+    return operand_stack[0]
+
+
+import re
+
+
+def tokenize(expression):
+    # Pattern matches identifiers, numbers, operators, and parentheses
+    token_pattern = r'([a-zA-Z][a-zA-Z0-9_]*|\d+\.\d+|\d+|[+\-*/^()])'
+    tokens = re.findall(token_pattern, expression)
     return tokens
