@@ -4,9 +4,11 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
 
 import unittest
-from utils.json_helper import read_json, print_json
+from utils.json_helper import read_json
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
+from algorithms.vicatsr.equation import Equation
+from utils.tree import get_parent, get_sibling
 
 
 class VICatSR(unittest.TestCase):
@@ -162,6 +164,148 @@ class VICatSR(unittest.TestCase):
         self.assertGreaterEqual(mean, 0.33)
         self.assertLessEqual(variance, 0.32)
         self.assertGreaterEqual(variance, 0.28)
+
+
+class Utils(unittest.TestCase):
+
+    def test_equation(self):
+
+        # Test equation can be created from a token set and an infix string
+        token_set = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None, 'id': 1},
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 2},
+            {'op': 'sin', 'type': 'un_op', 'sub_type': None, 'id': 3},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 4}
+        ]
+
+        eq1 = Equation(infix_str='(x_0 * x_0) + x_0', token_set=token_set)
+        self.assertEqual(eq1.get_infix(), '((x_0 * x_0) + x_0)')
+
+        eq2 = Equation(infix_str='sin(x_0)', token_set=token_set)
+        self.assertEqual(eq2.get_infix(), 'sin(x_0)')
+
+        eq3 = Equation(infix_str='(sin((x_0 * x_0)) + x_0)', token_set=token_set)
+        self.assertEqual(eq3.get_infix(), '(sin((x_0 * x_0)) + x_0)')
+
+    def test_get_parent(self):
+
+        # Test get_parent function with respect to an Equation
+        token_set = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None, 'id': 1},
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 2},
+            {'op': 'sin', 'type': 'un_op', 'sub_type': None, 'id': 3},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 4}
+        ]
+
+        eq1 = Equation(infix_str='(x_0 + x_0)', token_set=token_set)
+        self.assertEqual(get_parent(eq1.tokens())['op'], '+')
+        self.assertEqual(get_parent(eq1.tokens()[:-1])['op'], '+')
+        self.assertEqual(get_parent(eq1.tokens()[:-2]), None)
+
+        eq2 = Equation(infix_str='((sin(x_0) * x_0) + x_0)', token_set=token_set)
+        self.assertEqual(get_parent(eq2.tokens()[:1]), None)
+        self.assertEqual(get_parent(eq2.tokens()[:2])['op'], '+')
+        self.assertEqual(get_parent(eq2.tokens()[:3])['op'], '*')
+        self.assertEqual(get_parent(eq2.tokens()[:4])['op'], 'sin')
+        self.assertEqual(get_parent(eq2.tokens()[:5])['op'], '*')
+        self.assertEqual(get_parent(eq2.tokens())['op'], '+')
+
+        eq3 = Equation(infix_str='(sin(sin(x_0)) + x_0)', token_set=token_set)
+        self.assertEqual(get_parent(eq3.tokens()[:1]), None)
+        self.assertEqual(get_parent(eq3.tokens()[:2])['op'], '+')
+        self.assertEqual(get_parent(eq3.tokens()[:3])['op'], 'sin')
+        self.assertEqual(get_parent(eq3.tokens()[:4])['op'], 'sin')
+        self.assertEqual(get_parent(eq3.tokens())['op'], '+')
+
+        eq4 = Equation(infix_str='(sin((x_0 * x_0)) + x_0)', token_set=token_set)
+        self.assertEqual(get_parent(eq4.tokens()[:1]), None)
+        self.assertEqual(get_parent(eq4.tokens()[:2])['op'], '+')
+        self.assertEqual(get_parent(eq4.tokens()[:3])['op'], 'sin')
+        self.assertEqual(get_parent(eq4.tokens()[:4])['op'], '*')
+        self.assertEqual(get_parent(eq4.tokens()[:5])['op'], '*')
+        self.assertEqual(get_parent(eq4.tokens())['op'], '+')
+
+        eq5 = Equation(infix_str='(sin(x_0) + sin(x_0))', token_set=token_set)
+        self.assertEqual(get_parent(eq5.tokens()[:1]), None)
+        self.assertEqual(get_parent(eq5.tokens()[:2])['op'], '+')
+        self.assertEqual(get_parent(eq5.tokens()[:3])['op'], 'sin')
+        self.assertEqual(get_parent(eq5.tokens()[:4])['op'], '+')
+        self.assertEqual(get_parent(eq5.tokens())['op'], 'sin')
+
+        eq6 = Equation(infix_str='(x_0 + sin(sin(x_0)))', token_set=token_set)
+        self.assertEqual(get_parent(eq6.tokens()[:1]), None)
+        self.assertEqual(get_parent(eq6.tokens()[:2])['op'], '+')
+        self.assertEqual(get_parent(eq6.tokens()[:3])['op'], '+')
+        self.assertEqual(get_parent(eq6.tokens()[:4])['op'], 'sin')
+        self.assertEqual(get_parent(eq6.tokens())['op'], 'sin')
+
+        eq7 = Equation(infix_str='(sin(x_0) + (x_0 * x_0))', token_set=token_set)
+        self.assertEqual(get_parent(eq7.tokens()[:1]), None)
+        self.assertEqual(get_parent(eq7.tokens()[:2])['op'], '+')
+        self.assertEqual(get_parent(eq7.tokens()[:3])['op'], 'sin')
+        self.assertEqual(get_parent(eq7.tokens()[:4])['op'], '+')
+        self.assertEqual(get_parent(eq7.tokens()[:5])['op'], '*')
+        self.assertEqual(get_parent(eq7.tokens())['op'], '*')
+
+    def test_get_sibling(self):
+
+        # Test get_sibling function with respect to an Equation
+        token_set = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None, 'id': 1},
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 2},
+            {'op': 'sin', 'type': 'un_op', 'sub_type': None, 'id': 3},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 4}
+        ]
+
+        eq1 = Equation(infix_str='(x_0 + x_0)', token_set=token_set)
+        self.assertEqual(get_sibling(eq1.tokens()[:1]), None)
+        self.assertEqual(get_sibling(eq1.tokens()[:2]), None)
+        self.assertEqual(get_sibling(eq1.tokens())['op'], 'x_0')
+
+        eq2 = Equation(infix_str='(sin(x_0) + sin(x_0))', token_set=token_set)
+        self.assertEqual(get_sibling(eq2.tokens()[:1]), None)
+        self.assertEqual(get_sibling(eq2.tokens()[:2]), None)
+        self.assertEqual(get_sibling(eq2.tokens()[:3]), None)
+        self.assertEqual(get_sibling(eq2.tokens()[:4])['op'], 'sin')
+        self.assertEqual(get_sibling(eq2.tokens()[:5]), None)
+
+        eq3 = Equation(infix_str='(sin((x_0 * x_0)) + x_0)', token_set=token_set)
+        self.assertEqual(get_sibling(eq3.tokens()[:1]), None)
+        self.assertEqual(get_sibling(eq3.tokens()[:2]), None)
+        self.assertEqual(get_sibling(eq3.tokens()[:3]), None)
+        self.assertEqual(get_sibling(eq3.tokens()[:4]), None)
+        self.assertEqual(get_sibling(eq3.tokens()[:5])['op'], 'x_0')
+        self.assertEqual(get_sibling(eq3.tokens())['op'], 'sin')
+
+        eq4 = Equation(infix_str='((sin(x_0) * x_0) + x_0)', token_set=token_set)
+        self.assertEqual(get_sibling(eq4.tokens()[:1]), None)
+        self.assertEqual(get_sibling(eq4.tokens()[:2]), None)
+        self.assertEqual(get_sibling(eq4.tokens()[:3]), None)
+        self.assertEqual(get_sibling(eq4.tokens()[:4]), None)
+        self.assertEqual(get_sibling(eq4.tokens()[:5])['op'], 'sin')
+        self.assertEqual(get_sibling(eq4.tokens())['op'], '*')
+
+        eq5 = Equation(infix_str='(sin(sin(x_0)) + x_0)', token_set=token_set)
+        self.assertEqual(get_sibling(eq5.tokens()[:1]), None)
+        self.assertEqual(get_sibling(eq5.tokens()[:2]), None)
+        self.assertEqual(get_sibling(eq5.tokens()[:3]), None)
+        self.assertEqual(get_sibling(eq5.tokens()[:4]), None)
+        self.assertEqual(get_sibling(eq5.tokens())['op'], 'sin')
+
+        eq6 = Equation(infix_str='(x_0 + sin(sin(x_0)))', token_set=token_set)
+        self.assertEqual(get_sibling(eq6.tokens()[:1]), None)
+        self.assertEqual(get_sibling(eq6.tokens()[:2]), None)
+        self.assertEqual(get_sibling(eq6.tokens()[:3])['op'], 'x_0')
+        self.assertEqual(get_sibling(eq6.tokens()[:4]), None)
+        self.assertEqual(get_sibling(eq6.tokens()), None)
+
+        eq7 = Equation(infix_str='(sin(x_0) + (x_0 * x_0))', token_set=token_set)
+        self.assertEqual(get_sibling(eq7.tokens()[:1]), None)
+        self.assertEqual(get_sibling(eq7.tokens()[:2]), None)
+        self.assertEqual(get_sibling(eq7.tokens()[:3]), None)
+        self.assertEqual(get_sibling(eq7.tokens()[:4])['op'], 'sin')
+        self.assertEqual(get_sibling(eq7.tokens()[:5]), None)
+        self.assertEqual(get_sibling(eq7.tokens())['op'], 'x_0')
 
 
 if __name__ == "__main__":
