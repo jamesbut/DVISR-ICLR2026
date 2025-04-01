@@ -19,13 +19,20 @@ def main():
     # Create domain
     domain = create_domain(config['domain'])
 
-    data = domain.create_data()
+    # If domain is SRBench, run their code for analysis
+    if hasattr(domain, 'name') and domain.name == 'SRBench':
 
-    # Create algoritm
-    alg = create_algorithm(config['algorithm'])
+        domain.run()
 
-    # Perform regression
-    alg.train(data)
+    else:
+
+        data = domain.create_data()
+
+        # Create algoritm
+        alg = create_algorithm(config['algorithm'])
+
+        # Perform regression
+        alg.train(data)
 
 
 if __name__ == '__main__':

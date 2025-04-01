@@ -5,3 +5,9 @@
 [submodule "libs/DeepSymbolicOptimisation"]
 	path = libs/DeepSymbolicOptimisation
 	url = git@github.com:jamesbut/deep-symbolic-optimization.git
+[submodule "libs/SRBench"]
+	path = libs/SRBench
+	url = git@github.com:cavalab/srbench.git
+[submodule "libs/pmlb"]
+	path = libs/pmlb
+	url = git@github.com:EpistasisLab/pmlb.git
