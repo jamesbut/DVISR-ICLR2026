@@ -118,7 +118,7 @@ class q:
             out = self._net.forward(net_inputs, t['pre_softmax_mask'])
 
             # Generate one hot vector for current token
-            one_hot = torch.zeros(self._net.num_inputs())
+            one_hot = torch.zeros(len(self._token_set))
             one_hot[t['id']] = 1.0
 
             probs.append(torch.sum(out[:len(self._token_set)] * one_hot))
@@ -148,7 +148,7 @@ class q:
             out = self._net.forward(net_inputs, t['pre_softmax_mask'])
 
             # Generate one hot vector for current token
-            one_hot = torch.zeros(self._net.num_inputs())
+            one_hot = torch.zeros(len(self._token_set))
             one_hot[t['id']] = 1.0
 
             log_probs.append(torch.log(

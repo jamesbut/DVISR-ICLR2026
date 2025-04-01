@@ -12,6 +12,7 @@
         "name": "VICatSR",
         "operators": {
             "binary_ops": ["*", "+"],
+            "_binary_ops": ["*"],
             "_unary_ops": ["sin"]
         },
         "prior_mean": 0.0,
@@ -26,7 +27,10 @@
             "_learning_rate": 5e-4,
             "rnn_hidden_layer_size": 256,
             "_rnn_hidden_layer_size": 32,
-            "init_gru_weights_zero": false
+            "init_gru_weights_zero": false,
+            "parent_input": false,
+            "sibing_input": false,
+            "previous_input": true
         },
         "remove_x_vars": false,
         "plotting": false,

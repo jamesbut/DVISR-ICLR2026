@@ -165,13 +165,15 @@ class VICatSR(unittest.TestCase):
         self.assertLessEqual(variance, 0.32)
         self.assertGreaterEqual(variance, 0.28)
 
-    def test_longer_eqs(self):
+    def test_parent_sibling_input(self):
 
         self._config['algorithm']['max_num_tokens'] = 5
         self._config['algorithm']['num_steps'] = 5
         self._config['algorithm']['distr_over_consts'] = False
+        self._config['algorithm']['max_likelihood'] = True
 
         self._config['algorithm']['target_policy']['parent_input'] = True
+        self._config['algorithm']['target_policy']['sibling_input'] = True
 
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'])
