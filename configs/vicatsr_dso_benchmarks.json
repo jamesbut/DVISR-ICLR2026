@@ -6,25 +6,41 @@
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "binary_ops": ["*"],
+            "binary_ops": ["*", "+"],
             "_unary_ops": ["sin"]
         },
         "prior_mean": 0.0,
         "prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 1000,
-        "_learning_rate": 1e-3,
-        "learning_rate": 2e-4,
-        "num_eq_samples": 10,
-        "_max_depth": 2,
+        "num_steps": 500,
+        "num_eq_samples": 100,
         "max_num_tokens": 12,
-        "rnn_hidden_layer_size": 256,
-        "_rnn_hidden_layer_size": 0,
+        "target_policy": {
+            "learning_rate": 1e-3,
+            "_learning_rate": 2e-4,
+            "rnn_hidden_layer_size": 256,
+            "init_gru_weights_zero": false,
+            "parent_input": false,
+            "sibing_input": false,
+            "previous_input": true
+        },
         "remove_x_vars": false,
         "plotting": false,
         "track_kl_divergence": false,
         "calculate_posteriors": true,
-        "use_target_as_behaviour_policy": true,
+        "behaviour_policy": "target",
+        "_behaviour_policy": "equal_prob_tokens",
+        "_behaviour_policy": "enumerate_all",
+        "_risk_seeking_epsilon": 0.1,
+        "_entropy_lambda": 0.005,
+        "baseline": {
+            "name": "mean"
+        },
+        "_baseline": {
+            "name": "ewma",
+            "alpha": 0.25,
+            "jumpstart": true
+        },
         "max_likelihood": true,
         "distr_over_consts": false,
         "x_seed": 18
