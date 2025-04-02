@@ -2,7 +2,7 @@ from domains.domain import Domain
 import pandas as pd
 import ast
 import numpy as np
-from utils.function import surround_sub_strings_with_delimiters, Function
+from util.function import surround_sub_strings_with_delimiters, Function
 
 
 class DSOBenchmarks(Domain):

@@ -1,7 +1,7 @@
 # This domain uses a hand written expression from the config
 
 from domains.domain import Domain
-from utils.function import Function
+from util.function import Function
 
 
 class WrittenExpression(Domain):

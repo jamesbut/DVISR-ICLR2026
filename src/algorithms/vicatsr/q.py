@@ -8,7 +8,7 @@ import copy
 import numpy as np
 from .vicatsr_net import NN
 from .equation import Equation, optimise_eq_consts
-from utils.tree import get_parent, get_sibling
+from util.tree import get_parent, get_sibling
 
 
 class q:

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 import numpy as np
-from utils.permutations import compute_permutations
+from util.permutations import compute_permutations
 
 
 class Domain(ABC):

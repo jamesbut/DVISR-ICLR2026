@@ -1,7 +1,7 @@
 # Variational inference for symbolic regression using Miejer G functions
 
 from algorithms.algorithm import Algorithm
-from utils.meijer_g import MeijerG
+from util.meijer_g import MeijerG
 import math
 import numpy as np
 from scipy.stats import norm
