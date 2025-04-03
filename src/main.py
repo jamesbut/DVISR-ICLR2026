@@ -14,7 +14,7 @@ def main():
     args = get_args_parser().parse_args()
 
     # Read config
-    config = read_config(args)
+    config, config_path = read_config(args)
 
     # Create domain
     domain = create_domain(config['domain'])
@@ -22,6 +22,11 @@ def main():
     # If domain is SRBench, run their code for analysis
     if hasattr(domain, 'name') and domain.name == 'SRBench':
 
+        # Set config path as environment variable to be used later in
+        # the spaghetti SRBench process...
+        os.environ['config_path'] = config_path
+
+        # Run SRBench domain
         domain.run()
 
     else:

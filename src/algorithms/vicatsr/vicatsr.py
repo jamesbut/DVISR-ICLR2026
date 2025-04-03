@@ -16,9 +16,11 @@ from .q import q
 from .equation import Equation, optimise_eq_consts
 from .behaviour_policy import BehaviourPolicy
 import copy
+from sklearn.base import BaseEstimator, RegressorMixin
+import pandas as pd
 
 
-class VICatSR(Algorithm):
+class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     def __init__(self, config):
 
@@ -150,6 +152,8 @@ class VICatSR(Algorithm):
         if self._seed is not None:
             np.random.seed(self._seed)
             torch.manual_seed(self._seed)
+
+        self._verbosity = config.get('verbosity', 2)
 
     def train(self, data):
 
@@ -285,21 +289,24 @@ class VICatSR(Algorithm):
                   + str(self._q.pdf(z).item()))
         '''
 
-        all_exps = self._enumerate_expressions(data)
-        all_exps_sorted = sorted(all_exps, key=lambda z: self._q.pdf(z).item(),
-                                 reverse=True)
-        for i, z in enumerate(all_exps_sorted):
-            print(f'{i+1}  z: {z.get_infix()}    q(z): {self._q.pdf(z).item()} '
-                  f'p(x|z): {likelihood(data, z)} '
-                  f'q_b(z): {self._behaviour_policy.pdf(z)}')
-            '''
-            print('z: ' + z.get_infix() + '    q(z): '
-                  + str(self._q.pdf(z).item()) + '     p(x|z): '
-                  + str(likelihood(data, z)))
-            '''
-            # if i > 20:
-                # break
+        all_exps = None
+        if self._verbosity > 1:
+            all_exps = self._enumerate_expressions(data)
+            all_exps_sorted = sorted(all_exps, key=lambda z: self._q.pdf(z).item(),
+                                     reverse=True)
+            for i, z in enumerate(all_exps_sorted):
+                print(f'{i+1}  z: {z.get_infix()}    q(z): {self._q.pdf(z).item()} '
+                      f'p(x|z): {likelihood(data, z)} '
+                      f'q_b(z): {self._behaviour_policy.pdf(z)}')
+                '''
+                print('z: ' + z.get_infix() + '    q(z): '
+                      + str(self._q.pdf(z).item()) + '     p(x|z): '
+                      + str(likelihood(data, z)))
+                '''
+                # if i > 20:
+                    # break
 
+        self._best_model = best_z
         print(f'\nBest z located: {best_z.get_infix()}   reward: {r_max}')
 
         return self._q, all_exps
@@ -408,6 +415,8 @@ class VICatSR(Algorithm):
         print('Optimised models:')
         for z in optimised_z:
             print(z.get_infix())
+
+        # TODO: Track and set best model found throughout training
 
         return self._q, true_posteriors, all_exps
 
@@ -614,6 +623,40 @@ class VICatSR(Algorithm):
         entropy = torch.sum(probs * log_probs)
 
         return entropy
+
+    # Fit model for sklearn API interface
+    def fit(self, X, y):
+        data = {'x': X.to_numpy(), 'y': y}
+        self.train(data)
+
+    # Inference for sklearn API interface
+    def predict(self, X):
+
+        if not hasattr(self, '_best_model'):
+            raise RuntimeError('Must train before performing inference')
+
+        if isinstance(X, pd.DataFrame):
+            X = X.to_numpy()
+
+        y = self._best_model.evaluate(X)
+
+        return y
+
+    # Best model found during training
+    def best_model(self):
+        if not hasattr(self, '_best_model'):
+            raise RuntimeError('Must train in order to get the best model')
+        return self._best_model.get_infix()
+
+    # Get hyperparameters of model (sklearn interface)
+    def get_params(self, deep=True):
+        return {}
+
+    # Set hyperparameters of model (sklearn interface)
+    def set_params(self, **params):
+        for key, value in params.items():
+            setattr(self, key, value)
+        return self
 
     # Enumerate all expressions according to a specific token set and a maximum
     def _enumerate_expressions(self, data=None):
