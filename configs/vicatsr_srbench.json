@@ -1,7 +1,8 @@
 {
     "domain": {
         "name": "SRBench",
-        "dataset": "192_vineyard"
+        "dataset": "192_vineyard",
+        "no_skips": true
     },
     "algorithm": {
         "name": "VICatSR",

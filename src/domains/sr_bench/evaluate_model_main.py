@@ -59,10 +59,10 @@ if __name__ == '__main__':
     set_env_vars(args.n_jobs)
 
     # Import algorithm
-    print(f'import from {lib_name}')
+    print(f'Import from {lib_name}')
     algorithm = importlib.__import__(lib_name, globals(), locals(), ['*'])
 
-    print('algorithm:', algorithm.est)
+    print('Algorithm:', algorithm.est)
 
     # Optional keyword arguments passed to evaluate
     eval_kwargs, test_params = {}, {}
@@ -79,4 +79,5 @@ if __name__ == '__main__':
                    algorithm.est,
                    algorithm.model,
                    test = args.TEST,
+                   sym_data = args.sym_data,
                    **eval_kwargs)
