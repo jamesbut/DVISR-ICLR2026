@@ -30,6 +30,20 @@ class Function():
         # Count unique ones
         return len(set(matches))
 
+    # Convert to sympy expression and return string
+    def get_sympy(self):
+
+        from sympy import sympify
+
+        # Create string suitable for sympy
+        f_str = str(self)
+
+        # Remove kwargs substrings
+        f_str = re.sub(r"kwargs\['(.*?)'\]", r"\1", f_str)
+
+        expr = sympify(f_str)
+        return str(expr)
+
     def __call__(self, **kwargs):
         return self._func(**kwargs)
 

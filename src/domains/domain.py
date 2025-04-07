@@ -53,4 +53,4 @@ class Domain(ABC):
 
     # Return true expression if known
     def true_expr(self):
-        return None
+        return self._expr.get_sympy() if hasattr(self, '_expr') else None
