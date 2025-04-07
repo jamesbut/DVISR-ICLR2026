@@ -10,7 +10,7 @@
             "binary_ops": ["*", "+"],
             "_binary_ops": ["*"],
             "_unary_ops": ["sin"],
-            "_consts": ["opt_const"]
+            "consts": ["opt_const"]
         },
         "prior_mean": 0.0,
         "prior_variance": 100.0,

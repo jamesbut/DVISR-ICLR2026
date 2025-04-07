@@ -40,6 +40,11 @@ def plot_best_and_true_model(domain, alg, config):
     if true_model_str:
         print('True model:', true_model_str)
 
+        if best_model.get_infix(simplify=True) == true_model_str:
+            print('True model recovered :)')
+        else:
+            print('Did not recover true model :(')
+
     plt.plot(sorted_x, best_y, label='Best model')
     plt.plot(sorted_x, true_y, label='True model')
     plt.legend()
