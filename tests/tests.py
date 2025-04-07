@@ -332,5 +332,9 @@ class Utils(unittest.TestCase):
         self.assertEqual(get_sibling(eq7.tokens()), None)
 
 
+    def test_equation_sympy(self):
+        print('Testing sympy')
+
+
 if __name__ == "__main__":
     unittest.main()

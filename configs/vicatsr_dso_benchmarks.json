@@ -1,28 +1,33 @@
 {
     "domain": {
         "name": "DSOBenchmarks",
-        "dataset": "Nguyen-1"
+        "_dataset": "Nguyen-1",
+        "dataset": "Constant-1"
     },
     "algorithm": {
         "name": "VICatSR",
         "operators": {
             "binary_ops": ["*", "+"],
-            "_unary_ops": ["sin"]
+            "_binary_ops": ["*"],
+            "_unary_ops": ["sin"],
+            "_consts": ["opt_const"]
         },
         "prior_mean": 0.0,
         "prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 500,
-        "num_eq_samples": 100,
-        "max_num_tokens": 12,
+        "num_steps": 10,
+        "num_eq_samples": 10,
+        "_max_num_tokens": 5,
+        "max_num_tokens": 20,
         "target_policy": {
             "learning_rate": 1e-3,
-            "_learning_rate": 2e-4,
+            "_learning_rate": 5e-4,
             "rnn_hidden_layer_size": 256,
+            "_rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
-            "parent_input": false,
-            "sibing_input": false,
-            "previous_input": true
+            "parent_input": true,
+            "sibing_input": true,
+            "previous_input": false
         },
         "remove_x_vars": false,
         "plotting": false,
@@ -43,6 +48,7 @@
         },
         "max_likelihood": true,
         "distr_over_consts": false,
-        "x_seed": 18
+        "x_seed": 18,
+        "verbosity": 1
     }
 }

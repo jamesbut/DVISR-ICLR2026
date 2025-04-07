@@ -48,7 +48,7 @@ class DSOBenchmarks(Domain):
 
         return y
 
-    def create_x(self, config):
+    def create_x(self, config, num_vals=None):
 
         train_spec_dict = ast.literal_eval(config['train_spec'])
 
@@ -63,8 +63,11 @@ class DSOBenchmarks(Domain):
             )
 
         if 'U' in train_spec_dict['all']:
+
+            size = (train_spec_dict['all']['U'][2] if num_vals is None
+                                                   else num_vals)
             return np.random.uniform(
                 low=train_spec_dict['all']['U'][0],
                 high=train_spec_dict['all']['U'][1],
-                size=train_spec_dict['all']['U'][2]
+                size=size
             ).reshape(-1, 1)

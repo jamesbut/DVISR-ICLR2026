@@ -8,6 +8,25 @@ from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 
 
+# Plot best model found and true model if available
+def plot_best_and_true_model(domain, alg):
+
+    if data['x'].shape[1] > 1:
+        print('WARNING: Cannot plot true and best models when the number '
+              'of independent variables is larger than 1')
+        return
+
+    sorted_x = np.sort(data['x'], axis=0)
+    x = np.linspace(sorted_x[0][0], sorted_x[-1][0], 100)
+    x = x.reshape(-1, 1)
+
+    best_y = self._best_model.evaluate(x)
+    # true_y =
+
+    plt.plot(x, best_y)
+    plt.show()
+
+
 def main():
 
     # Parse args
@@ -38,6 +57,8 @@ def main():
 
         # Perform regression
         alg.train(data)
+
+    plot_best_and_true_model(domain, alg)
 
 
 if __name__ == '__main__':

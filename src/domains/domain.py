@@ -34,11 +34,11 @@ class Domain(ABC):
 
     # Create independent variables
     @abstractmethod
-    def create_x(self, config):
+    def create_x(self, config, num_vals=None):
         pass
 
     # Creates evenly spaced x values between a min and a max with a step size
-    def evenly_spaced_x(config):
+    def evenly_spaced_x(config, num_vals=None):
 
         # If x_mins and x_maxs are defined then the independent variables
         # are created by enumerating across these ranges with x_step_sizes.
