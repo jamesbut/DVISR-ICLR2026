@@ -307,7 +307,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                     # break
 
         self._best_model = best_z
-        print(f'\nBest z located: {best_z.get_infix()}   reward: {r_max}')
+        print(f'\nBest z located: {best_z.get_infix()} simplified: '
+              f'{best_z.get_infix(True)}  reward: {r_max}')
 
         return self._q, all_exps
 
@@ -646,7 +647,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
     def best_model(self):
         if not hasattr(self, '_best_model'):
             raise RuntimeError('Must train in order to get the best model')
-        return self._best_model.get_infix()
+        return self._best_model
 
     # Get hyperparameters of model (sklearn interface)
     def get_params(self, deep=True):

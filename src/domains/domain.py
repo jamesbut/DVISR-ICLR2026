@@ -50,3 +50,7 @@ class Domain(ABC):
 
         # Compute all permutations
         return compute_permutations(x_mins, x_maxs, step_sizes)
+
+    # Return true expression if known
+    def true_expr(self):
+        return None

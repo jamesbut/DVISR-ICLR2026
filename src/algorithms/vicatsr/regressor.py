@@ -10,4 +10,4 @@ est = VICatSR(config['algorithm'])
 
 
 def model(est, X=None):
-    return est.best_model()
+    return est.best_model().get_infix()

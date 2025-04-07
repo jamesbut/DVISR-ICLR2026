@@ -65,7 +65,6 @@ class Function():
         return self._kwargs_func
 
 
-#
 def surround_sub_strings_with_delimiters(x: str, sub_strings: list[str],
                                          delim: str = '`'):
     """

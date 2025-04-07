@@ -9,21 +9,35 @@ from algorithms.algorithm_factory import create_algorithm
 
 
 # Plot best model found and true model if available
-def plot_best_and_true_model(domain, alg):
+def plot_best_and_true_model(domain, alg, config):
 
-    if data['x'].shape[1] > 1:
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    x = domain.create_x(config['domain'], num_vals=1000)
+
+    if x.shape[1] > 1:
         print('WARNING: Cannot plot true and best models when the number '
               'of independent variables is larger than 1')
         return
 
-    sorted_x = np.sort(data['x'], axis=0)
-    x = np.linspace(sorted_x[0][0], sorted_x[-1][0], 100)
-    x = x.reshape(-1, 1)
+    sorted_x = np.sort(x, axis=0)
 
-    best_y = self._best_model.evaluate(x)
-    # true_y =
+    best_model = alg.best_model()
 
-    plt.plot(x, best_y)
+    if best_model is None:
+        print('Cannot plot best model results because algorithm has not yet '
+              'produced a best model')
+        return
+
+    best_y = best_model.evaluate(sorted_x)
+    true_y = domain.evaluate(sorted_x)
+
+    # TODO: Print best and true model string representations
+
+    plt.plot(sorted_x, best_y, label='Best model')
+    plt.plot(sorted_x, true_y, label='True model')
+    plt.legend()
     plt.show()
 
 
@@ -58,7 +72,7 @@ def main():
         # Perform regression
         alg.train(data)
 
-    plot_best_and_true_model(domain, alg)
+    plot_best_and_true_model(domain, alg, config)
 
 
 if __name__ == '__main__':
