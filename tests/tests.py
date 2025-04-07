@@ -4,11 +4,11 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
 
 import unittest
-from utils.json_helper import read_json
+from util.json_helper import read_json
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.equation import Equation
-from utils.tree import get_parent, get_sibling
+from util.tree import get_parent, get_sibling
 
 
 class VICatSR(unittest.TestCase):
@@ -331,9 +331,17 @@ class Utils(unittest.TestCase):
         self.assertEqual(get_sibling(eq7.tokens()[:5])['op'], 'x_0')
         self.assertEqual(get_sibling(eq7.tokens()), None)
 
-
     def test_equation_sympy(self):
-        print('Testing sympy')
+
+        token_set = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None, 'id': 1},
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 2},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 3}
+        ]
+
+        eq1 = Equation(infix_str='((x_0 * x_0) + x_0) + x_0', token_set=token_set)
+        self.assertEqual(eq1.get_infix(), '(((x_0 * x_0) + x_0) + x_0)')
+        self.assertEqual(eq1.get_infix(simplify=True), 'x_0**2 + 2*x_0')
 
 
 if __name__ == "__main__":

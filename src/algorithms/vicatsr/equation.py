@@ -94,7 +94,7 @@ class Equation:
         return stack.pop()
 
     # Return infix string
-    def get_infix(self):
+    def get_infix(self, simplify=False):
 
         eq = copy.deepcopy(self._eq)
 
@@ -127,7 +127,12 @@ class Equation:
                     raise RuntimeError(
                             t['type'] + ' is not a recognised token type')
 
-        return stack.pop()
+        eq_str = stack.pop()
+
+        if simplify:
+            eq_str = self._simplify(eq_str)
+
+        return eq_str
 
     def num_tokens(self):
         return len(self._eq)
@@ -246,6 +251,13 @@ class Equation:
                         )
 
         return eq
+
+    # Use sympy to simplify equation and return simplified string
+    def _simplify(self, eq_str):
+
+        from sympy import sympify
+        expr = sympify(eq_str)
+        return str(expr)
 
     def __repr__(self):
         return str(self._eq)

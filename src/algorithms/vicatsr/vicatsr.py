@@ -728,7 +728,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         return all_expressions
 
-
     # Plot priors, likelihoods, joints and posterior for simplest case.
     # NOTE: This is just for testing and should not be used functionally.
     def _plot_distrs(self, data):
