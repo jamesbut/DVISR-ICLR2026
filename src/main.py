@@ -35,7 +35,7 @@ def plot_best_and_true_model(domain, alg, config):
     best_y = best_model.evaluate(sorted_x)
     true_y = domain.evaluate(sorted_x)
 
-    # TODO: Print best and true model string representations
+    # Print best and true model string representations
     print('Best model:', best_model.get_infix(simplify=True))
     if true_model_str:
         print('True model:', true_model_str)

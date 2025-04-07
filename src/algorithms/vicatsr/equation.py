@@ -255,8 +255,9 @@ class Equation:
     # Use sympy to simplify equation and return simplified string
     def _simplify(self, eq_str):
 
-        from sympy import sympify
+        from sympy import sympify, expand
         expr = sympify(eq_str)
+        expr = expand(expr)
         return str(expr)
 
     def __repr__(self):

@@ -33,7 +33,7 @@ class Function():
     # Convert to sympy expression and return string
     def get_sympy(self):
 
-        from sympy import sympify
+        from sympy import sympify, expand
 
         # Create string suitable for sympy
         f_str = str(self)
@@ -42,6 +42,7 @@ class Function():
         f_str = re.sub(r"kwargs\['(.*?)'\]", r"\1", f_str)
 
         expr = sympify(f_str)
+        expr = expand(f_str)
         return str(expr)
 
     def __call__(self, **kwargs):
