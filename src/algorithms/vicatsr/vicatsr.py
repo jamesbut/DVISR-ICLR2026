@@ -331,7 +331,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                  for i in range(self._num_eq_samples)]
 
             # Calculate ELBO
-            elbos = self.elbos(data, sampled_z)
+            elbos, log_likelihoods = self.elbos(data, sampled_z)
 
             # Track values of interest
             if self._distr_over_consts:
@@ -345,11 +345,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             # Set reward to the elbo
             rewards = elbos
 
-            # Keep track of best performing sample
-            r_m = np.max(rewards.numpy())
+            # Keep track of best performing sample according to log likelihood
+            r_m = np.max(log_likelihoods.numpy())
             if r_max is None or r_m > r_max:
                 r_max = r_m
-                best_z = copy.deepcopy(sampled_z[np.argmax(rewards)])
+                best_z = copy.deepcopy(sampled_z[np.argmax(log_likelihoods)])
 
             # Subtract baseline from rewards
             baseline = rewards.mean()
@@ -580,7 +580,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             p_x, error = scipy.integrate.nquad(joint_func,
                                                integration_bounds,
                                                args=(zs, num_distr_consts))
-
         return p_x
 
     def log_evidence(self, data, zs):
@@ -609,8 +608,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             requires_grad=False
         )
 
-        # Calculate ELBO
-        return log_likelihoods + log_priors - log_q_zs
+        # Calculate and return ELBO and log likelihoods
+        return log_likelihoods + log_priors - log_q_zs, log_likelihoods
 
     # Calculate the KL divergence between q(z) and p(z|x)
     def kl_divergence(self, data, num_samples):
