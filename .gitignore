@@ -4,6 +4,9 @@ __pycache__/
 backups/
 srbench_results/
 
+/libs/*
+!/libs/.gitkeep
+
 # Build artifacts
 *.pt
 *.npy
