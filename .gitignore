@@ -3,3 +3,19 @@ __pycache__/
 *.pyc
 backups/
 srbench_results/
+
+# Build artifacts
+*.pt
+*.npy
+*.log
+*.pkl
+*.so
+*.dll
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+
+# OS cruft
+.DS_Store

@@ -316,8 +316,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
+        # Keep track of sampled z with the highest ELBO
+        r_max = None
+        best_z = None
+
         mus = []
         kl_divs = []
+
         for i in range(self._num_steps):
 
             # Sample z from behaviour policy
@@ -339,6 +344,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             # Set reward to the elbo
             rewards = elbos
+
+            # Keep track of best performing sample
+            r_m = np.max(rewards.numpy())
+            if r_max is None or r_m > r_max:
+                r_max = r_m
+                best_z = copy.deepcopy(sampled_z[np.argmax(rewards)])
 
             # Subtract baseline from rewards
             baseline = rewards.mean()
@@ -418,7 +429,10 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         for z in optimised_z:
             print(z.get_infix())
 
-        # TODO: Track and set best model found throughout training
+        # Set best model found throughout training
+        self._best_model = best_z
+        print(f'\nBest z located: {best_z.get_infix()} simplified: '
+              f'{best_z.get_infix(True)}  reward: {r_max}')
 
         return self._q, true_posteriors, all_exps
 

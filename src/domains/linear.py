@@ -19,5 +19,5 @@ class Linear(Domain):
 
         return np.ravel(y)
 
-    def create_x(self, config):
-        return Domain.evenly_spaced_x(config)
+    def create_x(self, config, num_vals=None):
+        return Domain.evenly_spaced_x(config, num_vals)
