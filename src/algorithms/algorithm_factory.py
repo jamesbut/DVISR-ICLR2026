@@ -1,13 +1,13 @@
 import sys
 
 # Import Algorithm subclasses
+'''
 try:
     from algorithms.symbolic_regression import SymbolicRegression
 except ImportError as e:
     print('Could not import the SymbolicRegression algorithm')
     print(e)
 
-'''
 try:
     from algorithms.bayesian_machine_scientist import BayesianMachineScientist
 except ImportError as e:
@@ -33,11 +33,13 @@ except ImportError as e:
     print('Could not import the VICatSR algorithm')
     print(e)
 
+'''
 try:
     from algorithms.vimg import VIMG
 except ImportError as e:
     print('Could not import the VIMG algorithm')
     print(e)
+'''
 
 
 # Create algorithm from json config

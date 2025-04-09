@@ -351,7 +351,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             '''
             for z, r, w in zip(sampled_z, rewards, importance_weights):
                 print(f"{z.get_infix()}      {r}                {w}")
-            # exit()
+            exit()
             '''
 
             # Apply importance weights
@@ -372,7 +372,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             optimiser.step()
 
         if self._plotting:
-            plt.plot(range(self._num_steps), mus)
+            plt.plot(range(self._num_steps), mus, label='mu')
+            plt.legend()
             plt.show()
             if self._track_kl_divergence:
                 plt.plot(range(self._num_steps), kl_divs)

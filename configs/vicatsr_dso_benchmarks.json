@@ -10,7 +10,7 @@
             "binary_ops": ["*", "+"],
             "_binary_ops": ["*"],
             "_unary_ops": ["sin"],
-            "consts": ["opt_const"]
+            "_consts": ["opt_const"]
         },
         "prior_mean": 0.0,
         "prior_variance": 100.0,
@@ -32,7 +32,7 @@
         "remove_x_vars": false,
         "plotting": false,
         "track_kl_divergence": false,
-        "calculate_posteriors": true,
+        "calculate_posteriors": false,
         "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
         "_behaviour_policy": "enumerate_all",
@@ -46,7 +46,7 @@
             "alpha": 0.25,
             "jumpstart": true
         },
-        "max_likelihood": true,
+        "max_likelihood": false,
         "distr_over_consts": false,
         "x_seed": 18,
         "verbosity": 1

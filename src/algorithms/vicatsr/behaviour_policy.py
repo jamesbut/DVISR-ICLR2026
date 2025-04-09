@@ -126,7 +126,16 @@ class BehaviourPolicy:
 
     # Samples uniformly according to all enumerated equations
     def _sample_enum_all(self):
-        return random.choice(self._all_eqs)
+
+        eq = copy.deepcopy(random.choice(self._all_eqs))
+
+        # Sample distributional constants from target policy
+        consts_params = self._target_policy.get_consts_params(eq)
+        consts = [np.random.normal(p[0], p[1]) for p in consts_params]
+
+        eq.set_distr_consts(consts)
+
+        return eq
 
     # Determine pdf according to the behaviour policy where an equal
     # probability is assigned to each token at each step of the equation
