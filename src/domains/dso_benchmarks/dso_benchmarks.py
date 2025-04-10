@@ -71,3 +71,6 @@ class DSOBenchmarks(Domain):
                 high=train_spec_dict['all']['U'][1],
                 size=size
             ).reshape(-1, 1)
+
+    def true_expr(self):
+        return self._expr.get_sympy()

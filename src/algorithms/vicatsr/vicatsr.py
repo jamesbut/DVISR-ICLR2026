@@ -750,47 +750,79 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
     # Plot best model found and true model if available
     def _plot_best_and_true_model(self):
 
-        if self._domain is None or self._plotting is False:
+        if not self._domain or not self._plotting:
             return
 
-        import matplotlib.pyplot as plt
-        import numpy as np
-
         x = self._domain.create_x(num_vals=1000)
+        sorted_x = np.sort(x, axis=0)
 
         if x.shape[1] > 1:
-            print('WARNING: Cannot plot true and best models when the number '
+            print('WARNING: Cannot plot models when the number '
                   'of independent variables is larger than 1')
             return
 
+        self._plot_best_model(sorted_x)
+        self._plot_true_model(sorted_x)
+
+        plt.legend()
+        plt.show()
+
+    # Plot q samples, best model and true model
+    def _plot_samples_best_and_true_model(self):
+
+        if not self._domain or not self._plotting:
+            return
+
+        x = self._domain.create_x(num_vals=1000)
         sorted_x = np.sort(x, axis=0)
+        print(sorted_x)
+
+        if x.shape[1] > 1:
+            print('WARNING: Cannot plot models when the number '
+                  'of independent variables is larger than 1')
+            return
+
+        self._plot_best_model(sorted_x)
+        self._plot_true_model(sorted_x)
+        self._plot_q_samples(sorted_x, num_samples=3)
+
+        plt.legend()
+        plt.show()
+
+    def _plot_best_model(self, x):
 
         best_model = self.best_model()
 
-        if best_model is None:
-            print('Cannot plot best model results because algorithm has not yet '
-                  'produced a best model')
+        if not best_model:
+            print('Cannot plot best model results because algorithm has not '
+                  'yet produced a best model')
             return
+
+        best_y = best_model.evaluate(x)
+
+        print('Best model:', best_model.get_infix(simplify=True))
+
+        plt.plot(x, best_y, label=f'y = {best_model.get_infix()} (Best)',
+                 linestyle='--')
+
+    def _plot_true_model(self, x):
 
         true_model_str = self._domain.true_expr()
 
-        best_y = best_model.evaluate(sorted_x)
-        true_y = self._domain.evaluate(sorted_x)
+        true_y = self._domain.evaluate(x)
 
-        # Print best and true model string representations
-        print('Best model:', best_model.get_infix(simplify=True))
-        if true_model_str:
-            print('True model:', true_model_str)
+        print('True model:', true_model_str)
+        label = (f'y = {true_model_str} (True)'
+                 if true_model_str else 'True model')
 
-            if best_model.get_infix(simplify=True) == true_model_str:
-                print('True model recovered :)')
-            else:
-                print('Did not recover true model :(')
+        plt.plot(x, true_y, label=label)
 
-        plt.plot(sorted_x, best_y, label='Best model')
-        plt.plot(sorted_x, true_y, label='True model')
-        plt.legend()
-        plt.show()
+    def _plot_q_samples(self, x, num_samples):
+
+        for _ in range(num_samples):
+            model = self._q.sample()
+            y = model.evaluate(x)
+            plt.plot(x, y, label=model.get_infix(), linestyle=':')
 
     # Plot priors, likelihoods, joints and posterior for simplest case.
     # NOTE: This is just for testing and should not be used functionally.

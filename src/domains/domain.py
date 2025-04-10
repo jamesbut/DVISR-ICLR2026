@@ -53,6 +53,6 @@ class Domain(ABC):
         # Compute all permutations
         return compute_permutations(x_mins, x_maxs, step_sizes)
 
-    # Return true expression if known
+    # Override to return true expression
     def true_expr(self):
-        return self._expr.get_sympy() if hasattr(self, '_expr') else None
+        return None

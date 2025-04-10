@@ -22,3 +22,12 @@ class Quadratic(Domain):
 
     def create_x(self, num_vals=None):
         return self.evenly_spaced_x(num_vals)
+
+    def true_expr(self):
+
+        from sympy import sympify, expand
+
+        expr = sympify(f'{self._a} * x_0**2 + {self._b} * x_0 + {self._c}')
+        expr = expand(expr)
+
+        return str(expr)
