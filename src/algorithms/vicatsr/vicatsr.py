@@ -18,6 +18,7 @@ from .behaviour_policy import BehaviourPolicy
 import copy
 from sklearn.base import BaseEstimator, RegressorMixin
 import pandas as pd
+from util.norms import normalise_value
 
 
 class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
@@ -440,7 +441,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
               f'{best_z.get_infix(True)}  reward: {r_max}')
 
         self._plot_distrs(data)
-        self._plot_samples_best_and_true_model()
+        self._plot_samples_best_and_true_model(plot_best=False)
 
         return self._q, true_posteriors, all_exps
 
@@ -772,7 +773,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         plt.show()
 
     # Plot q samples, best model and true model
-    def _plot_samples_best_and_true_model(self):
+    def _plot_samples_best_and_true_model(self, plot_best=True):
 
         if not self._domain or not self._plotting:
             return
@@ -785,11 +786,14 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                   'of independent variables is larger than 1')
             return
 
-        self._plot_best_model(sorted_x)
+        if plot_best:
+            self._plot_best_model(sorted_x)
         self._plot_true_model(sorted_x)
         self._plot_q_samples(sorted_x, num_samples=10)
 
         plt.legend()
+        # plt.legend(loc='upper left', bbox_to_anchor=(1, 1), borderaxespad=0.)
+        # plt.tight_layout()
         plt.show()
 
     def _plot_best_model(self, x):
@@ -818,7 +822,10 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         label = (f'y = {true_model_str} (True)'
                  if true_model_str else 'True model')
 
-        plt.plot(x, true_y, label=label)
+        plt.plot(x, true_y, label=label, c='tab:orange', linestyle='--')
+
+        # Plot data points
+        plt.scatter(self._data['x'][:, 0], self._data['y'], c='grey', marker='x')
 
     def _plot_q_samples(self, x, num_samples):
 
@@ -832,12 +839,19 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Sort models by log likelihoods so the plot is a little clearer
         models = sorted(models, key=lambda m: m[1], reverse=True)
 
+        # Vary opacities based upon relative log likelihood
+        opacities = []
+        max_ll = max(models, key=lambda x: x[1])[1]
+        min_ll = min(models, key=lambda x: x[1])[1]
         for m in models:
+            opacities.append(normalise_value(m[1], min_ll, max_ll, 0.1, 1.0))
+
+        for m, o in zip(models, opacities):
             y = m[0].evaluate(x)
             plt.plot(x, y,
                      label=f'y = {m[0].get_infix()} '
                            f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
-                     linestyle=':')
+                     c='tab:blue', alpha=o)
 
     # Plot priors, likelihoods, joints and posterior for simplest case.
     # NOTE: This is just for testing and should not be used functionally.

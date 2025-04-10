@@ -33,7 +33,7 @@
         "remove_x_vars": false,
         "plotting": true,
         "track_kl_divergence": false,
-        "calculate_posteriors": true,
+        "calculate_posteriors": false,
         "_behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
         "behaviour_policy": "enumerate_all",

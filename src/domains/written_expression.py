@@ -25,3 +25,6 @@ class WrittenExpression(Domain):
 
     def create_x(self, num_vals=None):
         return self.evenly_spaced_x(num_vals)
+
+    def true_expr(self):
+        return self._expr.get_sympy()
