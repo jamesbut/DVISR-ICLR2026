@@ -23,5 +23,5 @@ class WrittenExpression(Domain):
 
         return y
 
-    def create_x(self, config, num_vals=None):
-        return Domain.evenly_spaced_x(config, num_vals)
+    def create_x(self, num_vals=None):
+        return self.evenly_spaced_x(num_vals)

@@ -3,7 +3,7 @@ import sys
 # Import Domain subclasses
 from domains.quadratic import Quadratic
 from domains.linear import Linear
-from domains.dso_benchmarks.dso_benchmarks import DSOBenchmarks
+# from domains.dso_benchmarks.dso_benchmarks import DSOBenchmarks
 from domains.written_expression import WrittenExpression
 # from domains.sr_bench.sr_bench import SRBench
 

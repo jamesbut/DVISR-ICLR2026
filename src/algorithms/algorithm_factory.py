@@ -43,7 +43,7 @@ except ImportError as e:
 
 
 # Create algorithm from json config
-def create_algorithm(config):
+def create_algorithm(config, domain=None):
 
     # 'name' should be set to the subclass name which is then created here
-    return getattr(sys.modules[__name__], config['name'])(config)
+    return getattr(sys.modules[__name__], config['name'])(config, domain)

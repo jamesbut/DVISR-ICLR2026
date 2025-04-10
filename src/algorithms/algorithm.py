@@ -5,6 +5,10 @@ from abc import ABC, abstractmethod
 
 class Algorithm(ABC):
 
+    def __init__(self, domain):
+
+        self._domain = domain
+
     # Perform regression on the data.
     # data is of the same format as that returned from Domain.create_data.
     @abstractmethod

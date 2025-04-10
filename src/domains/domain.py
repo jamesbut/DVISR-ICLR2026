@@ -9,7 +9,9 @@ class Domain(ABC):
 
     def __init__(self, config):
 
-        self._x = self.create_x(config)
+        self._config = config
+
+        self._x = self.create_x()
 
     # Create dictionary with both independent variables, x, and depdendent
     # variable y.
@@ -34,19 +36,19 @@ class Domain(ABC):
 
     # Create independent variables
     @abstractmethod
-    def create_x(self, config, num_vals=None):
+    def create_x(self, num_vals=None):
         pass
 
     # Creates evenly spaced x values between a min and a max with a step size
-    def evenly_spaced_x(config, num_vals=None):
+    def evenly_spaced_x(self, num_vals=None):
 
         # If x_mins and x_maxs are defined then the independent variables
         # are created by enumerating across these ranges with x_step_sizes.
-        if 'x_mins' in config:
+        if 'x_mins' in self._config:
 
-            x_mins = config['x_mins']
-            x_maxs = config['x_maxs']
-            step_sizes = config['x_step_sizes']
+            x_mins = self._config['x_mins']
+            x_maxs = self._config['x_maxs']
+            step_sizes = self._config['x_step_sizes']
 
         # Compute all permutations
         return compute_permutations(x_mins, x_maxs, step_sizes)

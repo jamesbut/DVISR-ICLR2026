@@ -48,9 +48,9 @@ class DSOBenchmarks(Domain):
 
         return y
 
-    def create_x(self, config, num_vals=None):
+    def create_x(self, num_vals=None):
 
-        train_spec_dict = ast.literal_eval(config['train_spec'])
+        train_spec_dict = ast.literal_eval(self._config['train_spec'])
 
         if 'all' not in train_spec_dict:
             raise NotImplementedError(

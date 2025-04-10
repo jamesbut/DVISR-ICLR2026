@@ -22,7 +22,9 @@ import pandas as pd
 
 class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
-    def __init__(self, config):
+    def __init__(self, config, domain):
+
+        super().__init__(domain)
 
         # Prepare binary and unary operations and constants as tokens
         self._token_set = []
@@ -163,9 +165,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             results = self._maximise_likelihood(data)
         else:
             results = self._maximise_elbo(data)
-
-        if self._plotting:
-            self._plot_distrs(data)
 
         return results
 
@@ -310,6 +309,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         print(f'\nBest z located: {best_z.get_infix()} simplified: '
               f'{best_z.get_infix(True)}  reward: {r_max}')
 
+        self._plot_best_and_true_model()
+
         return self._q, all_exps
 
     def _maximise_elbo(self, data):
@@ -433,6 +434,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._best_model = best_z
         print(f'\nBest z located: {best_z.get_infix()} simplified: '
               f'{best_z.get_infix(True)}  reward: {r_max}')
+
+        if self._plotting:
+            self._plot_distrs(data)
 
         return self._q, true_posteriors, all_exps
 
@@ -742,6 +746,51 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                for eq in all_expressions]
 
         return all_expressions
+
+    # Plot best model found and true model if available
+    def _plot_best_and_true_model(self):
+
+        if self._domain is None or self._plotting is False:
+            return
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        x = self._domain.create_x(num_vals=1000)
+
+        if x.shape[1] > 1:
+            print('WARNING: Cannot plot true and best models when the number '
+                  'of independent variables is larger than 1')
+            return
+
+        sorted_x = np.sort(x, axis=0)
+
+        best_model = self.best_model()
+
+        if best_model is None:
+            print('Cannot plot best model results because algorithm has not yet '
+                  'produced a best model')
+            return
+
+        true_model_str = self._domain.true_expr()
+
+        best_y = best_model.evaluate(sorted_x)
+        true_y = self._domain.evaluate(sorted_x)
+
+        # Print best and true model string representations
+        print('Best model:', best_model.get_infix(simplify=True))
+        if true_model_str:
+            print('True model:', true_model_str)
+
+            if best_model.get_infix(simplify=True) == true_model_str:
+                print('True model recovered :)')
+            else:
+                print('Did not recover true model :(')
+
+        plt.plot(sorted_x, best_y, label='Best model')
+        plt.plot(sorted_x, true_y, label='True model')
+        plt.legend()
+        plt.show()
 
     # Plot priors, likelihoods, joints and posterior for simplest case.
     # NOTE: This is just for testing and should not be used functionally.
