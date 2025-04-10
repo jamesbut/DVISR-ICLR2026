@@ -753,7 +753,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         if not self._domain or not self._plotting:
             return
 
-        x = self._domain.create_x(num_vals=1000)
+        x = self._domain.create_x(num_vals=1001)
         sorted_x = np.sort(x, axis=0)
 
         if x.shape[1] > 1:
@@ -773,9 +773,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         if not self._domain or not self._plotting:
             return
 
-        x = self._domain.create_x(num_vals=1000)
+        x = self._domain.create_x(num_vals=1001)
         sorted_x = np.sort(x, axis=0)
-        print(sorted_x)
 
         if x.shape[1] > 1:
             print('WARNING: Cannot plot models when the number '

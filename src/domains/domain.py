@@ -44,10 +44,21 @@ class Domain(ABC):
 
         # If x_mins and x_maxs are defined then the independent variables
         # are created by enumerating across these ranges with x_step_sizes.
-        if 'x_mins' in self._config:
+        x_mins = self._config['x_mins']
+        x_maxs = self._config['x_maxs']
 
-            x_mins = self._config['x_mins']
-            x_maxs = self._config['x_maxs']
+        # num_vals can be provided for which the step sizes must be
+        # dynamically calculated
+        if num_vals:
+
+            if len(x_mins) > 1:
+                raise NotImplementedError(
+                    'Cannot calculate number of steps for evenly_spaced_x '
+                    'for dimensions greater than 1')
+
+            step_sizes = [(x_maxs[0] - x_mins[0]) / (num_vals - 1)]
+
+        else:
             step_sizes = self._config['x_step_sizes']
 
         # Compute all permutations
