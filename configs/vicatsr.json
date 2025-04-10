@@ -48,7 +48,7 @@
             "alpha": 0.25,
             "jumpstart": true
         },
-        "max_likelihood": true,
+        "max_likelihood": false,
         "distr_over_consts": true,
         "x_seed": 18,
         "verbosity": 1

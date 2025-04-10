@@ -170,6 +170,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     def _maximise_likelihood(self, data):
 
+        self._data = data
+
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
         # Keep track of sampled z with the highest maximum likelihood
@@ -315,6 +317,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     def _maximise_elbo(self, data):
 
+        self._data = data
+
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
         # Keep track of sampled z with the highest ELBO
@@ -435,8 +439,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         print(f'\nBest z located: {best_z.get_infix()} simplified: '
               f'{best_z.get_infix(True)}  reward: {r_max}')
 
-        if self._plotting:
-            self._plot_distrs(data)
+        self._plot_distrs(data)
+        self._plot_samples_best_and_true_model()
 
         return self._q, true_posteriors, all_exps
 
@@ -783,7 +787,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         self._plot_best_model(sorted_x)
         self._plot_true_model(sorted_x)
-        self._plot_q_samples(sorted_x, num_samples=3)
+        self._plot_q_samples(sorted_x, num_samples=10)
 
         plt.legend()
         plt.show()
@@ -818,14 +822,29 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     def _plot_q_samples(self, x, num_samples):
 
-        for _ in range(num_samples):
+        models = []
+        for i in range(num_samples):
             model = self._q.sample()
-            y = model.evaluate(x)
-            plt.plot(x, y, label=model.get_infix(), linestyle=':')
+            pdf = self._q.pdf(model)
+            ll = log_likelihood(self._data, model)
+            models.append((model, ll, pdf))
+
+        # Sort models by log likelihoods so the plot is a little clearer
+        models = sorted(models, key=lambda m: m[1], reverse=True)
+
+        for m in models:
+            y = m[0].evaluate(x)
+            plt.plot(x, y,
+                     label=f'y = {m[0].get_infix()} '
+                           f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
+                     linestyle=':')
 
     # Plot priors, likelihoods, joints and posterior for simplest case.
     # NOTE: This is just for testing and should not be used functionally.
     def _plot_distrs(self, data):
+
+        if not self._plotting:
+            return
 
         all_exps = self._enumerate_expressions(data)
 
