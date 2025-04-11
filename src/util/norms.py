@@ -17,10 +17,10 @@ def normalise_value(value, v_min, v_max, norm_min=0.0, norm_max=1.0):
         ValueError: If v_max <= v_min or norm_max <= norm_min.
     """
     # Check for valid ranges
-    if v_max <= v_min:
-        raise ValueError("v_max must be greater than v_min")
-    if norm_max <= norm_min:
-        raise ValueError("norm_max must be greater than norm_min")
+    if v_max < v_min:
+        raise ValueError("v_max must be greater than or equal to v_min")
+    if norm_max < norm_min:
+        raise ValueError("norm_max must be greater than or equal to norm_min")
 
     # Linear normalization formula
     normalized = norm_min + (value - v_min) * (norm_max - norm_min) / (v_max - v_min)

@@ -326,7 +326,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         r_max = None
         best_z = None
 
-        mus = []
+        # mus = []
         kl_divs = []
 
         for i in range(self._num_steps):
@@ -340,9 +340,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             elbos, log_likelihoods = self.elbos(data, sampled_z)
 
             # Track values of interest
-            if self._distr_over_consts:
-                mu = self._q.net_outs(sampled_z[0])[-1][-2]
-                mus.append(mu)
+            # if self._distr_over_consts:
+            #     mu = self._q.net_outs(sampled_z[0])[-1][-2]
+            #     mus.append(mu)
 
             if self._track_kl_divergence:
                 kl_divergence = self.kl_divergence(data, num_samples=100)
@@ -389,9 +389,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             optimiser.step()
 
         if self._plotting:
-            plt.plot(range(self._num_steps), mus, label='mu')
-            plt.legend()
-            plt.show()
+            # plt.plot(range(self._num_steps), mus, label='mu')
+            # plt.legend()
+            # plt.show()
             if self._track_kl_divergence:
                 plt.plot(range(self._num_steps), kl_divs)
                 plt.show()
@@ -430,10 +430,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         all_z = self._enumerate_expressions(data)
         for z in all_z:
             z.convert_distr_to_opt_consts()
-        optimised_z = [optimise_eq_consts(z, data, log_likelihood) for z in all_z]
+        optimised_z = [(optimise_eq_consts(z, data, log_likelihood),
+                        log_likelihood(data, z))
+                       for z in all_z]
+        optimised_z = sorted(optimised_z, key=lambda z: z[1], reverse=True)
         print('Optimised models:')
         for z in optimised_z:
-            print(z.get_infix())
+            print(f'{z[0].get_infix():<25}     log p(x|z): {z[1]}')
 
         # Set best model found throughout training
         self._best_model = best_z
@@ -788,8 +791,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         if plot_best:
             self._plot_best_model(sorted_x)
-        self._plot_true_model(sorted_x)
         self._plot_q_samples(sorted_x, num_samples=10)
+        # self._plot_true_model(sorted_x)
+
+        # Plot data points
+        plt.scatter(self._data['x'][:, 0], self._data['y'], c='r', marker='x')
 
         plt.legend()
         # plt.legend(loc='upper left', bbox_to_anchor=(1, 1), borderaxespad=0.)
@@ -824,9 +830,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         plt.plot(x, true_y, label=label, c='tab:orange', linestyle='--')
 
-        # Plot data points
-        plt.scatter(self._data['x'][:, 0], self._data['y'], c='grey', marker='x')
-
     def _plot_q_samples(self, x, num_samples):
 
         models = []
@@ -839,12 +842,17 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Sort models by log likelihoods so the plot is a little clearer
         models = sorted(models, key=lambda m: m[1], reverse=True)
 
-        # Vary opacities based upon relative log likelihood
-        opacities = []
-        max_ll = max(models, key=lambda x: x[1])[1]
-        min_ll = min(models, key=lambda x: x[1])[1]
-        for m in models:
-            opacities.append(normalise_value(m[1], min_ll, max_ll, 0.1, 1.0))
+        # Check whether all likelihoods are the same
+        if all(z[1] == models[0][1] for z in models):
+            opacities = [1.0] * len(models)
+        else:
+            # Vary opacities based upon relative log likelihood
+            opacities = []
+            max_ll = max(models, key=lambda x: x[1])[1]
+            min_ll = min(models, key=lambda x: x[1])[1]
+            for m in models:
+                opacities.append(normalise_value(m[1], min_ll, max_ll,
+                                                 0.1, 0.9999999))
 
         for m, o in zip(models, opacities):
             y = m[0].evaluate(x)

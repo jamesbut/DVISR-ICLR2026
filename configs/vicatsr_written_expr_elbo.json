@@ -13,13 +13,15 @@
             "binary_ops": ["*"],
             "unary_ops": ["sin"]
         },
-        "prior_mean": 0.35,
-        "prior_variance": 1.0,
+        "_prior_mean": 0.35,
+        "_prior_variance": 1.0,
+        "prior_mean": 0.0,
+        "prior_variance": 100.0,
         "_q_const_variance": 0.1,
         "num_steps": 500,
         "num_eq_samples": 100,
         "_max_num_tokens": 5,
-        "max_num_tokens": 2,
+        "max_num_tokens": 1,
         "target_policy": {
             "learning_rate": 2e-4,
             "_learning_rate": 5e-4,
