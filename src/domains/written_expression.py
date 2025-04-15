@@ -16,7 +16,7 @@ class WrittenExpression(Domain):
     def evaluate(self, x):
 
         # Build function argument dictionary from x values
-        func_kwargs = {f'x{i+1}': x[:, i] for i in range(x.shape[1])}
+        func_kwargs = {f'x_{i}': x[:, i] for i in range(x.shape[1])}
 
         # Evaluate expression
         y = self._expr(**func_kwargs)

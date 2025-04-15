@@ -1,10 +1,10 @@
 {
     "domain": {
         "name": "WrittenExpression",
-        "_expression": "`x1` * `x1`",
-        "_expression": "`x1` * `x1` + `x1`",
-        "_expression": "`x1`**3 + `x1`**2 + `x1`",
-        "expression": "`x1`**4 + `x1`**3 + `x1`**2 + `x1`",
+        "_expression": "`x_0` * `x_0`",
+        "_expression": "`x_0` * `x_0` + `x_0`",
+        "_expression": "`x_0`**3 + `x_0`**2 + `x_0`",
+        "expression": "`x_0`**4 + `x_0`**3 + `x_0`**2 + `x_0`",
         "x_mins": [-1.0],
         "x_maxs": [1.0],
         "x_step_sizes": [0.1]
@@ -22,7 +22,7 @@
         "_q_const_variance": 0.1,
         "num_steps": 1000,
         "num_eq_samples": 250,
-        "_max_num_tokens": 5,
+        "_max_num_tokens": 3,
         "max_num_tokens": 20,
         "target_policy": {
             "_learning_rate": 2e-4,

@@ -259,17 +259,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 [w * r for r, w in zip(rewards, importance_weights)]
             )
 
-            '''
-            for z, r, w in zip(sampled_z, rewards, importance_weights):
-                print(f"{z.get_infix()}      {r}                "
-                      f"{self._behaviour_policy.importance_weight(z)}")
-                # for t in z.tokens():
-                #     print(f"{t['op']}")
-                # net_outs = self._q.net_outs(z)
-                # print(net_outs)
-            # exit()
-            '''
-
             losses = torch.stack(
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
             )
@@ -725,6 +714,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._best_model = best_z
         print(f'\nBest z located: {best_z.get_infix()} simplified: '
               f'{best_z.get_infix(True)}  reward: {r_max}')
+        true_model_str = self._domain.true_expr()
+        print(f'True z: {true_model_str}')
+
+        # Compare best model found with true model
+        self._true_model_recovered = true_model_str == best_z.get_infix(True)
+        print(f'True z found: {self._true_model_recovered}')
 
         print(f'\nMax ELBO: {max(all_elbos)}')
 
