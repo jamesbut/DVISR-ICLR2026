@@ -326,6 +326,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         all_elbos = []
         all_lls = []
         log_ev = None
+        self._epoch_true_model_located = None
 
         if self._calc_posteriors_flag:
             log_ev = self.log_evidence(data,
@@ -360,6 +361,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if r_max is None or r_m > r_max:
                 r_max = r_m
                 best_z = copy.deepcopy(sampled_z[np.argmax(log_likelihoods)])
+
+                # Check whether best expression is the true expression
+                # and record epoch located
+                if self._domain.true_expr() == best_z.get_infix(True):
+                    self._epoch_true_model_located = i
 
             # Subtract baseline from rewards
             baseline = rewards.mean()
@@ -716,10 +722,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
               f'{best_z.get_infix(True)}  reward: {r_max}')
         true_model_str = self._domain.true_expr()
         print(f'True z: {true_model_str}')
-
-        # Compare best model found with true model
-        self._true_model_recovered = true_model_str == best_z.get_infix(True)
-        print(f'True z found: {self._true_model_recovered}')
+        print(f'True model found at epoch: {self._epoch_true_model_located}')
 
         print(f'\nMax ELBO: {max(all_elbos)}')
 

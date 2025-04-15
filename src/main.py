@@ -6,6 +6,7 @@ from args import get_args_parser
 from config import read_config
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
+from writer import Writer
 
 
 def main():
@@ -15,6 +16,10 @@ def main():
 
     # Read config
     config, config_path = read_config(args)
+
+    # Save config to file
+    writer = Writer(config)
+    writer.initialise()
 
     # Create domain
     domain = create_domain(config['domain'])
@@ -37,7 +42,10 @@ def main():
         alg = create_algorithm(config['algorithm'], domain)
 
         # Perform regression
-        alg.train(data)
+        results = alg.train(data)
+
+    # Save results to file
+    writer.write_results(results)
 
 
 if __name__ == '__main__':

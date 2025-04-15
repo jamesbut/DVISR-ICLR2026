@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 backups/
 srbench_results/
+results/
 
 /libs/*
 !/libs/.gitkeep

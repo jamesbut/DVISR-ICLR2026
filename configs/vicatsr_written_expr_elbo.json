@@ -56,5 +56,8 @@
         "distr_over_consts": false,
         "x_seed": 18,
         "verbosity": 1
+    },
+    "writer": {
+        "write_to_file": true
     }
 }
