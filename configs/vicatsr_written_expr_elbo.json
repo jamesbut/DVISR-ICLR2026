@@ -1,44 +1,45 @@
 {
     "domain": {
         "name": "WrittenExpression",
-        "expression": "`x1` * `x1`",
+        "_expression": "`x1` * `x1`",
         "_expression": "`x1` * `x1` + `x1`",
-        "x_mins": [0.0],
+        "expression": "`x1`**3 + `x1`**2 + `x1`",
+        "x_mins": [-1.0],
         "x_maxs": [1.0],
         "x_step_sizes": [0.1]
     },
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "binary_ops": ["*"],
-            "unary_ops": ["sin"]
+            "binary_ops": ["*", "+"],
+            "_unary_ops": ["sin"]
         },
-        "_prior_mean": 0.35,
-        "_prior_variance": 1.0,
-        "prior_mean": 0.0,
-        "prior_variance": 100.0,
+        "prior_mean": 0.35,
+        "prior_variance": 1.0,
+        "_prior_mean": 0.0,
+        "_prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 500,
-        "num_eq_samples": 100,
+        "num_steps": 1000,
+        "num_eq_samples": 250,
         "_max_num_tokens": 5,
-        "max_num_tokens": 1,
+        "max_num_tokens": 12,
         "target_policy": {
             "learning_rate": 2e-4,
             "_learning_rate": 5e-4,
             "rnn_hidden_layer_size": 256,
             "_rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
-            "parent_input": false,
-            "sibing_input": false,
-            "previous_input": true
+            "parent_input": true,
+            "sibing_input": true,
+            "previous_input": false
         },
         "remove_x_vars": false,
         "plotting": true,
         "track_kl_divergence": false,
-        "calculate_posteriors": false,
-        "_behaviour_policy": "target",
+        "calculate_posteriors": true,
+        "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
-        "behaviour_policy": "enumerate_all",
+        "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
         "baseline": {
@@ -50,7 +51,7 @@
             "jumpstart": true
         },
         "max_likelihood": false,
-        "distr_over_consts": true,
+        "distr_over_consts": false,
         "x_seed": 18,
         "verbosity": 1
     }

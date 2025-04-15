@@ -1,8 +1,8 @@
 {
     "domain": {
         "name": "WrittenExpression",
-        "_expression": "`x1` * `x1` + `x1`",
-        "expression": "`x1` * `x1` * `x1` + `x1`",
+        "expression": "`x1` * `x1` + `x1`",
+        "_expression": "`x1` * `x1` * `x1` + `x1`",
         "_expression": "`x1` * `x1` * `x1` + `x1` * `x1`",
         "x_mins": [-1.0],
         "x_maxs": [1.0],
@@ -18,13 +18,13 @@
         "prior_mean": 0.0,
         "prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 250,
-        "num_eq_samples": 100,
+        "num_steps": 10,
+        "num_eq_samples": 250,
         "_max_num_tokens": 5,
-        "max_num_tokens": 9,
+        "max_num_tokens": 5,
         "target_policy": {
-            "learning_rate": 1e-3,
-            "_learning_rate": 5e-4,
+            "learning_rate": 2e-4,
+            "_learning_rate": 1e-3,
             "rnn_hidden_layer_size": 256,
             "_rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
@@ -33,7 +33,7 @@
             "previous_input": false
         },
         "remove_x_vars": false,
-        "plotting": false,
+        "plotting": true,
         "track_kl_divergence": false,
         "calculate_posteriors": true,
         "behaviour_policy": "target",

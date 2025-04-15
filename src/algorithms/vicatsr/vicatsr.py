@@ -328,6 +328,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # mus = []
         kl_divs = []
+        all_elbos = []
 
         for i in range(self._num_steps):
 
@@ -338,6 +339,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             # Calculate ELBO
             elbos, log_likelihoods = self.elbos(data, sampled_z)
+            all_elbos.append(elbos.mean().item())
 
             # Track values of interest
             # if self._distr_over_consts:
@@ -380,7 +382,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
             ).mean()
 
-            print('Step: {}   Loss: {}'.format(str(i), loss.item()))
+            print(f'Step: {str(i):<5}   Loss: {loss.item():.10f}    '
+                  f'ELBO: {elbos.mean().item():.10f}')
 
             optimiser.zero_grad()
 
@@ -395,6 +398,14 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if self._track_kl_divergence:
                 plt.plot(range(self._num_steps), kl_divs)
                 plt.show()
+            plt.plot(range(self._num_steps), all_elbos, label='ELBO')
+            if self._calc_posteriors_flag:
+                log_ev = self.log_evidence(data,
+                                           self._enumerate_expressions(data))
+                plt.plot(range(self._num_steps), [log_ev] * self._num_steps,
+                         label=f'log p(x): {log_ev:.5f}')
+            plt.legend()
+            plt.show()
 
         '''
         sampled_z = [self._behaviour_policy.sample_and_optimise(data, log_likelihood)
@@ -415,14 +426,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             all_exps = self._enumerate_expressions(data)
             true_posteriors = [None] * len(all_exps)
 
-        for p_z_x, z in zip(true_posteriors, all_exps):
-            print(
-                'z: ' + z.get_infix() + '    q(z): '
-                + str(self._q.pdf(z).item()) + '    p(z|x): '
-                + str(p_z_x)
-            )
-            consts_params = self._q.get_consts_params(z)
-            print('     q consts params:', consts_params)
+        # Order all models by q(z) and print
+        all_z = [(z, p_z_x, self._q.pdf(z).item(), self._q.get_consts_params(z))
+                 for z, p_z_x in zip(all_exps, true_posteriors)]
+        all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
+        for z in all_z:
+            print(f'z: {z[0].get_infix():<25} q(z): {z[2]:.10f}    '
+                  f'p(z|x): {z[1]:.10f}    q consts params: {z[3]}')
 
         # Optimise constants according to maximum likelihood and print
         # Of course, this is not necessarily the mode of the posterior but

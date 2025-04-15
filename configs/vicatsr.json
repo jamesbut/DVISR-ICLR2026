@@ -12,7 +12,8 @@
         "name": "VICatSR",
         "operators": {
             "binary_ops": ["*"],
-            "unary_ops": ["sin"]
+            "unary_ops": ["sin"],
+            "_consts": ["opt_const"]
         },
         "prior_mean": 0.35,
         "prior_variance": 1.0,
@@ -48,7 +49,7 @@
             "alpha": 0.25,
             "jumpstart": true
         },
-        "max_likelihood": true,
+        "max_likelihood": false,
         "distr_over_consts": true,
         "x_seed": 18,
         "verbosity": 1
