@@ -329,6 +329,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # mus = []
         kl_divs = []
         all_elbos = []
+        all_lls = []
+
+        if self._calc_posteriors_flag:
+            log_ev = self.log_evidence(data,
+                                       self._enumerate_expressions(data))
 
         for i in range(self._num_steps):
 
@@ -340,6 +345,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             # Calculate ELBO
             elbos, log_likelihoods = self.elbos(data, sampled_z)
             all_elbos.append(elbos.mean().item())
+            all_lls.append(log_likelihoods.mean().item())
 
             # Track values of interest
             # if self._distr_over_consts:
@@ -382,8 +388,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 [-self._q.log_pdf(z) * r for z, r in zip(sampled_z, rewards)]
             ).mean()
 
-            print(f'Step: {str(i):<5}   Loss: {loss.item():.10f}    '
-                  f'ELBO: {elbos.mean().item():.10f}')
+            # Output summary string
+            summary_str = (f'Step: {str(i):<5}   Loss: {loss.item():.10f}    '
+                           f'ELBO: {elbos.mean().item():.10f}')
+            if self._calc_posteriors_flag:
+                summary_str += f'   log p(x): {log_ev:.10f}'
+            print(summary_str)
 
             optimiser.zero_grad()
 
@@ -391,72 +401,10 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             optimiser.step()
 
-        if self._plotting:
-            # plt.plot(range(self._num_steps), mus, label='mu')
-            # plt.legend()
-            # plt.show()
-            if self._track_kl_divergence:
-                plt.plot(range(self._num_steps), kl_divs)
-                plt.show()
-            plt.plot(range(self._num_steps), all_elbos, label='ELBO')
-            if self._calc_posteriors_flag:
-                log_ev = self.log_evidence(data,
-                                           self._enumerate_expressions(data))
-                plt.plot(range(self._num_steps), [log_ev] * self._num_steps,
-                         label=f'log p(x): {log_ev:.5f}')
-            plt.legend()
-            plt.show()
+        self._post_elbo_analysis(data, kl_divs, all_elbos, all_lls,
+                                 log_ev, best_z, r_max)
 
-        '''
-        sampled_z = [self._behaviour_policy.sample_and_optimise(data, log_likelihood)
-                     for i in range(self._num_eq_samples)]
-        for z in sampled_z:
-            print('z: ' + z.get_infix())
-        '''
-
-        if self._calc_posteriors_flag:
-
-            true_posteriors, all_exps = self.posteriors(data)
-
-            kl_divergence = self.kl_divergence(data, num_samples=1000)
-            print('KL divergence:', kl_divergence)
-            print('------------------------------')
-
-        else:
-            all_exps = self._enumerate_expressions(data)
-            true_posteriors = [None] * len(all_exps)
-
-        # Order all models by q(z) and print
-        all_z = [(z, p_z_x, self._q.pdf(z).item(), self._q.get_consts_params(z))
-                 for z, p_z_x in zip(all_exps, true_posteriors)]
-        all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
-        for z in all_z:
-            print(f'z: {z[0].get_infix():<25} q(z): {z[2]:.10f}    '
-                  f'p(z|x): {z[1]:.10f}    q consts params: {z[3]}')
-
-        # Optimise constants according to maximum likelihood and print
-        # Of course, this is not necessarily the mode of the posterior but
-        # if the variance of the prior is wide enough, it will be close
-        all_z = self._enumerate_expressions(data)
-        for z in all_z:
-            z.convert_distr_to_opt_consts()
-        optimised_z = [(optimise_eq_consts(z, data, log_likelihood),
-                        log_likelihood(data, z))
-                       for z in all_z]
-        optimised_z = sorted(optimised_z, key=lambda z: z[1], reverse=True)
-        print('Optimised models:')
-        for z in optimised_z:
-            print(f'{z[0].get_infix():<25}     log p(x|z): {z[1]}')
-
-        # Set best model found throughout training
-        self._best_model = best_z
-        print(f'\nBest z located: {best_z.get_infix()} simplified: '
-              f'{best_z.get_infix(True)}  reward: {r_max}')
-
-        self._plot_distrs(data)
-        self._plot_samples_best_and_true_model(plot_best=False)
-
-        return self._q, true_posteriors, all_exps
+        return self._q, self._true_posteriors, self._enumerate_expressions(data)
 
     def _initialise(self, data):
 
@@ -695,8 +643,90 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             setattr(self, key, value)
         return self
 
+    # Perform post ELBO maximising analysis
+    def _post_elbo_analysis(self, data, kl_divs, all_elbos, all_lls,
+                            log_ev, best_z, r_max):
+
+        if self._plotting:
+            # plt.plot(range(self._num_steps), mus, label='mu')
+            # plt.legend()
+            # plt.show()
+            if self._track_kl_divergence:
+                plt.plot(range(self._num_steps), kl_divs)
+                plt.show()
+            plt.plot(range(self._num_steps), all_elbos, label='ELBO')
+            if self._calc_posteriors_flag:
+                plt.plot(range(self._num_steps), [log_ev] * self._num_steps,
+                         label=f'log p(x): {log_ev:.5f}')
+            plt.legend()
+            plt.show()
+
+            plt.plot(range(self._num_steps), all_lls, label='p(x|z)')
+            plt.legend()
+            plt.show()
+
+        if self._calc_posteriors_flag:
+
+            self._true_posteriors, all_exps = self.posteriors(data)
+
+            kl_divergence = self.kl_divergence(data, num_samples=1000)
+            print('KL divergence:', kl_divergence)
+            print('------------------------------')
+
+        else:
+            all_exps = self._enumerate_expressions(data)
+            self._true_posteriors = [None] * len(all_exps)
+
+        # Order all models by q(z) and print
+        all_z = [(z, p_z_x, self._q.pdf(z).item(), log_likelihood(data, z),
+                  self._q.get_consts_params(z))
+                 for z, p_z_x in zip(all_exps, self._true_posteriors)]
+        all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
+
+        # Get longest eq string in order to format nicely
+        eq_str_length = max(len(z[0].get_infix()) for z in all_z)
+
+        for i, z in enumerate(all_z):
+            out_str = (f'z: {z[0].get_infix():<{eq_str_length+3}} '
+                       f'z: {z[0].get_infix(simplify=True):<25} '
+                       f'q(z): {z[2]:.10f}  '
+                       f'p(z|x): {z[1]:.10f}  p(x|z): {z[3]:.10f}')
+            if self._distr_over_consts:
+                out_str += f'   q consts params: {z[4]}'
+            print(out_str)
+            if i > 100:
+                break
+
+        # Optimise constants according to maximum likelihood and print
+        # Of course, this is not necessarily the mode of the posterior but
+        # if the variance of the prior is wide enough, it will be close
+        if self._distr_over_consts:
+            all_z = self._enumerate_expressions(data)
+            for z in all_z:
+                z.convert_distr_to_opt_consts()
+            optimised_z = [(optimise_eq_consts(z, data, log_likelihood),
+                            log_likelihood(data, z))
+                           for z in all_z]
+            optimised_z = sorted(optimised_z, key=lambda z: z[1], reverse=True)
+            print('Optimised models:')
+            for z in optimised_z:
+                print(f'{z[0].get_infix():<25}     log p(x|z): {z[1]}')
+
+        # Set best model found throughout training
+        self._best_model = best_z
+        print(f'\nBest z located: {best_z.get_infix()} simplified: '
+              f'{best_z.get_infix(True)}  reward: {r_max}')
+
+        print(f'\nMax ELBO: {max(all_elbos)}')
+
+        self._plot_distrs(data)
+        self._plot_samples_best_and_true_model(plot_best=False)
+
     # Enumerate all expressions according to a specific token set and a maximum
     def _enumerate_expressions(self, data=None):
+
+        if hasattr(self, '_all_exps'):
+            return self._all_exps
 
         l_m = self._max_num_tokens
 
@@ -763,7 +793,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             all_expressions = [optimise_eq_consts(eq, data, log_likelihood)
                                for eq in all_expressions]
 
-        return all_expressions
+        self._all_exps = all_expressions
+        return self._all_exps
 
     # Plot best model found and true model if available
     def _plot_best_and_true_model(self):
@@ -881,7 +912,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         all_exps = self._enumerate_expressions(data)
 
         if len(all_exps) > 2:
-            print('Cannot plot distributions for more than y=c')
+            # print('Cannot plot distributions for more than y=c')
             return
 
         x = np.arange(-5.0, 5.0, 0.01)

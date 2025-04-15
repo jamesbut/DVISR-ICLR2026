@@ -24,8 +24,8 @@
         "_max_num_tokens": 5,
         "max_num_tokens": 12,
         "target_policy": {
-            "learning_rate": 2e-4,
-            "_learning_rate": 5e-4,
+            "_learning_rate": 2e-4,
+            "learning_rate": 5e-4,
             "rnn_hidden_layer_size": 256,
             "_rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
