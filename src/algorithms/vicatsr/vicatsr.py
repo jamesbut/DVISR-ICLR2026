@@ -913,7 +913,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         for m, o in zip(models, opacities):
             y = m[0].evaluate(x)
             plt.plot(x, y,
-                     label=f'y = {m[0].get_infix()} '
+                     label=f'y = {m[0].get_infix()} | '
+                           f'y = {m[0].get_infix(True)} '
                            f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
                      c='tab:blue', alpha=o)
 
