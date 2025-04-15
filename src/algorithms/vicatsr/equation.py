@@ -216,6 +216,15 @@ class Equation:
         self._num_opt_consts = sum(1 for t in self._eq
                                    if t['op'] == 'opt_const')
 
+    def to_json(self):
+
+        j = {
+            'eq': self.get_infix(),
+            'eq (simplified)': self.get_infix(True)
+        }
+
+        return j
+
     # Replace opt_const with values
     def _replace_opt_consts(self, eq):
 

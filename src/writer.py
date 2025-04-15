@@ -55,6 +55,9 @@ class Writer():
         if not self._write_to_file:
             return
 
+        with open(self._exp_dir_path + '/results.json', 'w') as file:
+            json.dump(results, file, indent=4)
+
         print('Experiment results written to file')
 
     # Calculates the number of the directory to store exp data in

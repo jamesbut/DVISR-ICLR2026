@@ -42,10 +42,10 @@ def main():
         alg = create_algorithm(config['algorithm'], domain)
 
         # Perform regression
-        results = alg.train(data)
+        alg.train(data)
 
     # Save results to file
-    writer.write_results(results)
+    writer.write_results(alg.results())
 
 
 if __name__ == '__main__':

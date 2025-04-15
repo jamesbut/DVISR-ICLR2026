@@ -317,20 +317,22 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
-        # Keep track of sampled z with the highest ELBO
-        r_max = None
-        best_z = None
-
-        # mus = []
-        kl_divs = []
-        all_elbos = []
-        all_lls = []
-        log_ev = None
-        self._epoch_true_model_located = None
+        self._results = {
+            # mus = []
+            'kl_divs': [],
+            'all_elbos': [],
+            'all_lls': [],
+            'log_ev': None,
+            'epoch_true_model_located': None,
+            'r_max': None,
+            'best_z': None,
+            'true_z': self._domain.true_expr()
+        }
 
         if self._calc_posteriors_flag:
-            log_ev = self.log_evidence(data,
-                                       self._enumerate_expressions(data))
+            self._results['log_ev'] = self.log_evidence(
+                data, self._enumerate_expressions(data)
+            )
 
         for i in range(self._num_steps):
 
@@ -341,8 +343,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             # Calculate ELBO
             elbos, log_likelihoods = self.elbos(data, sampled_z)
-            all_elbos.append(elbos.mean().item())
-            all_lls.append(log_likelihoods.mean().item())
+            self._results['all_elbos'].append(elbos.mean().item())
+            self._results['all_lls'].append(log_likelihoods.mean().item())
 
             # Track values of interest
             # if self._distr_over_consts:
@@ -351,21 +353,24 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             if self._track_kl_divergence:
                 kl_divergence = self.kl_divergence(data, num_samples=100)
-                kl_divs.append(kl_divergence)
+                self._results['kl_divs'].append(kl_divergence)
 
             # Set reward to the elbo
             rewards = elbos
 
             # Keep track of best performing sample according to log likelihood
             r_m = np.max(log_likelihoods.numpy())
-            if r_max is None or r_m > r_max:
-                r_max = r_m
-                best_z = copy.deepcopy(sampled_z[np.argmax(log_likelihoods)])
+            if self._results['r_max'] is None or r_m > self._results['r_max']:
+                self._results['r_max'] = r_m
+                self._results['best_z'] = copy.deepcopy(
+                    sampled_z[np.argmax(log_likelihoods)]
+                )
 
                 # Check whether best expression is the true expression
                 # and record epoch located
-                if self._domain.true_expr() == best_z.get_infix(True):
-                    self._epoch_true_model_located = i
+                if (self._domain.true_expr()
+                    == self._results['best_z'].get_infix(True)):
+                    self._results['epoch_true_model_located'] = i
 
             # Subtract baseline from rewards
             baseline = rewards.mean()
@@ -394,7 +399,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             summary_str = (f'Step: {str(i):<5}   Loss: {loss.item():.10f}    '
                            f'ELBO: {elbos.mean().item():.10f}')
             if self._calc_posteriors_flag:
-                summary_str += f'   log p(x): {log_ev:.10f}'
+                log_ev = self._results['log_ev']
+                summary_str += f"   log p(x): {log_ev:.10f}"
             print(summary_str)
 
             optimiser.zero_grad()
@@ -403,8 +409,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             optimiser.step()
 
-        self._post_elbo_analysis(data, kl_divs, all_elbos, all_lls,
-                                 log_ev, best_z, r_max)
+        self._post_elbo_analysis(data)
 
         return self._q, self._true_posteriors, self._all_exps
 
@@ -645,25 +650,33 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             setattr(self, key, value)
         return self
 
+    def results(self):
+        res = self._results
+        # Make best model serialisable
+        res['best_z'] = res['best_z'].to_json()
+        return res
+
     # Perform post ELBO maximising analysis
-    def _post_elbo_analysis(self, data, kl_divs, all_elbos, all_lls,
-                            log_ev, best_z, r_max):
+    def _post_elbo_analysis(self, data):
 
         if self._plotting:
             # plt.plot(range(self._num_steps), mus, label='mu')
             # plt.legend()
             # plt.show()
             if self._track_kl_divergence:
-                plt.plot(range(self._num_steps), kl_divs)
+                plt.plot(range(self._num_steps), self._results['kl_divs'])
                 plt.show()
-            plt.plot(range(self._num_steps), all_elbos, label='ELBO')
+            plt.plot(range(self._num_steps), self._results['all_elbos'],
+                     label='ELBO')
             if self._calc_posteriors_flag:
+                log_ev = self._results['log_ev']
                 plt.plot(range(self._num_steps), [log_ev] * self._num_steps,
                          label=f'log p(x): {log_ev:.5f}')
             plt.legend()
             plt.show()
 
-            plt.plot(range(self._num_steps), all_lls, label='p(x|z)')
+            plt.plot(range(self._num_steps), self._results['all_lls'],
+                     label='p(x|z)')
             plt.legend()
             plt.show()
 
@@ -717,14 +730,16 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 print(f'{z[0].get_infix():<25}     log p(x|z): {z[1]}')
 
         # Set best model found throughout training
-        self._best_model = best_z
-        print(f'\nBest z located: {best_z.get_infix()} simplified: '
-              f'{best_z.get_infix(True)}  reward: {r_max}')
+        self._best_model = self._results['best_z']
+        print(f'\nBest z located: {self._best_model.get_infix()} simplified: '
+              f'{self._best_model.get_infix(True)}  '
+              f'reward: {self._results["r_max"]}')
         true_model_str = self._domain.true_expr()
         print(f'True z: {true_model_str}')
-        print(f'True model found at epoch: {self._epoch_true_model_located}')
+        print(f'True model found at epoch: '
+              f'{self._results["epoch_true_model_located"]}')
 
-        print(f'\nMax ELBO: {max(all_elbos)}')
+        print(f'\nMax ELBO: {max(self._results["all_elbos"])}')
 
         self._plot_distrs(data)
         self._plot_samples_best_and_true_model(plot_best=False)
