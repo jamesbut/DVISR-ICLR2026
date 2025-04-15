@@ -3,7 +3,8 @@
         "name": "WrittenExpression",
         "_expression": "`x1` * `x1`",
         "_expression": "`x1` * `x1` + `x1`",
-        "expression": "`x1`**3 + `x1`**2 + `x1`",
+        "_expression": "`x1`**3 + `x1`**2 + `x1`",
+        "expression": "`x1`**4 + `x1`**3 + `x1`**2 + `x1`",
         "x_mins": [-1.0],
         "x_maxs": [1.0],
         "x_step_sizes": [0.1]
@@ -22,7 +23,7 @@
         "num_steps": 1000,
         "num_eq_samples": 250,
         "_max_num_tokens": 5,
-        "max_num_tokens": 12,
+        "max_num_tokens": 20,
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
@@ -36,7 +37,8 @@
         "remove_x_vars": false,
         "plotting": true,
         "track_kl_divergence": false,
-        "calculate_posteriors": true,
+        "calculate_posteriors": false,
+        "enum_exps": false,
         "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
         "_behaviour_policy": "enumerate_all",

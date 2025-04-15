@@ -131,6 +131,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Flag whether to calculate posteriors at the end of training
         self._calc_posteriors_flag = config.get('calculate_posteriors', True)
 
+        # Flag for whether to ever enumerate all expressions
+        self._enum_all_exps = config.get('enum_exps', True)
+
         # Flag to determine which behaviour policy to use
         self._behaviour_policy_name = config.get('behaviour_policy', 'target')
 
@@ -157,6 +160,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             torch.manual_seed(self._seed)
 
         self._verbosity = config.get('verbosity', 2)
+
+        self._true_posteriors = None
+        self._all_exps = None
 
     def train(self, data):
 
@@ -330,6 +336,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         kl_divs = []
         all_elbos = []
         all_lls = []
+        log_ev = None
 
         if self._calc_posteriors_flag:
             log_ev = self.log_evidence(data,
@@ -404,7 +411,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._post_elbo_analysis(data, kl_divs, all_elbos, all_lls,
                                  log_ev, best_z, r_max)
 
-        return self._q, self._true_posteriors, self._enumerate_expressions(data)
+        return self._q, self._true_posteriors, self._all_exps
 
     def _initialise(self, data):
 
@@ -674,28 +681,30 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             print('------------------------------')
 
         else:
-            all_exps = self._enumerate_expressions(data)
-            self._true_posteriors = [None] * len(all_exps)
+            if self._enum_all_exps:
+                all_exps = self._enumerate_expressions(data)
+                self._true_posteriors = [None] * len(all_exps)
 
-        # Order all models by q(z) and print
-        all_z = [(z, p_z_x, self._q.pdf(z).item(), log_likelihood(data, z),
-                  self._q.get_consts_params(z))
-                 for z, p_z_x in zip(all_exps, self._true_posteriors)]
-        all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
+        if self._enum_all_exps:
+            # Order all models by q(z) and print
+            all_z = [(z, p_z_x, self._q.pdf(z).item(), log_likelihood(data, z),
+                      self._q.get_consts_params(z))
+                     for z, p_z_x in zip(all_exps, self._true_posteriors)]
+            all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
 
-        # Get longest eq string in order to format nicely
-        eq_str_length = max(len(z[0].get_infix()) for z in all_z)
+            # Get longest eq string in order to format nicely
+            eq_str_length = max(len(z[0].get_infix()) for z in all_z)
 
-        for i, z in enumerate(all_z):
-            out_str = (f'z: {z[0].get_infix():<{eq_str_length+3}} '
-                       f'z: {z[0].get_infix(simplify=True):<25} '
-                       f'q(z): {z[2]:.10f}  '
-                       f'p(z|x): {z[1]:.10f}  p(x|z): {z[3]:.10f}')
-            if self._distr_over_consts:
-                out_str += f'   q consts params: {z[4]}'
-            print(out_str)
-            if i > 100:
-                break
+            for i, z in enumerate(all_z):
+                out_str = (f'z: {z[0].get_infix():<{eq_str_length+3}} '
+                           f'z: {z[0].get_infix(simplify=True):<25} '
+                           f'q(z): {z[2]:.10f}  '
+                           f'p(z|x): {z[1]:.10f}  p(x|z): {z[3]:.10f}')
+                if self._distr_over_consts:
+                    out_str += f'   q consts params: {z[4]}'
+                print(out_str)
+                if i > 100:
+                    break
 
         # Optimise constants according to maximum likelihood and print
         # Of course, this is not necessarily the mode of the posterior but
@@ -725,8 +734,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
     # Enumerate all expressions according to a specific token set and a maximum
     def _enumerate_expressions(self, data=None):
 
-        if hasattr(self, '_all_exps'):
+        if self._all_exps:
             return self._all_exps
+
+        total_num_eqs = calculate_total_num_eqs(self._token_set,
+                                                self._max_num_tokens)
+        print(f'Enumerating all {total_num_eqs} expressions...')
 
         l_m = self._max_num_tokens
 
@@ -792,6 +805,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         if data is not None:
             all_expressions = [optimise_eq_consts(eq, data, log_likelihood)
                                for eq in all_expressions]
+
+        print('...expressions enumerated')
 
         self._all_exps = all_expressions
         return self._all_exps
@@ -907,6 +922,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
     def _plot_distrs(self, data):
 
         if not self._plotting:
+            return
+
+        if not self._enum_all_exps:
             return
 
         all_exps = self._enumerate_expressions(data)
