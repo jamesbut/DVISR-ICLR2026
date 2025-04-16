@@ -232,9 +232,12 @@ class q:
     def to_json(self):
 
         j = self.__dict__
-        # del j['_net']
 
         j['_consts_mask'] = j['_consts_mask'].tolist()
         j['_un_ops_consts_mask'] = j['_un_ops_consts_mask'].tolist()
 
         return j
+
+    @classmethod
+    def from_json(cls, j):
+        return cls(**j)

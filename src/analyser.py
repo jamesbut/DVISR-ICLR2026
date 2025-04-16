@@ -2,6 +2,7 @@
 
 import json
 import matplotlib.pyplot as plt
+from algorithms.vicatsr.q import q
 
 
 def analyse_results(exp_dir):
@@ -13,6 +14,9 @@ def analyse_results(exp_dir):
     print(json.dumps(results, indent=4))
 
     plot_results(results)
+
+    # Read q(z)
+    q_z = q.from_json(results['q'])
 
 
 def plot_results(results):

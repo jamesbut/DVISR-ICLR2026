@@ -25,7 +25,7 @@
             "_rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
             "parent_input": true,
-            "sibing_input": true,
+            "sibling_input": true,
             "previous_input": false
         },
         "remove_x_vars": false,
