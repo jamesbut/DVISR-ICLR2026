@@ -7,12 +7,10 @@ from config import read_config
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from writer import Writer
+from analyser import analyse_results
 
 
-def main():
-
-    # Parse args
-    args = get_args_parser().parse_args()
+def run_exps(args):
 
     # Read config
     config, config_path = read_config(args)
@@ -46,6 +44,20 @@ def main():
 
     # Save results to file
     writer.write_results(alg.results())
+
+
+def main():
+
+    # Parse args
+    args = get_args_parser().parse_args()
+
+    # Analyse results
+    if args.analyse:
+        analyse_results(args.analyse)
+
+    # Run experiments
+    else:
+        run_exps(args)
 
 
 if __name__ == '__main__':
