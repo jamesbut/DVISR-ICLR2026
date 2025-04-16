@@ -440,12 +440,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
-        self._q = q(self._token_set, self._hidden_layer_size,
-                    self._init_gru_zero, self._max_depth, self._max_num_tokens,
+        self._q = q(self._token_set, self._max_depth, self._max_num_tokens,
                     self._distr_over_consts, self._q_const_variance,
                     self._consts_mask, self._un_ops_consts_mask,
                     self._previous_input, self._parent_input,
-                    self._sibling_input)
+                    self._sibling_input,
+                    self._hidden_layer_size, self._init_gru_zero)
 
         # If enumerate all behaviour policy is being used, enumerate models
         # here

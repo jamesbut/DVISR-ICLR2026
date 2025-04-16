@@ -87,6 +87,10 @@ class NN(torch.nn.Module):
     def save(self, file_path):
         torch.save(self, file_path)
 
+    @classmethod
+    def load(cls, file_path):
+        return torch.load(file_path)
+
 
 import torch.nn.init as init
 

@@ -57,8 +57,11 @@ class Writer():
 
         # The torch network can not be serialised so this is written
         # separately here
-        results['q']['_net'].save(self._exp_dir_path + '/net.pt')
-        del results['q']['_net']
+        net_path = self._exp_dir_path + '/net.pt'
+        results['q']['net'].save(net_path)
+        del results['q']['net']
+
+        results['q']['net_path'] = net_path
 
         print(json.dumps(results, indent=4))
 

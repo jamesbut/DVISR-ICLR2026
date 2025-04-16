@@ -13,10 +13,12 @@ from util.tree import get_parent, get_sibling
 
 class q:
 
-    def __init__(self, token_set, hidden_layer_size, init_gru_zero, max_depth,
-                 max_num_tokens, distr_over_consts, const_variance,
+    def __init__(self, token_set, max_depth, max_num_tokens,
+                 distr_over_consts, const_variance,
                  consts_mask, un_ops_consts_mask, previous_input: bool,
-                 parent_input: bool, sibling_input: bool):
+                 parent_input: bool, sibling_input: bool,
+                 hidden_layer_size: int = None, init_gru_zero: bool = False,
+                 net_path: str = None):
 
         self._max_depth = max_depth
         self._max_num_tokens = max_num_tokens
@@ -38,11 +40,16 @@ class q:
         rnn_input_size = sum([self._previous_input, self._parent_input,
                               self._sibling_input]) * len(token_set)
 
+        # Read net from file
+        if net_path:
+            self._net = NN.load(net_path)
+
         # Create recurrent neural network
-        self._net = NN(rnn_input_size, len(token_set),
-                       hidden_layer_size, distr_over_consts,
-                       True if const_variance is None else False,
-                       init_gru_zero)
+        else:
+            self._net = NN(rnn_input_size, len(token_set),
+                           hidden_layer_size, distr_over_consts,
+                           True if const_variance is None else False,
+                           init_gru_zero)
 
     def sample(self):
 
@@ -233,11 +240,19 @@ class q:
 
         j = self.__dict__
 
-        j['_consts_mask'] = j['_consts_mask'].tolist()
-        j['_un_ops_consts_mask'] = j['_un_ops_consts_mask'].tolist()
+        # Remove '_' prefix from all keys
+        j = {k.lstrip('_'): v for k, v in j.items()}
+
+        j['consts_mask'] = j['consts_mask'].tolist()
+        j['un_ops_consts_mask'] = j['un_ops_consts_mask'].tolist()
 
         return j
 
     @classmethod
     def from_json(cls, j):
+
+        # Convert lists back to torch tensors
+        j['consts_mask'] = torch.tensor(j['consts_mask'])
+        j['un_ops_consts_mask'] = torch.tensor(j['un_ops_consts_mask'])
+
         return cls(**j)

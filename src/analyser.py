@@ -3,9 +3,17 @@
 import json
 import matplotlib.pyplot as plt
 from algorithms.vicatsr.q import q
+from domains.domain_factory import create_domain
+from algorithms.vicatsr.vicatsr import log_likelihood
+from util.norms import normalise_value
+import numpy as np
 
 
 def analyse_results(exp_dir):
+
+    # Read config
+    with open(exp_dir + '/config.json', 'r') as file:
+        config = json.load(file)
 
     # Read results
     with open(exp_dir + '/results.json', 'r') as file:
@@ -17,6 +25,12 @@ def analyse_results(exp_dir):
 
     # Read q(z)
     q_z = q.from_json(results['q'])
+
+    # Create domain
+    domain = create_domain(config['domain'])
+
+    # Sample from q(z) and plot
+    sample_and_plot(q_z, domain)
 
 
 def plot_results(results):
@@ -46,3 +60,54 @@ def plot_results(results):
                  label='p(x|z)')
         plt.legend()
         plt.show()
+
+
+def sample_and_plot(q, domain):
+
+    data = domain.create_data()
+
+    if data['x'].shape[1] > 1:
+        print('WARNING: Cannot plot models when the number '
+              'of independent variables is larger than 1')
+        return
+
+    models = []
+    for i in range(10):
+        model = q.sample()
+        pdf = q.pdf(model)
+        ll = log_likelihood(data, model)
+        models.append((model, ll, pdf))
+
+    # Sort models by log likelihoods so the plot is a little clearer
+    models = sorted(models, key=lambda m: m[1], reverse=True)
+
+    # Check whether all likelihoods are the same
+    if all(z[1] == models[0][1] for z in models):
+        opacities = [1.0] * len(models)
+    else:
+        # Vary opacities based upon relative log likelihood
+        opacities = []
+        max_ll = max(models, key=lambda x: x[1])[1]
+        min_ll = min(models, key=lambda x: x[1])[1]
+        for m in models:
+            opacities.append(normalise_value(m[1], min_ll, max_ll,
+                                             0.1, 0.9999999))
+
+    # Create wide range of x values according to domain spec in order to
+    # plot model smoothly
+    x = domain.create_x(num_vals=1001)
+    x = np.sort(x, axis=0)
+
+    for m, o in zip(models, opacities):
+        y = m[0].evaluate(x)
+        plt.plot(x, y,
+                 label=f'y = {m[0].get_infix()} | '
+                       f'y = {m[0].get_infix(True)} '
+                       f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
+                 c='tab:blue', alpha=o)
+
+    # Plot data points
+    plt.scatter(data['x'][:, 0], data['y'], c='r', marker='x')
+
+    plt.legend()
+    plt.show()
