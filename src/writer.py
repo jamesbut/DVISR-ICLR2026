@@ -55,6 +55,14 @@ class Writer():
         if not self._write_to_file:
             return
 
+        # The torch network can not be serialised so this is written
+        # separately here
+        results['q']['_net'].save(self._exp_dir_path + '/net.pt')
+        del results['q']['_net']
+
+        print(json.dumps(results, indent=4))
+
+        # Write results that could be serialised to json
         with open(self._exp_dir_path + '/results.json', 'w') as file:
             json.dump(results, file, indent=4)
 

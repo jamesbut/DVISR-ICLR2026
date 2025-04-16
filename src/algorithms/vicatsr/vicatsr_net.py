@@ -84,6 +84,9 @@ class NN(torch.nn.Module):
     def num_outputs(self):
         return self._num_outputs
 
+    def save(self, file_path):
+        torch.save(self, file_path)
+
 
 import torch.nn.init as init
 

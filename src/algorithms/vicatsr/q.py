@@ -228,3 +228,13 @@ class q:
 
         # TODO: Might have to input sampled value for constants back into
         # the network
+
+    def to_json(self):
+
+        j = self.__dict__
+        # del j['_net']
+
+        j['_consts_mask'] = j['_consts_mask'].tolist()
+        j['_un_ops_consts_mask'] = j['_un_ops_consts_mask'].tolist()
+
+        return j

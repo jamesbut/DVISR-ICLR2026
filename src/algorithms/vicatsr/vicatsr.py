@@ -659,6 +659,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
     # Perform post ELBO maximising analysis
     def _post_elbo_analysis(self, data):
 
+        # Add q to results
+        self._results['q'] = self._q.to_json()
+
         if self._plotting:
             # plt.plot(range(self._num_steps), mus, label='mu')
             # plt.legend()
