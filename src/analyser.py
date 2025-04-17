@@ -19,7 +19,11 @@ def analyse_results(exp_dir):
     with open(exp_dir + '/results.json', 'r') as file:
         results = json.load(file)
 
-    print(json.dumps(results, indent=4))
+    # print(json.dumps(results, indent=4))
+    print('True z:', results['true_z'])
+    print(f'Best z: {json.dumps(results["best_z"], indent=4)}')
+    print('Epoch true model located', results['epoch_true_model_located'])
+    print('ELBO max:', max(results['all_elbos']))
 
     plot_results(results)
 

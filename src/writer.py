@@ -63,7 +63,7 @@ class Writer():
 
         results['q']['net_path'] = net_path
 
-        print(json.dumps(results, indent=4))
+        # print(json.dumps(results, indent=4))
 
         # Write results that could be serialised to json
         with open(self._exp_dir_path + '/results.json', 'w') as file:
