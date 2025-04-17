@@ -30,11 +30,14 @@ def analyse_results(exp_dir):
     # Read q(z)
     q_z = q.from_json(results['q'])
 
+    # Read initial q(z) if it exists
+    init_q_z = q.from_json(results['init_q']) if 'init_q' in results else None
+
     # Create domain
     domain = create_domain(config['domain'])
 
     # Sample from q(z) and plot
-    sample_and_plot(q_z, domain)
+    sample_and_plot(domain, q_z, init_q_z)
 
 
 def plot_results(results):
@@ -66,7 +69,7 @@ def plot_results(results):
         plt.show()
 
 
-def sample_and_plot(q, domain):
+def sample_and_plot(domain, q, init_q):
 
     data = domain.create_data()
 
@@ -109,6 +112,12 @@ def sample_and_plot(q, domain):
                        f'y = {m[0].get_infix(True)} '
                        f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
                  c='tab:blue', alpha=o)
+
+    # Sample from initial q is given
+    for i in range(10):
+        model = init_q.sample()
+        y = model.evaluate(x)
+        plt.plot(x, y, c='tab:orange', alpha=0.3, linestyle='--')
 
     # Plot data points
     plt.scatter(data['x'][:, 0], data['y'], c='r', marker='x')

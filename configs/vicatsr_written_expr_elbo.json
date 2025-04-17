@@ -20,10 +20,10 @@
         "_prior_mean": 0.0,
         "_prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 1000,
+        "num_steps": 100,
         "num_eq_samples": 250,
         "_max_num_tokens": 3,
-        "max_num_tokens": 20,
+        "max_num_tokens": 12,
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
@@ -54,11 +54,11 @@
         "track_kl_divergence": false,
         "calculate_posteriors": false,
         "enum_exps": false,
-        "stop_when_true_expr_found": true,
+        "stop_when_true_expr_found": false,
         "x_seed": 18,
         "verbosity": 1
     },
     "writer": {
-        "write_to_file": false
+        "write_to_file": true
     }
 }

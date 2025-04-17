@@ -169,14 +169,24 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._true_posteriors = None
         self._all_exps = None
 
-    def train(self, data):
+    def train(self, data, init_q_file_path=None):
 
         self._initialise(data)
+
+        # Write initial q if file path is given
+        if init_q_file_path:
+            init_q = self._q.to_json()
+            init_q['net_path'] = init_q_file_path
+            init_q['net'].save(init_q_file_path)
+            del init_q['net']
 
         if self._max_likelihood_flag:
             results = self._maximise_likelihood(data)
         else:
             results = self._maximise_elbo(data)
+
+        if init_q_file_path:
+            self._results['init_q'] = init_q
 
         return results
 
@@ -374,6 +384,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 if (self._domain.true_expr()
                     == self._results['best_z'].get_infix(True)):
                     self._results['epoch_true_model_located'] = i
+
+                    # Break if flag specified
                     if self._stop_when_true_expr_found:
                         break
 

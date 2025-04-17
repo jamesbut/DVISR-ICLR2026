@@ -71,6 +71,9 @@ class Writer():
 
         print('Experiment results written to file')
 
+    def exp_dir_path(self):
+        return self._exp_dir_path
+
     # Calculates the number of the directory to store exp data in
     def _calculate_next_exp_dir_num(self):
 

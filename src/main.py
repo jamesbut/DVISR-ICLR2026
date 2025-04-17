@@ -43,7 +43,8 @@ def run_exps(args):
         alg = create_algorithm(config['algorithm'], domain)
 
         # Perform regression
-        alg.train(data)
+        init_q_file_path = writer.exp_dir_path() + '/init_net.pt'
+        alg.train(data, init_q_file_path)
 
     # Save results to file
     writer.write_results(alg.results())
