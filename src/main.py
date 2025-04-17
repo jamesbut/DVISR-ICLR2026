@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from args import get_args_parser
+from args import get_args_parser, modify_config
 from config import read_config
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
@@ -14,6 +14,9 @@ def run_exps(args):
 
     # Read config
     config, config_path = read_config(args)
+
+    # Modify config if specified via the command line
+    config = modify_config(config, args)
 
     # Save config to file
     writer = Writer(config)
