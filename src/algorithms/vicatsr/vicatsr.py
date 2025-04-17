@@ -134,6 +134,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Flag for whether to ever enumerate all expressions
         self._enum_all_exps = config.get('enum_exps', True)
 
+        # Flag to stop training when true expression has been found
+        self._stop_when_true_expr_found = config.get(
+            'stop_when_true_expr_found', False
+        )
+
         # Flag to determine which behaviour policy to use
         self._behaviour_policy_name = config.get('behaviour_policy', 'target')
 
@@ -369,6 +374,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 if (self._domain.true_expr()
                     == self._results['best_z'].get_infix(True)):
                     self._results['epoch_true_model_located'] = i
+                    if self._stop_when_true_expr_found:
+                        break
 
             # Subtract baseline from rewards
             baseline = rewards.mean()

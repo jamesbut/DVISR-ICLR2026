@@ -35,10 +35,6 @@
             "previous_input": false
         },
         "remove_x_vars": false,
-        "plotting": false,
-        "track_kl_divergence": false,
-        "calculate_posteriors": false,
-        "enum_exps": false,
         "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
         "_behaviour_policy": "enumerate_all",
@@ -54,10 +50,15 @@
         },
         "max_likelihood": false,
         "distr_over_consts": false,
+        "plotting": false,
+        "track_kl_divergence": false,
+        "calculate_posteriors": false,
+        "enum_exps": false,
+        "stop_when_true_expr_found": true,
         "x_seed": 18,
         "verbosity": 1
     },
     "writer": {
-        "write_to_file": true
+        "write_to_file": false
     }
 }
