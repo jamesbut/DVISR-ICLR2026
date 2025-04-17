@@ -19,4 +19,4 @@
 cd $HOME/BayesianSymbolicRegression
 
 # python3 src/main.py vicatsr_written_expr.json > outs/out1.txt
-python3 src/main.py vicatsr_written_expr_elbo.json
+python3 src/main.py vicatsr_written_expr_elbo.json "{algorithm/target_policy/learning_rate:1e-4}" < outs/out0.txt

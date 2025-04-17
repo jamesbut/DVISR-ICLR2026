@@ -228,23 +228,21 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
                 # Calculate baseline
                 baseline = None
-                match self._baseline['name']:
-
-                    # Use mean as baseline
-                    case 'mean':
-                        baseline = rewards.mean()
+                # Use mean as baseline
+                if self._baseline['name'] == 'mean':
+                    baseline = rewards.mean()
 
                     # Use exponentially weighted moving average as baseline
-                    case 'ewma':
+                elif self._baseline['name'] == 'ewma':
 
-                        if self._ewma is None:
-                            self._emwa = rewards.mean()
-                        else:
-                            self._emwa = (self._ewma_alpha * rewards.mean()
-                                          + (1.0 - self._ewma_alpha)
-                                            * self._ewma)
+                    if self._ewma is None:
+                        self._emwa = rewards.mean()
+                    else:
+                        self._emwa = (self._ewma_alpha * rewards.mean()
+                                      + (1.0 - self._ewma_alpha)
+                                        * self._ewma)
 
-                        baseline = self._emwa
+                    baseline = self._emwa
 
                 # Apply baseline
                 if baseline is not None:
