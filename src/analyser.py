@@ -114,13 +114,31 @@ def sample_and_plot(domain, q, init_q):
                  c='tab:blue', alpha=o)
 
     # Sample from initial q is given
+    init_models = []
     for i in range(10):
         model = init_q.sample()
-        y = model.evaluate(x)
+        pdf = q.pdf(model)
+        ll = log_likelihood(data, model)
+        init_models.append((model, ll, pdf))
+
+    for m in init_models:
+        y = m[0].evaluate(x)
         plt.plot(x, y, c='tab:orange', alpha=0.3, linestyle='--')
 
     # Plot data points
     plt.scatter(data['x'][:, 0], data['y'], c='r', marker='x')
+
+    # Report some metrics
+    sampled_metrics = {
+        'init_q_models': {
+            'Mean log likelihood':
+                (sum([m[1] for m in init_models]) / len(init_models))
+        },
+        'optimised_q_models': {
+            'Mean log likelihood': sum([m[1] for m in models]) / len(models)
+        }
+    }
+    print(json.dumps(sampled_metrics, indent=4))
 
     plt.legend()
     plt.show()

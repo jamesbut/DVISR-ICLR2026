@@ -418,6 +418,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if self._calc_posteriors_flag:
                 log_ev = self._results['log_ev']
                 summary_str += f"   log p(x): {log_ev:.10f}"
+            if self._results['epoch_true_model_located']:
+                summary_str += (
+                    f'   ETML: {self._results["epoch_true_model_located"]}'
+                )
+
             print(summary_str)
 
             optimiser.zero_grad()
