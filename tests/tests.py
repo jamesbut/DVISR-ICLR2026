@@ -30,7 +30,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         q, all_exps = alg.train(self._data)
@@ -47,7 +47,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -63,7 +63,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         q, all_exps = alg.train(self._data)
@@ -82,7 +82,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -102,7 +102,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         q, all_exps = alg.train(self._data)
@@ -117,7 +117,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['remove_x_vars'] = True
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -145,7 +145,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['plotting'] = False
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -176,7 +176,7 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['target_policy']['sibling_input'] = True
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'])
+        alg = create_algorithm(self._config['algorithm'], self._domain)
 
         # Train
         alg.train(self._data)

@@ -743,7 +743,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Of course, this is not necessarily the mode of the posterior but
         # if the variance of the prior is wide enough, it will be close
         if self._distr_over_consts:
-            all_z = self._enumerate_expressions(data)
+            all_z = copy.deepcopy(self._enumerate_expressions(data))
             for z in all_z:
                 z.convert_distr_to_opt_consts()
             optimised_z = [(optimise_eq_consts(z, data, log_likelihood),

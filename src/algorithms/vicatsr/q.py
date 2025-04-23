@@ -97,11 +97,10 @@ class q:
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
-            match token['type']:
-                case 'bin_op':
-                    num_consts_required += 1
-                case 'const':
-                    num_consts_required -= 1
+            if token['type'] == 'bin_op':
+                num_consts_required += 1
+            elif token['type'] == 'const':
+                num_consts_required -= 1
 
             token['pre_softmax_mask'] = copy.deepcopy(pre_softmax_mask)
 
