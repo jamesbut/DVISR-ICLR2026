@@ -54,13 +54,12 @@ class BehaviourPolicy:
     def sample(self):
 
         # Sample according to the particular behavioural policy
-        match self._strategy:
-            case BPStrategy.target:
-                return self._target_policy.sample()
-            case BPStrategy.enumerate_all:
-                return self._sample_enum_all()
-            case BPStrategy.equal_prob_tokens:
-                return self._sample_eq_prob_tokens()
+        if self._strategy == BPStrategy.target:
+            return self._target_policy.sample()
+        elif self._strategy == BPStrategy.enumerate_all:
+            return self._sample_enum_all()
+        elif self._strategy == BPStrategy.equal_prob_tokens:
+            return self._sample_eq_prob_tokens()
 
     def sample_and_optimise(self, data, log_likelihood_func):
         return optimise_eq_consts(self.sample(), data, log_likelihood_func)
@@ -68,13 +67,12 @@ class BehaviourPolicy:
     # Determine the pdf of a particular equation under the behavioural policy
     def pdf(self, z):
 
-        match self._strategy:
-            case BPStrategy.target:
-                return self._target_policy.pdf(z)
-            case BPStrategy.enumerate_all:
-                return self._pdf_enum_all(z)
-            case BPStrategy.equal_prob_tokens:
-                return self._pdf_eq_prob_tokens(z)
+        if self._strategy == BPStrategy.target:
+            return self._target_policy.pdf(z)
+        elif self._strategy == BPStrategy.enumerate_all:
+            return self._pdf_enum_all(z)
+        elif self._strategy == BPStrategy.equal_prob_tokens:
+            return self._pdf_eq_prob_tokens(z)
 
     # Determine importance weight for a particular equation
     def importance_weight(self, z):
@@ -108,11 +106,10 @@ class BehaviourPolicy:
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
-            match token['type']:
-                case 'bin_op':
-                    num_consts_required += 1
-                case 'const':
-                    num_consts_required -= 1
+            if token['type'] == 'bin_op':
+                num_consts_required += 1
+            elif token['type'] == 'const':
+                num_consts_required -= 1
 
         eq = Equation(tokens)
 
@@ -168,11 +165,10 @@ class BehaviourPolicy:
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
-            match t['type']:
-                case 'bin_op':
-                    num_consts_required += 1
-                case 'const':
-                    num_consts_required -= 1
+            if t['type'] == 'bin_op':
+                num_consts_required += 1
+            elif t['type'] == 'const':
+                num_consts_required -= 1
 
         return math.prod(pdfs)
 

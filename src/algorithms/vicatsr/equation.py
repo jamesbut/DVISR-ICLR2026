@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import scipy
+import re
 
 
 # A class for representing analytic equations and evaluating them
@@ -72,24 +73,24 @@ class Equation:
             # Otherwise apply operators to elements on the stack
             else:
 
-                match t['op']:
-                    case '*':
-                        stack.append(stack.pop() * stack.pop())
-                    case '/':
-                        stack.append(stack.pop() / stack.pop())
-                    case '+':
-                        stack.append(stack.pop() + stack.pop())
-                    case '-':
-                        stack.append(stack.pop() - stack.pop())
-                    case 'cos':
-                        stack.append(np.cos(stack.pop()))
-                    case 'sin':
-                        stack.append(np.sin(stack.pop()))
-                    case 'exp':
-                        stack.append(np.exp(stack.pop()))
-                    case _:
-                        raise RuntimeError(t['op']
-                                           + ' is not a recognised operator')
+                if t['op'] == '*':
+                    stack.append(stack.pop() * stack.pop())
+                elif t['op'] == '/':
+                    stack.append(stack.pop() / stack.pop())
+                elif t['op'] == '+':
+                    stack.append(stack.pop() + stack.pop())
+                elif t['op'] == '-':
+                    stack.append(stack.pop() - stack.pop())
+                elif t['op'] == 'cos':
+                    stack.append(np.cos(stack.pop()))
+                elif t['op'] == 'sin':
+                    stack.append(np.sin(stack.pop()))
+                elif t['op'] == 'exp':
+                    stack.append(np.exp(stack.pop()))
+                else:
+                    raise RuntimeError(
+                        t['op'] + ' is not a recognised operator'
+                    )
 
         return stack.pop()
 
@@ -379,9 +380,6 @@ def infix_to_polish(infix, token_set):
             operand_stack.append(f"{op} {operand1} {operand2}")
 
     return operand_stack[0]
-
-
-import re
 
 
 def tokenize(expression):
