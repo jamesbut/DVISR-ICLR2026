@@ -18,5 +18,5 @@
 
 cd $HOME/BayesianSymbolicRegression
 
-# python3 src/main.py vicatsr_written_expr.json > outs/out1.txt
-python3 src/main.py vicatsr_dso_benchmarks.json
+# python3 src/main.py -c vicatsr_written_expr.json > outs/out1.txt
+python3 src/main.py -c vicatsr_dso_benchmarks.json

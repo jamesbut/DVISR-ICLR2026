@@ -43,7 +43,8 @@ for ((i = 0; i < ${#exp_config_args[@]}; i++)); do
     last_line=$(tail -n 1 "$file_name")
 
     # Create new line
-    new_line="$last_line ${exp_config_args[$i]} < outs/out$i.txt"
+    # new_line="$last_line ${exp_config_args[$i]} < outs/out$i.txt"
+    new_line="$last_line ${exp_config_args[$i]}"
 
     # Modify last line in file
     { sed '$d' $file_name; echo $new_line; } > tmp && mv tmp $file_name
