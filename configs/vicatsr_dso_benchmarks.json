@@ -8,7 +8,9 @@
         "name": "VICatSR",
         "operators": {
             "binary_ops": ["*", "+"],
-            "_unary_ops": ["sin"]
+            "_binary_ops": ["+", "-", "*", "/"],
+            "_unary_ops": ["sin", "cos", "exp", "log"],
+            "_unary_ops": ["sin", "cos"]
         },
         "prior_mean": 0.35,
         "prior_variance": 1.0,

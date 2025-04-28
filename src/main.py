@@ -48,7 +48,9 @@ def run_exps(args):
 
         # Train model
         start = time.time()
+
         alg.train(data, init_q_file_path)
+
         end = time.time()
         print(f'Train time: {(end - start)/3600:.5f} hours')
 

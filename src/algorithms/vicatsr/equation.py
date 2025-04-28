@@ -38,6 +38,8 @@ class Equation:
                                      if t['op'] == 'distr_const')
 
     # Evaluate equation according to data variable values, x.
+    # Returns None if equation cannot be evaluated, for example, if there is
+    # a divide by 0, etc.
     def evaluate(self, x):
 
         eq = copy.deepcopy(self._eq)
@@ -75,18 +77,36 @@ class Equation:
 
                 if t['op'] == '*':
                     stack.append(stack.pop() * stack.pop())
+
                 elif t['op'] == '/':
-                    stack.append(stack.pop() / stack.pop())
+
+                    numerator = stack.pop()
+                    denominator = stack.pop()
+
+                    # Check for divide by 0
+                    if np.any(denominator == 0):
+                        return None
+
+                    stack.append(numerator / denominator)
+
                 elif t['op'] == '+':
                     stack.append(stack.pop() + stack.pop())
+
                 elif t['op'] == '-':
                     stack.append(stack.pop() - stack.pop())
+
                 elif t['op'] == 'cos':
                     stack.append(np.cos(stack.pop()))
+
                 elif t['op'] == 'sin':
                     stack.append(np.sin(stack.pop()))
+
                 elif t['op'] == 'exp':
                     stack.append(np.exp(stack.pop()))
+
+                elif t['op'] == 'log':
+                    stack.append(np.log(stack.pop()))
+
                 else:
                     raise RuntimeError(
                         t['op'] + ' is not a recognised operator'

@@ -1028,6 +1028,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 def log_likelihood(data, z):
 
     means = z.evaluate(data['x'])
+
+    # If z evaluates to None, it means it is not a valid equation under
+    # the current domain, hence it is made very unlikely
+    if means is None:
+        return -1e9
+
     log_likelihoods = [scipy.stats.norm.logpdf(y, mean)
                        for y, mean in zip(data['y'], means)]
     return sum(log_likelihoods)
@@ -1036,6 +1042,12 @@ def log_likelihood(data, z):
 def likelihood(data, z):
 
     means = z.evaluate(data['x'])
+
+    # If z evaluates to None, it means it is not a valid equation under
+    # the current domain, hence it is made very unlikely
+    if means is None:
+        return 0.0
+
     likelihoods = [scipy.stats.norm.pdf(y, mean)
                    for y, mean in zip(data['y'], means)]
     return math.prod(likelihoods)
