@@ -7,38 +7,45 @@ import numpy as np
 
 class NetMasks:
 
-    def __init__(self, token_set=None, j=None):
+    def __init__(self, token_set):
 
-        if token_set:
+        self._token_set = token_set
 
-            # A mask to apply so that only constants are sampled
-            self._consts_mask = torch.from_numpy(np.array(
-                [0.0 if t['type'] == 'const' else -1e9 for t in token_set]
-            ))
+        # A mask to apply so that only constants are sampled
+        self._consts_mask = np.array(
+            [0.0 if t['type'] == 'const' else -1e9 for t in token_set]
+        )
 
-            # A mask to apply so that only unary operators and consts are sampled
-            self._un_ops_consts_mask = torch.from_numpy(np.array(
-                [0.0 if t['type'] == 'un_op' or t['type'] == 'const' else -1e9
-                 for t in token_set]
-            ))
+        # A mask to apply so that only unary operators and consts are sampled
+        self._un_ops_consts_mask = np.array(
+            [0.0 if t['type'] == 'un_op' or t['type'] == 'const' else -1e9
+             for t in token_set]
+        )
 
-        if j:
-            for key, value in j.items():
-                setattr(self, "_" + key, torch.tensor(value))
+        # A mask to turn off variable constants
+        self._no_vars_mask = np.array(
+            [-1e9 if t['sub_type'] == 'var_const' else 0.0
+             for t in token_set]
+        )
 
-    @property
-    def consts_mask(self):
-        return self._consts_mask
+    # Compose mask from multiple mask names
+    def compose_mask(self, mask_names):
 
-    @property
-    def un_ops_consts_mask(self):
-        return self._un_ops_consts_mask
+        mask = np.zeros(len(self._token_set))
 
-    def to_json(self):
+        if 'consts' or 'un_ops' in mask_names:
 
-        j = {
-            'consts_mask': self._consts_mask.tolist(),
-            'un_ops_consts_mask': self._un_ops_consts_mask.tolist()
-        }
+            # Only sample un_ops and consts
+            if 'un_ops' in mask_names:
+                mask = self._un_ops_consts_mask
 
-        return j
+            # Only sample consts
+            else:
+                mask = self._consts_mask
+
+        if 'no_vars' in mask_names:
+
+            # Turn off variables
+            mask = mask + self._no_vars_mask
+
+        return torch.from_numpy(mask)

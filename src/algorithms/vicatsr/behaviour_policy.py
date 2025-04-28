@@ -188,13 +188,17 @@ class BehaviourPolicy:
             prob = 1 / (self._num_consts + self._num_unary_ops)
             p = [prob if t['type'] == 'const' or t['type'] == 'un_op' else 0.0
                  for t in self._token_set]
-            pre_softmax_mask = self._target_policy.net_masks.un_ops_consts_mask
+            pre_softmax_mask = self._target_policy.net_masks.compose_mask(
+                ['un_ops', 'consts']
+            )
 
         # Only sample constants
         if self._max_num_tokens - num_sampled_tokens <= num_consts_required:
             prob = 1 / self._num_consts
             p = [prob if t['type'] == 'const' else 0.0
                  for t in self._token_set]
-            pre_softmax_mask = self._target_policy.net_masks.consts_mask
+            pre_softmax_mask = self._target_policy.net_masks.compose_mask(
+                ['consts']
+            )
 
         return p, pre_softmax_mask

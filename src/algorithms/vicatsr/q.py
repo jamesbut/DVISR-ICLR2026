@@ -18,7 +18,8 @@ class q:
                  distr_over_consts, const_variance,
                  net_masks, previous_input: bool,
                  parent_input: bool, sibling_input: bool,
-                 hidden_layer_size: int = None, init_gru_zero: bool = False,
+                 hidden_layer_size: int = None,
+                 init_gru_zero: bool = False,
                  net_path: str = None):
 
         self._max_depth = max_depth
@@ -62,14 +63,9 @@ class q:
 
         while num_consts_required > 0:
 
-            pre_softmax_mask = None
-            # Apply mask to only sample unary operators and constants
-            if self._max_num_tokens - len(tokens) <= num_consts_required + 1:
-                pre_softmax_mask = self._net_masks.un_ops_consts_mask
-
-            # Apply mask to only sample constants
-            if self._max_num_tokens - len(tokens) <= num_consts_required:
-                pre_softmax_mask = self._net_masks.consts_mask
+            pre_softmax_mask = self.determine_pre_softmax_mask(
+                tokens, num_consts_required
+            )
 
             net_input = self.get_net_inputs(tokens)
 
@@ -189,6 +185,29 @@ class q:
 
         return torch.stack(net_outs).detach().numpy()
 
+    # Determine pre softmax mask to apply
+    def determine_pre_softmax_mask(self, tokens, num_consts_required):
+
+        masks = []
+
+        # Apply mask to only sample unary operators and constants
+        if self._max_num_tokens - len(tokens) <= num_consts_required + 1:
+            masks = ['un_ops', 'consts']
+
+        # Apply mask to only sample constants
+        if self._max_num_tokens - len(tokens) <= num_consts_required:
+            masks = ['consts']
+
+        # Check whether x - x will occur, this is obviously superflous and
+        # helps to precent divide by 0 errors
+        '''
+        parent = get_parent(tokens)
+        if parent['op'] == '-':
+            sibling = get_sibling(tokens)
+            if sibling['sub_type'] == 'var_const':
+        '''
+        return self._net_masks.compose_mask(masks)
+
     # Get means and variances output by the network for all constants in
     # an equation
     def get_consts_params(self, z):
@@ -240,13 +259,15 @@ class q:
         # Remove '_' prefix from all keys
         j = {k.lstrip('_'): v for k, v in j.items()}
 
-        j['net_masks'] = j['net_masks'].to_json()
+        # net_masks not needed
+        del j['net_masks']
 
         return j
 
     @classmethod
     def from_json(cls, j):
 
-        j['net_masks'] = NetMasks(j=j['net_masks'])
+        # Create NetMasks object from saved token set
+        j['net_masks'] = NetMasks(j['token_set'])
 
         return cls(**j)
