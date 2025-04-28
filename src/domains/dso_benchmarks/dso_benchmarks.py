@@ -2,6 +2,7 @@ from domains.domain import Domain
 import pandas as pd
 import ast
 import numpy as np
+import re
 from util.function import surround_sub_strings_with_delimiters, Function
 
 
@@ -32,10 +33,22 @@ class DSOBenchmarks(Domain):
 
         # Build expression
         self._expr_str = this_benchmark['expression']
+
+        # Surround variables with delimiters
         self._expr_str = surround_sub_strings_with_delimiters(
             self._expr_str,
             ['x' + str(i) for i in range(1, self._num_vars + 1)]
         )
+
+        # Convert variable names from x{i} to x_{i-1}
+        def shift_x_variables(expr):
+            def replacer(match):
+                i = int(match.group(1))
+                return f"x_{i-1}"
+            return re.sub(r'x(\d+)', replacer, expr)
+        self._expr_str = shift_x_variables(self._expr_str)
+
+        # Create function from expression string
         self._expr = Function(self._expr_str)
 
     def evaluate(self, x):
