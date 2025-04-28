@@ -54,7 +54,7 @@ class DSOBenchmarks(Domain):
     def evaluate(self, x):
 
         # Build function argument dictionary from x values
-        func_kwargs = {f'x{i+1}': x[:, i] for i in range(self._num_vars)}
+        func_kwargs = {f'x_{i}': x[:, i] for i in range(self._num_vars)}
 
         # Evaluate expression
         y = self._expr(**func_kwargs)

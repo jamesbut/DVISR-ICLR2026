@@ -8,6 +8,7 @@ from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from writer import Writer
 from analyser import analyse_results
+import time
 
 
 def run_exps(args):
@@ -42,9 +43,14 @@ def run_exps(args):
         # Create algoritm
         alg = create_algorithm(config['algorithm'], domain)
 
-        # Perform regression
+        # Set file path for the initial q(z)
         init_q_file_path = writer.exp_dir_path() + '/init_net.pt'
+
+        # Train model
+        start = time.time()
         alg.train(data, init_q_file_path)
+        end = time.time()
+        print(f'Train time: {(end - start)/3600:.5f} hours')
 
     # Save results to file
     writer.write_results(alg.results())
