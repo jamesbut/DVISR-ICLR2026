@@ -9,13 +9,14 @@ import numpy as np
 from .vicatsr_net import NN
 from .equation import Equation, optimise_eq_consts
 from util.tree import get_parent, get_sibling
+from .net_masks import NetMasks
 
 
 class q:
 
     def __init__(self, token_set, max_depth, max_num_tokens,
                  distr_over_consts, const_variance,
-                 consts_mask, un_ops_consts_mask, previous_input: bool,
+                 net_masks, previous_input: bool,
                  parent_input: bool, sibling_input: bool,
                  hidden_layer_size: int = None, init_gru_zero: bool = False,
                  net_path: str = None):
@@ -25,8 +26,7 @@ class q:
         self._token_set = token_set
         self._distr_over_consts = distr_over_consts
 
-        self._consts_mask = consts_mask
-        self._un_ops_consts_mask = un_ops_consts_mask
+        self._net_masks = net_masks
 
         # Variance for normal distribution over constants
         # If set to None, this is also optimised
@@ -65,11 +65,11 @@ class q:
             pre_softmax_mask = None
             # Apply mask to only sample unary operators and constants
             if self._max_num_tokens - len(tokens) <= num_consts_required + 1:
-                pre_softmax_mask = self._un_ops_consts_mask
+                pre_softmax_mask = self._net_masks.un_ops_consts_mask
 
             # Apply mask to only sample constants
             if self._max_num_tokens - len(tokens) <= num_consts_required:
-                pre_softmax_mask = self._consts_mask
+                pre_softmax_mask = self._net_masks.consts_mask
 
             net_input = self.get_net_inputs(tokens)
 
@@ -196,11 +196,9 @@ class q:
                 for out, token in zip(self.net_outs(z), z.tokens())
                 if token['op'] == 'distr_const']
 
-    def consts_mask(self):
-        return self._consts_mask
-
-    def un_ops_consts_mask(self):
-        return self._un_ops_consts_mask
+    @property
+    def net_masks(self):
+        return self._net_masks
 
     # Calculate network inputs
     def get_net_inputs(self, tokens):
@@ -242,16 +240,13 @@ class q:
         # Remove '_' prefix from all keys
         j = {k.lstrip('_'): v for k, v in j.items()}
 
-        j['consts_mask'] = j['consts_mask'].tolist()
-        j['un_ops_consts_mask'] = j['un_ops_consts_mask'].tolist()
+        j['net_masks'] = j['net_masks'].to_json()
 
         return j
 
     @classmethod
     def from_json(cls, j):
 
-        # Convert lists back to torch tensors
-        j['consts_mask'] = torch.tensor(j['consts_mask'])
-        j['un_ops_consts_mask'] = torch.tensor(j['un_ops_consts_mask'])
+        j['net_masks'] = NetMasks(j=j['net_masks'])
 
         return cls(**j)

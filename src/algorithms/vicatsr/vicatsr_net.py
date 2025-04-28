@@ -1,4 +1,5 @@
 import torch
+import torch.nn.init as init
 torch.set_default_dtype(torch.float64)
 
 
@@ -90,9 +91,6 @@ class NN(torch.nn.Module):
     @classmethod
     def load(cls, file_path):
         return torch.load(file_path)
-
-
-import torch.nn.init as init
 
 
 def init_gru_weights_zero(gru_cell):

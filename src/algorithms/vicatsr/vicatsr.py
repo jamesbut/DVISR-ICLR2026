@@ -19,6 +19,7 @@ import copy
 from sklearn.base import BaseEstimator, RegressorMixin
 import pandas as pd
 from util.norms import normalise_value
+from .net_masks import NetMasks
 
 
 class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
@@ -445,28 +446,19 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                         "id": self._token_id})
                 self._token_id += 1
 
-        # A mask to apply so that only constants are sampled
-        self._consts_mask = torch.from_numpy(np.array(
-            [0.0 if t['type'] == 'const' else -1e9 for t in self._token_set]
-        ))
-
-        # A mask to apply so that only unary operators and consts are sampled
-        self._un_ops_consts_mask = torch.from_numpy(np.array(
-            [0.0 if t['type'] == 'un_op' or t['type'] == 'const' else -1e9
-             for t in self._token_set]
-        ))
-
         # Calculate total number of models
         self._total_num_eqs = calculate_total_num_eqs(self._token_set,
                                                       self._max_num_tokens)
+
+        # Create network masks
+        self._net_masks = NetMasks(self._token_set)
 
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
         self._q = q(self._token_set, self._max_depth, self._max_num_tokens,
                     self._distr_over_consts, self._q_const_variance,
-                    self._consts_mask, self._un_ops_consts_mask,
-                    self._previous_input, self._parent_input,
-                    self._sibling_input,
+                    self._net_masks, self._previous_input,
+                    self._parent_input, self._sibling_input,
                     self._hidden_layer_size, self._init_gru_zero)
 
         # If enumerate all behaviour policy is being used, enumerate models
@@ -826,8 +818,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # expressions were sampled from q
         for e in all_expressions:
             e.apply_pre_softmax_mask(self._max_num_tokens,
-                                     self._consts_mask,
-                                     self._un_ops_consts_mask)
+                                     self._net_masks)
 
         # If we are considering a distribution over constants then set the
         # constant to the mean of the distribution
