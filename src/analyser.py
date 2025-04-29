@@ -123,6 +123,8 @@ def sample_and_plot(domain, q, init_q):
 
     for m in init_models:
         y = m[0].evaluate(x)
+        if y is None:
+            continue
         plt.plot(x, y, c='tab:orange', alpha=0.3, linestyle='--')
 
     # Plot data points
@@ -139,6 +141,11 @@ def sample_and_plot(domain, q, init_q):
         }
     }
     print(json.dumps(sampled_metrics, indent=4))
+
+    # Print init q(z) models
+    print('\nInit models:\n\n')
+    for m in init_models:
+        print(f'y = {m[0].get_infix()}   |   y = {m[0].get_infix(True)}')
 
     plt.legend()
     plt.show()

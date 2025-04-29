@@ -3,6 +3,7 @@
 
 import torch
 import numpy as np
+from typing import List
 
 
 class NetMasks:
@@ -22,30 +23,36 @@ class NetMasks:
              for t in token_set]
         )
 
-        # A mask to turn off variable constants
-        self._no_vars_mask = np.array(
-            [-1e9 if t['sub_type'] == 'var_const' else 0.0
-             for t in token_set]
-        )
+        # Masks to turn off variable constants
+        self._no_var_masks = {}
+        for t in token_set:
+            if t['sub_type'] == 'var_const':
+                mask = np.zeros(len(token_set))
+                mask[t['id']] = -1e9
+                self._no_var_masks[t['op']] = mask
 
     # Compose mask from multiple mask names
-    def compose_mask(self, mask_names):
+    # Can also remove variables by setting them in remove_vars
+    def compose_mask(self, mask_names: List[str] = None,
+                     remove_vars: List[str] = None):
 
         mask = np.zeros(len(self._token_set))
 
-        if 'consts' or 'un_ops' in mask_names:
+        if mask_names:
 
-            # Only sample un_ops and consts
-            if 'un_ops' in mask_names:
-                mask = self._un_ops_consts_mask
+            if 'consts' or 'un_ops' in mask_names:
 
-            # Only sample consts
-            else:
-                mask = self._consts_mask
+                # Only sample un_ops and consts
+                if 'un_ops' in mask_names:
+                    mask = self._un_ops_consts_mask
 
-        if 'no_vars' in mask_names:
+                # Only sample consts
+                else:
+                    mask = self._consts_mask
 
-            # Turn off variables
-            mask = mask + self._no_vars_mask
+        # Turn off variables
+        if remove_vars:
+            for var in remove_vars:
+                mask = mask + self._no_var_masks[var]
 
         return torch.from_numpy(mask)

@@ -199,14 +199,18 @@ class q:
             masks = ['consts']
 
         # Check whether x - x will occur, this is obviously superflous and
-        # helps to precent divide by 0 errors
+        # helps to prevent divide by 0 errors
+        remove_var = None
         '''
         parent = get_parent(tokens)
-        if parent['op'] == '-':
+        if parent and parent['op'] == '-':
             sibling = get_sibling(tokens)
-            if sibling['sub_type'] == 'var_const':
+            if sibling and sibling['sub_type'] == 'var_const':
+                print('REMOVE VAR!')
+                remove_var = [sibling['op']]
         '''
-        return self._net_masks.compose_mask(masks)
+
+        return self._net_masks.compose_mask(masks, remove_var)
 
     # Get means and variances output by the network for all constants in
     # an equation

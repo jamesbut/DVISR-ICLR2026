@@ -360,6 +360,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             self._results['all_elbos'].append(elbos.mean().item())
             self._results['all_lls'].append(log_likelihoods.mean().item())
 
+            num_none_eqs = sum(1 for ll in log_likelihoods if ll < -1e5)
+            print(f'Num None eqs: {num_none_eqs}')
+
             # Track values of interest
             # if self._distr_over_consts:
             #     mu = self._q.net_outs(sampled_z[0])[-1][-2]
@@ -429,6 +432,10 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             optimiser.zero_grad()
 
             loss.backward()
+
+            # TODO: Put this somewhere more sensible
+            # torch.nn.utils.clip_grad_value_(self._q._net.parameters(),
+            #                                 clip_value=10.0)
 
             optimiser.step()
 
@@ -1023,7 +1030,7 @@ def log_likelihood(data, z):
     # If z evaluates to None, it means it is not a valid equation under
     # the current domain, hence it is made very unlikely
     if means is None:
-        return -1e9
+        return -1e6
 
     log_likelihoods = [scipy.stats.norm.logpdf(y, mean)
                        for y, mean in zip(data['y'], means)]
