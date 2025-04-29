@@ -1,18 +1,18 @@
 {
     "domain": {
         "name": "DSOBenchmarks",
-        "_dataset": "Nguyen-2",
-        "dataset": "Nguyen-1",
+        "dataset": "Nguyen-2",
+        "_dataset": "Nguyen-1",
         "_dataset": "Constant-1"
     },
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "_binary_ops": ["*", "+"],
-            "binary_ops": ["+", "-", "*", "/"],
+            "binary_ops": ["*", "+"],
+            "_binary_ops": ["+", "-", "*", "/"],
             "_binary_ops": ["+", "-", "*"],
             "_binary_ops": ["+", "*", "/"],
-            "unary_ops": ["sin", "cos", "exp", "log"],
+            "_unary_ops": ["sin", "cos", "exp", "log"],
             "_unary_ops": ["sin", "cos"]
         },
         "prior_mean": 0.35,
@@ -20,10 +20,10 @@
         "_prior_mean": 0.0,
         "_prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 100,
+        "num_steps": 1000,
         "num_eq_samples": 250,
         "_max_num_tokens": 3,
-        "max_num_tokens": 12,
+        "max_num_tokens": 20,
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
