@@ -102,10 +102,24 @@ class Equation:
                     stack.append(np.sin(stack.pop()))
 
                 elif t['op'] == 'exp':
-                    stack.append(np.exp(stack.pop()))
+
+                    x = stack.pop()
+
+                    # Prevent overflow errors
+                    if np.any(x > 50.0):
+                        return None
+
+                    stack.append(np.exp(x))
 
                 elif t['op'] == 'log':
-                    stack.append(np.log(stack.pop()))
+
+                    x = stack.pop()
+
+                    # Log cannot be computed for non-positive values
+                    if np.any(x <= 0.0):
+                        return None
+
+                    stack.append(np.log(x))
 
                 else:
                     raise RuntimeError(

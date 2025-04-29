@@ -434,8 +434,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             loss.backward()
 
             # TODO: Put this somewhere more sensible
-            # torch.nn.utils.clip_grad_value_(self._q._net.parameters(),
-            #                                 clip_value=10.0)
+            torch.nn.utils.clip_grad_value_(self._q._net.parameters(),
+                                            clip_value=10.0)
 
             optimiser.step()
 
@@ -948,11 +948,14 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         for m, o in zip(models, opacities):
             y = m[0].evaluate(x)
-            plt.plot(x, y,
-                     label=f'y = {m[0].get_infix()} | '
-                           f'y = {m[0].get_infix(True)} '
-                           f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
-                     c='tab:blue', alpha=o)
+            if y is None:
+                print(f'y = {m[0].get_infix(True)} is not a valid equation')
+            else:
+                plt.plot(x, y,
+                         label=f'y = {m[0].get_infix()} | '
+                               f'y = {m[0].get_infix(True)} '
+                               f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
+                         c='tab:blue', alpha=o)
 
     # Plot priors, likelihoods, joints and posterior for simplest case.
     # NOTE: This is just for testing and should not be used functionally.

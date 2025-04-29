@@ -206,7 +206,6 @@ class q:
         if parent and parent['op'] == '-':
             sibling = get_sibling(tokens)
             if sibling and sibling['sub_type'] == 'var_const':
-                print('REMOVE VAR!')
                 remove_var = [sibling['op']]
         '''
 
