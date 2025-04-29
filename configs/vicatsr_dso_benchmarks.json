@@ -8,11 +8,11 @@
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "binary_ops": ["*", "+"],
-            "_binary_ops": ["+", "-", "*", "/"],
+            "_binary_ops": ["*", "+"],
+            "binary_ops": ["+", "-", "*", "/"],
             "_binary_ops": ["+", "-", "*"],
             "_binary_ops": ["+", "*", "/"],
-            "_unary_ops": ["sin", "cos", "exp", "log"],
+            "unary_ops": ["sin", "cos", "exp", "log"],
             "_unary_ops": ["sin", "cos"]
         },
         "prior_mean": 0.35,
@@ -23,7 +23,7 @@
         "num_steps": 1000,
         "num_eq_samples": 250,
         "_max_num_tokens": 3,
-        "max_num_tokens": 20,
+        "max_num_tokens": 42,
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
