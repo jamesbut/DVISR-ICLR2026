@@ -43,13 +43,10 @@ def run_exps(args):
         # Create algoritm
         alg = create_algorithm(config['algorithm'], domain)
 
-        # Set file path for the initial q(z)
-        init_q_file_path = writer.exp_dir_path() + '/init_net.pt'
-
         # Train model
         start = time.time()
 
-        alg.train(data, init_q_file_path)
+        alg.train(data, writer)
 
         end = time.time()
         print(f'Train time: {(end - start)/3600:.5f} hours')

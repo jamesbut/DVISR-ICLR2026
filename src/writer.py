@@ -3,6 +3,7 @@
 import os
 import glob
 import json
+from datetime import datetime
 
 
 class Writer():
@@ -73,6 +74,23 @@ class Writer():
 
     def exp_dir_path(self):
         return self._exp_dir_path
+
+    # Write training log line to log file
+    def write_log(self, log):
+
+        if not self._write_to_file:
+            return
+
+        if not hasattr(self, '_log_file_path'):
+            self._log_file_path = self._exp_dir_path + '/log.txt'
+            open(self._log_file_path, 'w').close()
+
+        # Add timestamp to log
+        log = f'[{datetime.now()}] ' + log + '\n'
+
+        # Append log line to log file
+        with open(self._log_file_path, 'a') as f:
+            f.write(log)
 
     # Calculates the number of the directory to store exp data in
     def _calculate_next_exp_dir_num(self):

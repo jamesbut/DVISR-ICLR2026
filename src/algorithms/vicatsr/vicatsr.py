@@ -170,12 +170,18 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._true_posteriors = None
         self._all_exps = None
 
-    def train(self, data, init_q_file_path=None):
+    def train(self, data, writer=None):
+
+        self._writer = writer
 
         self._initialise(data)
 
-        # Write initial q if file path is given
-        if init_q_file_path:
+        if writer:
+
+            # Set file path for the initial q(z)
+            init_q_file_path = writer.exp_dir_path() + '/init_net.pt'
+
+            # Write initial q(z)
             init_q = self._q.to_json()
             init_q['net_path'] = init_q_file_path
             init_q['net'].save(init_q_file_path)
@@ -360,8 +366,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             self._results['all_elbos'].append(elbos.mean().item())
             self._results['all_lls'].append(log_likelihoods.mean().item())
 
-            num_none_eqs = sum(1 for ll in log_likelihoods if ll < -1e5)
-            print(f'Num None eqs: {num_none_eqs}')
+            # num_none_eqs = sum(1 for ll in log_likelihoods if ll < -1e5)
+            # print(f'Num None eqs: {num_none_eqs}')
 
             # Track values of interest
             # if self._distr_over_consts:
@@ -428,6 +434,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 )
 
             print(summary_str)
+            self._writer.write_log(summary_str)
 
             optimiser.zero_grad()
 
@@ -1037,7 +1044,13 @@ def log_likelihood(data, z):
 
     log_likelihoods = [scipy.stats.norm.logpdf(y, mean)
                        for y, mean in zip(data['y'], means)]
-    return sum(log_likelihoods)
+    log_likelihood = sum(log_likelihoods)
+
+    # Clip log likelihood
+    if log_likelihood < -1e6:
+        log_likelihood = -1e6
+
+    return log_likelihood
 
 
 def likelihood(data, z):
