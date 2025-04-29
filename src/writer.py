@@ -37,12 +37,20 @@ class Writer():
         if not os.path.exists(self._results_dir_path):
             os.makedirs(self._results_dir_path)
 
-        # Prepare experiment directory
-        self._exp_dir_path = (self._results_dir_path + '/exp_'
-                              + str(self._calculate_next_exp_dir_num()))
+        # Prepare experiment directory.
+        # Run in loop just incase another process creates the directory
+        # before this process does.
+        while True:
 
-        # Create experiment directory
-        os.makedirs(self._exp_dir_path)
+            self._exp_dir_path = (self._results_dir_path + '/exp_'
+                                  + str(self._calculate_next_exp_dir_num()))
+
+            # Create experiment directory
+            try:
+                os.makedirs(self._exp_dir_path)
+                break
+            except FileExistsError:
+                print(f'{self._exp_dir_path} already exists')
 
         # Write config to experiment directory
         with open(self._exp_dir_path + '/config.json', 'w') as file:
