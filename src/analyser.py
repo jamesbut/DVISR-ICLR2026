@@ -7,6 +7,7 @@ from domains.domain_factory import create_domain
 from algorithms.vicatsr.vicatsr import log_likelihood
 from util.norms import normalise_value
 import numpy as np
+import os
 
 
 def analyse_results(exp_dir):
@@ -26,6 +27,11 @@ def analyse_results(exp_dir):
     print('ELBO max:', max(results['all_elbos']))
 
     plot_results(results)
+
+    # Alter network paths to reflect the directory that the data is currently
+    # in
+    results['q']['net_path'] = os.getcwd() + '/' + exp_dir + '/net.pt'
+    results['init_q']['net_path'] = os.getcwd() + '/' + exp_dir + '/init_net.pt'
 
     # Read q(z)
     q_z = q.from_json(results['q'])
