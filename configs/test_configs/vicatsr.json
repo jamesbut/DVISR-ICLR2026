@@ -29,5 +29,8 @@
         "remove_x_vars": false,
         "plotting": false,
         "x_seed": 18
+    },
+    "writer": {
+        "write_to_file": false
     }
 }

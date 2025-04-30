@@ -192,7 +192,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         else:
             results = self._maximise_elbo(data)
 
-        if init_q_file_path:
+        if writer:
             self._results['init_q'] = init_q
 
         return results
@@ -434,7 +434,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 )
 
             print(summary_str)
-            self._writer.write_log(summary_str)
+            if self._writer:
+                self._writer.write_log(summary_str)
 
             optimiser.zero_grad()
 
