@@ -191,11 +191,11 @@ class q:
         masks = []
 
         # Apply mask to only sample unary operators and constants
-        if self._max_num_tokens - len(tokens) <= num_consts_required + 1:
+        if self._max_num_tokens - len(tokens) == num_consts_required + 1:
             masks = ['un_ops', 'consts']
 
         # Apply mask to only sample constants
-        if self._max_num_tokens - len(tokens) <= num_consts_required:
+        if self._max_num_tokens - len(tokens) < num_consts_required + 1:
             masks = ['consts']
 
         # Check whether x - x will occur, this is obviously superflous and

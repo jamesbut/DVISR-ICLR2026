@@ -184,7 +184,7 @@ class BehaviourPolicy:
         pre_softmax_mask = None
 
         # Only sample unary operators and constants
-        if self._max_num_tokens - num_sampled_tokens <= num_consts_required + 1:
+        if self._max_num_tokens - num_sampled_tokens == num_consts_required + 1:
             prob = 1 / (self._num_consts + self._num_unary_ops)
             p = [prob if t['type'] == 'const' or t['type'] == 'un_op' else 0.0
                  for t in self._token_set]
@@ -193,7 +193,7 @@ class BehaviourPolicy:
             )
 
         # Only sample constants
-        if self._max_num_tokens - num_sampled_tokens <= num_consts_required:
+        if self._max_num_tokens - num_sampled_tokens < num_consts_required + 1:
             prob = 1 / self._num_consts
             p = [prob if t['type'] == 'const' else 0.0
                  for t in self._token_set]
