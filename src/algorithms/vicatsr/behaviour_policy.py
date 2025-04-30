@@ -179,26 +179,26 @@ class BehaviourPolicy:
     # Also returns pre_softmax_mask for token
     def _determine_p(self, num_consts_required, num_sampled_tokens):
 
-        # The default case - sample from all tokens
-        p = [1 / len(self._token_set)] * len(self._token_set)
-        pre_softmax_mask = None
-
-        # Only sample unary operators and constants
-        if self._max_num_tokens - num_sampled_tokens == num_consts_required + 1:
-            prob = 1 / (self._num_consts + self._num_unary_ops)
-            p = [prob if t['type'] == 'const' or t['type'] == 'un_op' else 0.0
-                 for t in self._token_set]
-            pre_softmax_mask = self._target_policy.net_masks.compose_mask(
-                ['un_ops', 'consts']
+        # First determine whether there are any token constraints
+        pre_softmax_mask = self._target_policy.net_masks.compose_mask(
+            self._target_policy.net_masks.determine_masks(
+                self._max_num_tokens, num_sampled_tokens, num_consts_required
             )
+        )
 
-        # Only sample constants
-        if self._max_num_tokens - num_sampled_tokens < num_consts_required + 1:
-            prob = 1 / self._num_consts
-            p = [prob if t['type'] == 'const' else 0.0
-                 for t in self._token_set]
-            pre_softmax_mask = self._target_policy.net_masks.compose_mask(
-                ['consts']
-            )
+        # The default case - sample from all tokens equally
+        if pre_softmax_mask is None:
+            p = [1 / len(self._token_set)] * len(self._token_set)
+
+        else:
+
+            # Determine which tokens can be sampled from
+            tokens_to_sample = [m > -0.1 for m in pre_softmax_mask]
+
+            # Count number of tokens that can potentially be sampled from
+            num_possible_tokens = sum(1 for t in tokens_to_sample if t)
+
+            # Determine probability of each token
+            p = [1 / num_possible_tokens if t else 0.0 for t in tokens_to_sample]
 
         return p, pre_softmax_mask

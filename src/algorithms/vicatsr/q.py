@@ -187,29 +187,10 @@ class q:
 
     # Determine pre softmax mask to apply
     def determine_pre_softmax_mask(self, tokens, num_consts_required):
-
-        masks = []
-
-        # Apply mask to only sample unary operators and constants
-        if self._max_num_tokens - len(tokens) == num_consts_required + 1:
-            masks = ['un_ops', 'consts']
-
-        # Apply mask to only sample constants
-        if self._max_num_tokens - len(tokens) < num_consts_required + 1:
-            masks = ['consts']
-
-        # Check whether x - x will occur, this is obviously superflous and
-        # helps to prevent divide by 0 errors
-        remove_var = None
-        '''
-        parent = get_parent(tokens)
-        if parent and parent['op'] == '-':
-            sibling = get_sibling(tokens)
-            if sibling and sibling['sub_type'] == 'var_const':
-                remove_var = [sibling['op']]
-        '''
-
-        return self._net_masks.compose_mask(masks, remove_var)
+        masks = self._net_masks.determine_masks(
+            self._max_num_tokens, len(tokens), num_consts_required
+        )
+        return self._net_masks.compose_mask(masks)
 
     # Get means and variances output by the network for all constants in
     # an equation

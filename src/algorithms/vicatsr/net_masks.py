@@ -31,10 +31,30 @@ class NetMasks:
                 mask[t['id']] = -1e9
                 self._no_var_masks[t['op']] = mask
 
+    # Determine the masks required at the current state of a sampling process
+    def determine_masks(self,
+                        max_num_tokens,
+                        num_tokens_sampled,
+                        num_consts_required):
+        masks = []
+
+        # Apply mask to only sample unary operators and constants
+        if max_num_tokens - num_tokens_sampled == num_consts_required + 1:
+            masks = ['un_ops', 'consts']
+
+        # Apply mask to only sample constants
+        if max_num_tokens - num_tokens_sampled < num_consts_required + 1:
+            masks = ['consts']
+
+        return masks
+
     # Compose mask from multiple mask names
     # Can also remove variables by setting them in remove_vars
     def compose_mask(self, mask_names: List[str] = None,
                      remove_vars: List[str] = None):
+
+        if not mask_names:
+            return None
 
         mask = np.zeros(len(self._token_set))
 

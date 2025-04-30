@@ -230,17 +230,11 @@ class Equation:
         for i, token in enumerate(self._eq):
 
             # Determine whether and which mask would have been used
-            token['pre_softmax_mask'] = None
-
-            if max_num_tokens - i == num_consts_required + 1:
-                token['pre_softmax_mask'] = copy.deepcopy(
-                    net_masks.compose_mask(['un_ops', 'consts'])
+            token['pre_softmax_mask'] = net_masks.compose_mask(
+                net_masks.determine_masks(
+                    max_num_tokens, i, num_consts_required
                 )
-
-            if max_num_tokens - i < num_consts_required + 1:
-                token['pre_softmax_mask'] = copy.deepcopy(
-                    net_masks.compose_mask(['consts'])
-                )
+            )
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
