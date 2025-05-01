@@ -75,3 +75,35 @@ def get_sibling(tokens):
             sibling = operators[-1][2] if arity == 2 else None
 
     return copy.deepcopy(sibling)
+
+
+# Determines whether the next token in the sequence of tokens will be a
+# descedent of any ops in ancestor_ops
+def is_descendent(tokens, ancestor_ops):
+
+    # TODO: Add check that the arity of all ancestor_ops must be 1 (un_op)
+
+    dangling = 0
+    threshold = None
+
+    for t in tokens:
+
+        if t['type'] == 'bin_op':
+            dangling += 1
+        if t['type'] == 'const':
+            dangling -= 1
+
+        # Turn "on" if ancestor op is found
+        # Remain "on" until branch completes
+        if threshold is None:
+            for op in ancestor_ops:
+                if t['op'] == op:
+                    threshold = dangling - 1
+                    break
+
+        # Turn "off" once the branch completes
+        else:
+            if dangling == threshold:
+                threshold = None
+
+    return threshold is not None

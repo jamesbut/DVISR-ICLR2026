@@ -4,6 +4,7 @@
 import torch
 import numpy as np
 from typing import List
+from util.tree import is_descendent
 
 
 class NetMasks:
@@ -31,6 +32,12 @@ class NetMasks:
         # Mask to turn off exp
         self._no_exp_mask = np.array(
             [-1e9 if t['op'] == 'exp' else 0.0 for t in token_set]
+        )
+
+        # Mask to turn off trig ops
+        self._no_trig_mask = np.array(
+            [-1e9 if t['op'] == 'sin' or t['op'] == 'cos' else 0.0
+             for t in token_set]
         )
 
         # Masks to turn off variable constants
@@ -74,10 +81,13 @@ class NetMasks:
         # Optional masks
         if self._constraints:
 
-            # TODO: Mask for trig functions
+            # Mask for nested trig functions
+            if 'nested_trigs' in self._constraints:
+                if is_descendent(sampled_tokens, ['cos', 'sin']):
+                    masks += ['no_trig']
 
             # Mask for log(exp()) and exp(log())
-            if 'inverse_ops' in self._constraints:
+            if 'inverse_ops' in self._constraints and sampled_tokens:
                 if sampled_tokens[-1]['op'] == 'log':
                     masks += ['no_exp']
                 if sampled_tokens[-1]['op'] == 'exp':
@@ -111,5 +121,9 @@ class NetMasks:
         # Do not sample exp
         if 'no_exp' in mask_names:
             mask += self._no_exp_mask
+
+        # Do not sample trig ops
+        if 'no_trig' in mask_names:
+            mask += self._no_trig_mask
 
         return torch.from_numpy(mask)

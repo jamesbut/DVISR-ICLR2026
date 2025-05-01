@@ -8,7 +8,7 @@ from util.json_helper import read_json
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.equation import Equation
-from util.tree import get_parent, get_sibling
+from util.tree import get_parent, get_sibling, is_descendent
 
 
 class VICatSR(unittest.TestCase):
@@ -342,6 +342,54 @@ class Utils(unittest.TestCase):
         eq1 = Equation(infix_str='((x_0 * x_0) + x_0) + x_0', token_set=token_set)
         self.assertEqual(eq1.get_infix(), '(((x_0 * x_0) + x_0) + x_0)')
         self.assertEqual(eq1.get_infix(simplify=True), 'x_0**2 + 2*x_0')
+
+    def test_is_descendent(self):
+
+        eq_1 = [
+            {'op': 'cos', 'type': 'un_op'}
+        ]
+
+        self.assertTrue(is_descendent(eq_1, ['cos']))
+        self.assertFalse(is_descendent(eq_1, ['sin']))
+
+        eq_2 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': 'cos', 'type': 'un_op'},
+        ]
+
+        self.assertTrue(is_descendent(eq_2, ['cos']))
+        self.assertFalse(is_descendent(eq_2, ['sin']))
+
+        eq_3 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': 'cos', 'type': 'un_op'},
+            {'op': 'x_0', 'type': 'const'}
+        ]
+
+        self.assertFalse(is_descendent(eq_3, ['cos']))
+        self.assertFalse(is_descendent(eq_3, ['sin']))
+
+        eq_4 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': 'cos', 'type': 'un_op'},
+            {'op': 'x_0', 'type': 'const'},
+            {'op': 'sin', 'type': 'un_op'},
+        ]
+
+        self.assertFalse(is_descendent(eq_4, ['cos']))
+        self.assertTrue(is_descendent(eq_4, ['sin']))
+
+        eq_5 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': '*', 'type': 'bin_op'},
+            {'op': 'x_0', 'type': 'const'},
+            {'op': 'cos', 'type': 'un_op'},
+            {'op': 'x_0', 'type': 'const'},
+            {'op': 'sin', 'type': 'un_op'},
+        ]
+
+        self.assertFalse(is_descendent(eq_5, ['cos']))
+        self.assertTrue(is_descendent(eq_5, ['sin']))
 
 
 if __name__ == "__main__":
