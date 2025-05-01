@@ -15,6 +15,10 @@
             "unary_ops": ["sin", "cos", "exp", "log"],
             "_unary_ops": ["sin", "cos"]
         },
+        "constraints": [
+            "inverse_ops",
+            "nested_trigs"
+        ],
         "prior_mean": 0.35,
         "prior_variance": 1.0,
         "_prior_mean": 0.0,

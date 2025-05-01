@@ -188,7 +188,7 @@ class q:
     # Determine pre softmax mask to apply
     def determine_pre_softmax_mask(self, tokens, num_consts_required):
         masks = self._net_masks.determine_masks(
-            self._max_num_tokens, len(tokens), num_consts_required
+            self._max_num_tokens, tokens, num_consts_required
         )
         return self._net_masks.compose_mask(masks)
 

@@ -232,7 +232,7 @@ class Equation:
             # Determine whether and which mask would have been used
             token['pre_softmax_mask'] = net_masks.compose_mask(
                 net_masks.determine_masks(
-                    max_num_tokens, i, num_consts_required
+                    max_num_tokens, self._eq[:i], num_consts_required
                 )
             )
 

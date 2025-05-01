@@ -8,7 +8,7 @@ from typing import List
 
 class NetMasks:
 
-    def __init__(self, token_set):
+    def __init__(self, token_set, constraints=None):
 
         self._token_set = token_set
 
@@ -23,6 +23,16 @@ class NetMasks:
              for t in token_set]
         )
 
+        # Mask to turn off log
+        self._no_log_mask = np.array(
+            [-1e9 if t['op'] == 'log' else 0.0 for t in token_set]
+        )
+
+        # Mask to turn off exp
+        self._no_exp_mask = np.array(
+            [-1e9 if t['op'] == 'exp' else 0.0 for t in token_set]
+        )
+
         # Masks to turn off variable constants
         self._no_var_masks = {}
         for t in token_set:
@@ -31,12 +41,27 @@ class NetMasks:
                 mask[t['id']] = -1e9
                 self._no_var_masks[t['op']] = mask
 
+        # List of all optional constraints to apply
+        self._constraints = constraints
+
+        # Check whether all specified constraints are valid
+        if self._constraints:
+            valid_constraints = [
+                "inverse_ops",
+                "nested_trigs"
+            ]
+
+            for c in self._constraints:
+                if c not in valid_constraints:
+                    raise ValueError(f'{c} not a valid constraint')
+
     # Determine the masks required at the current state of a sampling process
     def determine_masks(self,
                         max_num_tokens,
-                        num_tokens_sampled,
+                        sampled_tokens,
                         num_consts_required):
         masks = []
+        num_tokens_sampled = len(sampled_tokens)
 
         # Apply mask to only sample unary operators and constants
         if max_num_tokens - num_tokens_sampled == num_consts_required + 1:
@@ -46,33 +71,45 @@ class NetMasks:
         if max_num_tokens - num_tokens_sampled < num_consts_required + 1:
             masks = ['consts']
 
+        # Optional masks
+        if self._constraints:
+
+            # TODO: Mask for trig functions
+
+            # Mask for log(exp()) and exp(log())
+            if 'inverse_ops' in self._constraints:
+                if sampled_tokens[-1]['op'] == 'log':
+                    masks += ['no_exp']
+                if sampled_tokens[-1]['op'] == 'exp':
+                    masks += ['no_log']
+
         return masks
 
     # Compose mask from multiple mask names
     # Can also remove variables by setting them in remove_vars
-    def compose_mask(self, mask_names: List[str] = None,
-                     remove_vars: List[str] = None):
+    def compose_mask(self, mask_names: List[str] = None):
 
         if not mask_names:
             return None
 
         mask = np.zeros(len(self._token_set))
 
-        if mask_names:
+        if 'consts' or 'un_ops' in mask_names:
 
-            if 'consts' or 'un_ops' in mask_names:
+            # Only sample un_ops and consts
+            if 'un_ops' in mask_names:
+                mask = self._un_ops_consts_mask
 
-                # Only sample un_ops and consts
-                if 'un_ops' in mask_names:
-                    mask = self._un_ops_consts_mask
+            # Only sample consts
+            else:
+                mask = self._consts_mask
 
-                # Only sample consts
-                else:
-                    mask = self._consts_mask
+        # Do not sample log
+        if 'no_log' in mask_names:
+            mask += self._no_log_mask
 
-        # Turn off variables
-        if remove_vars:
-            for var in remove_vars:
-                mask = mask + self._no_var_masks[var]
+        # Do not sample exp
+        if 'no_exp' in mask_names:
+            mask += self._no_exp_mask
 
         return torch.from_numpy(mask)

@@ -95,7 +95,7 @@ class BehaviourPolicy:
 
             # Determine parameters of categorical distribution
             p, pre_softmax_mask = self._determine_p(num_consts_required,
-                                                    len(tokens))
+                                                    tokens)
 
             # Sample token
             token = copy.deepcopy(np.random.choice(self._token_set, 1, p=p)[0])
@@ -148,7 +148,7 @@ class BehaviourPolicy:
         for i, t in enumerate(z.tokens()):
 
             # Determine parameters of categorical distribution
-            p, _ = self._determine_p(num_consts_required, i)
+            p, _ = self._determine_p(num_consts_required, z.tokens()[:i])
 
             # Determine probability of selecting token
             pdfs.append(p[t['id']])
@@ -177,12 +177,12 @@ class BehaviourPolicy:
         return 1.0 / len(self._all_eqs)
 
     # Also returns pre_softmax_mask for token
-    def _determine_p(self, num_consts_required, num_sampled_tokens):
+    def _determine_p(self, num_consts_required, sampled_tokens):
 
         # First determine whether there are any token constraints
         pre_softmax_mask = self._target_policy.net_masks.compose_mask(
             self._target_policy.net_masks.determine_masks(
-                self._max_num_tokens, num_sampled_tokens, num_consts_required
+                self._max_num_tokens, sampled_tokens, num_consts_required
             )
         )
 

@@ -79,6 +79,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 self._distr_over_consts = True
                 self._q_const_variance = config.get('q_const_variance', None)
 
+        # Optional constraints on expressions
+        self._constraints = config.get('constraints', None)
+
         # Number of equations sampled to calculate expected loss
         self._num_eq_samples = config['num_eq_samples']
 
@@ -466,7 +469,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                                       self._max_num_tokens)
 
         # Create network masks
-        self._net_masks = NetMasks(self._token_set)
+        self._net_masks = NetMasks(self._token_set, self._constraints)
 
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
