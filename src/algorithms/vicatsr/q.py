@@ -252,6 +252,10 @@ class q:
     @classmethod
     def from_json(cls, j):
 
+        j['constraints'] = j.get(
+            'constraints', ['inverse_ops', 'nested_trigs']
+        )
+
         # Create NetMasks object from saved token set
         j['net_masks'] = NetMasks(j['token_set'],
                                   j['constraints'])
