@@ -12,7 +12,7 @@
             "binary_ops": ["+", "-", "*", "/"],
             "_binary_ops": ["+", "-", "*"],
             "_binary_ops": ["+", "*", "/"],
-            "_unary_ops": ["sin", "cos", "exp", "log"],
+            "unary_ops": ["sin", "cos", "exp", "log"],
             "_unary_ops": ["sin", "cos"]
         },
         "constraints": [
