@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from algorithms.vicatsr.q import q
 from domains.domain_factory import create_domain
 from algorithms.vicatsr.vicatsr import log_likelihood
+from algorithms.vicatsr.equation import Equation
 from util.norms import normalise_value
 import numpy as np
 import os
@@ -26,6 +27,10 @@ def analyse_results(exp_dir):
     print('Epoch true model located', results['epoch_true_model_located'])
     print('ELBO max:', max(results['all_elbos']))
 
+    # Read in best model
+    best_z = Equation(infix_str=results['best_z']['eq'],
+                      token_set=results['q']['token_set'])
+
     plot_results(results)
 
     # Alter network paths to reflect the directory that the data is currently
@@ -43,7 +48,7 @@ def analyse_results(exp_dir):
     domain = create_domain(config['domain'])
 
     # Sample from q(z) and plot
-    sample_and_plot(domain, q_z, init_q_z)
+    sample_and_plot(domain, q_z, init_q_z, best_z)
 
 
 def plot_results(results):
@@ -75,7 +80,7 @@ def plot_results(results):
         plt.show()
 
 
-def sample_and_plot(domain, q, init_q):
+def sample_and_plot(domain, q, init_q, best_z):
 
     data = domain.create_data()
 
@@ -132,6 +137,9 @@ def sample_and_plot(domain, q, init_q):
         if y is None:
             continue
         plt.plot(x, y, c='tab:orange', alpha=0.3, linestyle='--')
+
+    # Plot best model
+    plt.plot(x, best_z.evaluate(x), c='r')
 
     # Plot data points
     plt.scatter(data['x'][:, 0], data['y'], c='r', marker='x')
