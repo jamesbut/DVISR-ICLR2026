@@ -28,6 +28,7 @@ class q:
         self._distr_over_consts = distr_over_consts
 
         self._net_masks = net_masks
+        self._constraints = net_masks.constraints
 
         # Variance for normal distribution over constants
         # If set to None, this is also optimised
@@ -252,6 +253,9 @@ class q:
     def from_json(cls, j):
 
         # Create NetMasks object from saved token set
-        j['net_masks'] = NetMasks(j['token_set'])
+        j['net_masks'] = NetMasks(j['token_set'],
+                                  j['constraints'])
+
+        del j['constraints']
 
         return cls(**j)

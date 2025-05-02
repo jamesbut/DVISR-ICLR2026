@@ -127,3 +127,7 @@ class NetMasks:
             mask += self._no_trig_mask
 
         return torch.from_numpy(mask)
+
+    @property
+    def constraints(self):
+        return self._constraints
