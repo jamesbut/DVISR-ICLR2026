@@ -343,6 +343,29 @@ class Utils(unittest.TestCase):
         self.assertEqual(eq1.get_infix(), '(((x_0 * x_0) + x_0) + x_0)')
         self.assertEqual(eq1.get_infix(simplify=True), 'x_0**2 + 2*x_0')
 
+    def test_equation_equality(self):
+
+        token_set = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None, 'id': 1},
+            {'op': '-', 'type': 'bin_op', 'sub_type': None, 'id': 2},
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 3},
+            {'op': '/', 'type': 'bin_op', 'sub_type': None, 'id': 4},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 3}
+        ]
+
+        # Confirm that expansion of the following equation string is equal
+        # to Nguyen-4
+        eq_str = ('((x_0 * ((x_0 / x_0) + x_0)) * '
+                  '(((x_0 / x_0) - x_0) + (x_0 * x_0))) * '
+                  '(((x_0 / x_0) + x_0) + (x_0 * x_0))')
+        eq = Equation(infix_str=eq_str, token_set=token_set)
+        self.assertEqual(
+            eq.get_infix(True),
+            'x_0**6 + x_0**5 + x_0**4 + x_0**3 + x_0**2 + x_0'
+        )
+        self.assertEqual(eq.num_tokens(), 27)
+
+
     def test_is_descendent(self):
 
         eq_1 = [
