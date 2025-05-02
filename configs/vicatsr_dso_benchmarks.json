@@ -27,7 +27,7 @@
         "num_steps": 1000,
         "num_eq_samples": 250,
         "_max_num_tokens": 3,
-        "max_num_tokens": 42,
+        "max_num_tokens": 30,
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
