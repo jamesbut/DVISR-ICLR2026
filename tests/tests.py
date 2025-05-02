@@ -8,7 +8,9 @@ from util.json_helper import read_json
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.equation import Equation
+from algorithms.vicatsr.net_masks import NetMasks
 from util.tree import get_parent, get_sibling, is_descendent
+import torch
 
 
 class VICatSR(unittest.TestCase):
@@ -350,7 +352,7 @@ class Utils(unittest.TestCase):
             {'op': '-', 'type': 'bin_op', 'sub_type': None, 'id': 2},
             {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 3},
             {'op': '/', 'type': 'bin_op', 'sub_type': None, 'id': 4},
-            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 3}
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 5}
         ]
 
         # Confirm that expansion of the following equation string is equal
@@ -364,7 +366,6 @@ class Utils(unittest.TestCase):
             'x_0**6 + x_0**5 + x_0**4 + x_0**3 + x_0**2 + x_0'
         )
         self.assertEqual(eq.num_tokens(), 27)
-
 
     def test_is_descendent(self):
 
@@ -413,6 +414,200 @@ class Utils(unittest.TestCase):
 
         self.assertFalse(is_descendent(eq_5, ['cos']))
         self.assertTrue(is_descendent(eq_5, ['sin']))
+
+    def test_net_masks(self):
+
+        token_set = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None, 'id': 0},
+            {'op': 'cos', 'type': 'un_op', 'sub_type': None, 'id': 1},
+            {'op': 'sin', 'type': 'un_op', 'sub_type': None, 'id': 2},
+            {'op': 'exp', 'type': 'un_op', 'sub_type': None, 'id': 3},
+            {'op': 'log', 'type': 'un_op', 'sub_type': None, 'id': 4},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 5}
+        ]
+
+        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs'])
+
+        eq_1 = [
+            {'op': 'cos', 'type': 'un_op'}
+        ]
+
+        # Check no trig mask works
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_1, num_consts_required=1
+        )
+        self.assertEqual(masks, ['no_trig'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([0.0, -1e9, -1e9, 0.0, 0.0, 0.0])
+        ))
+
+        # Check no trig mask is not included if not specified in constraints
+        net_masks = NetMasks(token_set, ['inverse_ops'])
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_1, num_consts_required=1
+        )
+        self.assertEqual(masks, [])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertEqual(pre_softmax_mask, None)
+
+        # Check the same for sin
+        eq_2 = [
+            {'op': 'sin', 'type': 'un_op'}
+        ]
+
+        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs'])
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_2, num_consts_required=1
+        )
+        self.assertEqual(masks, ['no_trig'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([0.0, -1e9, -1e9, 0.0, 0.0, 0.0])
+        ))
+
+        # Check for more complicated tree
+        eq_3 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': 'sin', 'type': 'un_op'},
+            {'op': 'x_0', 'type': 'const'}
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_3, num_consts_required=1
+        )
+        self.assertEqual(masks, [])
+
+        # Check for inverse_ops constraint
+        eq_4 = [
+            {'op': 'exp', 'type': 'un_op'}
+        ]
+
+        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs'])
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_4, num_consts_required=1
+        )
+        self.assertEqual(masks, ['no_log'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([0.0, 0.0, 0.0, 0.0, -1e9, 0.0])
+        ))
+
+        eq_5 = [
+            {'op': 'log', 'type': 'un_op'}
+        ]
+
+        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs'])
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_5, num_consts_required=1
+        )
+        self.assertEqual(masks, ['no_exp'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([0.0, 0.0, 0.0, -1e9, 0.0, 0.0])
+        ))
+
+        # Check for const and un_ops masks with trig mask
+        eq_6 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': 'sin', 'type': 'un_op'},
+            {'op': 'x_0', 'type': 'const'},
+            {'op': 'cos', 'type': 'un_op'},
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=5, sampled_tokens=eq_6, num_consts_required=1
+        )
+        self.assertEqual(masks, ['consts', 'no_trig'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([-1e9, -2e9, -2e9, -1e9, -1e9, 0.0])
+        ))
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=6, sampled_tokens=eq_6, num_consts_required=1
+        )
+        self.assertEqual(masks, ['un_ops', 'consts', 'no_trig'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([-1e9, -1e9, -1e9, 0.0, 0.0, 0.0])
+        ))
+
+        # Check for const and un_ops masks with inverse ops masks
+        eq_7 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': 'exp', 'type': 'un_op'},
+            {'op': 'x_0', 'type': 'const'},
+            {'op': 'log', 'type': 'un_op'},
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=5, sampled_tokens=eq_7, num_consts_required=1
+        )
+        self.assertEqual(masks, ['consts', 'no_exp'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([-1e9, -1e9, -1e9, -2e9, -1e9, 0.0])
+        ))
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=6, sampled_tokens=eq_7, num_consts_required=1
+        )
+        self.assertEqual(masks, ['un_ops', 'consts', 'no_exp'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([-1e9, 0.0, 0.0, -1e9, 0.0, 0.0])
+        ))
+
+        eq_8 = [
+            {'op': '+', 'type': 'bin_op'},
+            {'op': 'log', 'type': 'un_op'},
+            {'op': 'x_0', 'type': 'const'},
+            {'op': 'exp', 'type': 'un_op'},
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=5, sampled_tokens=eq_8, num_consts_required=1
+        )
+        self.assertEqual(masks, ['consts', 'no_log'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([-1e9, -1e9, -1e9, -1e9, -2e9, 0.0])
+        ))
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=6, sampled_tokens=eq_8, num_consts_required=1
+        )
+        self.assertEqual(masks, ['un_ops', 'consts', 'no_log'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([-1e9, 0.0, 0.0, 0.0, -1e9, 0.0])
+        ))
 
 
 if __name__ == "__main__":

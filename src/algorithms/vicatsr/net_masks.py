@@ -104,15 +104,15 @@ class NetMasks:
 
         mask = np.zeros(len(self._token_set))
 
-        if 'consts' or 'un_ops' in mask_names:
+        if 'consts' in mask_names or 'un_ops' in mask_names:
 
             # Only sample un_ops and consts
             if 'un_ops' in mask_names:
-                mask = self._un_ops_consts_mask
+                mask = self._un_ops_consts_mask.copy()
 
             # Only sample consts
             else:
-                mask = self._consts_mask
+                mask = self._consts_mask.copy()
 
         # Do not sample log
         if 'no_log' in mask_names:
