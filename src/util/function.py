@@ -41,6 +41,9 @@ class Function():
         # Remove kwargs substrings
         f_str = re.sub(r"kwargs\['(.*?)'\]", r"\1", f_str)
 
+        # Remove any numpy calls
+        f_str = f_str.replace('np.', '')
+
         expr = sympify(f_str)
         expr = expand(f_str)
         return str(expr)

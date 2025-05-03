@@ -48,6 +48,13 @@ class DSOBenchmarks(Domain):
             return re.sub(r'x(\d+)', replacer, expr)
         self._expr_str = shift_x_variables(self._expr_str)
 
+        # Replace unary operations with numpy equivalents
+        self._expr_str = self._expr_str.replace('sin', 'np.sin')
+        self._expr_str = self._expr_str.replace('cos', 'np.cos')
+        self._expr_str = self._expr_str.replace('exp', 'np.exp')
+        self._expr_str = self._expr_str.replace('log', 'np.log')
+        self._expr_str = self._expr_str.replace('sqrt', 'np.sqrt')
+
         # Create function from expression string
         self._expr = Function(self._expr_str)
 
