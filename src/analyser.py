@@ -156,10 +156,35 @@ def sample_and_plot(domain, q, init_q, best_z):
     }
     print(json.dumps(sampled_metrics, indent=4))
 
-    # Print init q(z) models
-    print('\nInit models:\n\n')
+    # Print models sampled from q(z)
+    print('\nSampled models:\n\n')
+    for m in models:
+
+        print(f'y = {m[0].get_infix()}')
+        print(f'y = {m[0].get_infix(True)}')
+
+        # Check for invalid model
+        y = m[0].evaluate(x)
+        if y is None:
+            print('INVALID')
+
+        print(f'log p(x|z) = {m[1]}')
+        print(f'p(z) = {m[2]}\n')
+
+    # Print models sampled from the initial q(z)
+    print('\nInitial sampled models:\n\n')
     for m in init_models:
-        print(f'y = {m[0].get_infix()}   |   y = {m[0].get_infix(True)}')
+
+        print(f'y = {m[0].get_infix()}')
+        print(f'y = {m[0].get_infix(True)}')
+
+        # Check for invalid model
+        y = m[0].evaluate(x)
+        if y is None:
+            print('INVALID')
+
+        print(f'log p(x|z) = {m[1]}')
+        print(f'p(z) = {m[2]}\n')
 
     plt.legend()
     plt.show()

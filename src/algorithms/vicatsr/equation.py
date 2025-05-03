@@ -362,7 +362,7 @@ def infix_to_polish(infix, token_set):
                 found = True
                 break
         if not found:
-            raise ValueError(f'{t_str} is not in the token set')
+            raise ValueError(f'\"{t_str}\" is not in the token set')
 
     op_stack = []
     operand_stack = []

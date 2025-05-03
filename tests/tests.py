@@ -610,5 +610,94 @@ class Utils(unittest.TestCase):
         ))
 
 
+class Reachability(unittest.TestCase):
+
+    def setUp(self):
+
+        # Read config
+        self._config = read_json(os.getcwd()
+                                 + '/configs/test_configs/vicatsr.json')
+
+        self._config['algorithm']['target_policy']['parent_input'] = True
+        self._config['algorithm']['target_policy']['sibling_input'] = True
+        self._config['algorithm']['target_policy']['previous_input'] = False
+
+        self._config['domain'] = {
+            'name': 'DSOBenchmarks'
+        }
+
+    # Test reachability of Nguyen polynomials under certain configs
+    def test_nguyen_poly(self):
+
+        self._config['algorithm']['operators']['binary_ops'] = [
+            '+', '-', '*', '/'
+        ]
+        self._config['algorithm']['operators']['unary_ops'] = [
+            'cos', 'sin', 'exp', 'log'
+        ]
+        self._config['algorithm']['max_num_tokens'] = 30
+
+        # Create domain
+        self._config['domain']['dataset'] = 'Nguyen-1'
+        domain = create_domain(self._config['domain'])
+        data = domain.create_data()
+
+        # Create algorithm
+        alg = create_algorithm(self._config['algorithm'], domain)
+        alg._initialise(data)
+
+        # Check simple equation is reachable
+        eq1_str = '(x_0 * x_0)'
+        eq1 = Equation(infix_str=eq1_str, token_set=alg._token_set)
+        eq1.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertTrue(alg._q.pdf(eq1) > 0.0)
+
+        # Check Nguyen-1 is reachable
+        eq2_str = '((x_0 * (x_0 * x_0)) + (x_0 * x_0)) + x_0'
+        eq2 = Equation(infix_str=eq2_str, token_set=alg._token_set)
+        eq2.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq2.get_infix(True), 'x_0**3 + x_0**2 + x_0')
+        self.assertTrue(alg._q.pdf(eq2) > 0.0)
+
+        # Check Nguyen-2 is reachable
+        eq3_str = ('(x_0 * (x_0 * (x_0 * x_0))) + (((x_0 * (x_0 * x_0)) + '
+                   '(x_0 * x_0)) + x_0)')
+        eq3 = Equation(infix_str=eq3_str, token_set=alg._token_set)
+        eq3.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq3.get_infix(True), 'x_0**4 + x_0**3 + x_0**2 + x_0')
+        self.assertTrue(alg._q.pdf(eq3) > 0.0)
+
+        # Check Nguyen-3 is reachable
+        eq4_str = ('(x_0 * (x_0 * (x_0 * (x_0 * x_0)))) + '
+                   '((x_0 * (x_0 * (x_0 * x_0))) + (((x_0 * (x_0 * x_0)) + '
+                   '(x_0 * x_0)) + x_0))')
+        eq4 = Equation(infix_str=eq4_str, token_set=alg._token_set)
+        eq4.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq4.get_infix(True),
+                         'x_0**5 + x_0**4 + x_0**3 + x_0**2 + x_0')
+        self.assertTrue(alg._q.pdf(eq4) > 0.0)
+
+        # Check Nguyen-4 is not reachable in this form (not enough tokens)
+        eq5_str = ('(x_0 * (x_0 * (x_0 * (x_0 * (x_0 * x_0))))) + '
+                   '((x_0 * (x_0 * (x_0 * (x_0 * x_0)))) + '
+                   '((x_0 * (x_0 * (x_0 * x_0))) + (((x_0 * (x_0 * x_0)) + '
+                   '(x_0 * x_0)) + x_0)))')
+        eq5 = Equation(infix_str=eq5_str, token_set=alg._token_set)
+        eq5.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq5.get_infix(True),
+                         'x_0**6 + x_0**5 + x_0**4 + x_0**3 + x_0**2 + x_0')
+        self.assertTrue(alg._q.pdf(eq5) == 0.0)
+
+        # But Nguyen-4 is reachable in this form
+        eq6_str = ('((x_0 * ((x_0 / x_0) + x_0)) * '
+                   '(((x_0 / x_0) - x_0) + (x_0 * x_0))) * '
+                   '(((x_0 / x_0) + x_0) + (x_0 * x_0))')
+        eq6 = Equation(infix_str=eq6_str, token_set=alg._token_set)
+        eq6.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq6.get_infix(True),
+                         'x_0**6 + x_0**5 + x_0**4 + x_0**3 + x_0**2 + x_0')
+        self.assertTrue(alg._q.pdf(eq6) > 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()
