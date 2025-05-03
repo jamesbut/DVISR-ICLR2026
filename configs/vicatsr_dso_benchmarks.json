@@ -44,10 +44,10 @@
         "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
-        "baseline": {
+        "_baseline": {
             "name": "mean"
         },
-        "_baseline": {
+        "baseline": {
             "name": "ewma",
             "alpha": 0.25,
             "jumpstart": true

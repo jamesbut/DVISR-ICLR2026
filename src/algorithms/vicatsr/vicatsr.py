@@ -257,7 +257,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 if self._baseline['name'] == 'mean':
                     baseline = rewards.mean()
 
-                    # Use exponentially weighted moving average as baseline
+                # Use exponentially weighted moving average as baseline
                 elif self._baseline['name'] == 'ewma':
 
                     if self._ewma is None:
@@ -402,9 +402,27 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                     if self._stop_when_true_expr_found:
                         break
 
-            # Subtract baseline from rewards
-            baseline = rewards.mean()
-            rewards = rewards - baseline
+            # Calculate baseline
+            baseline = None
+            # Use mean as baseline
+            if self._baseline['name'] == 'mean':
+                baseline = rewards.mean()
+
+            # Use exponentially weighted moving average as baseline
+            elif self._baseline['name'] == 'ewma':
+
+                if self._ewma is None:
+                    self._emwa = rewards.mean()
+                else:
+                    self._emwa = (self._ewma_alpha * rewards.mean()
+                                  + (1.0 - self._ewma_alpha)
+                                    * self._ewma)
+
+                baseline = self._emwa
+
+            # Apply baseline
+            if baseline is not None:
+                rewards = rewards - baseline
 
             # Calculate importance weights
             importance_weights = [self._behaviour_policy.importance_weight(z)
