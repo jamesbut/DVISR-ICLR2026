@@ -25,7 +25,7 @@ class Equation:
 
             for t_str in token_strs:
                 token = next((
-                    copy.deepcopy(token) for token in token_set
+                    copy.copy(token) for token in token_set
                     if token['op'] == t_str), None)
                 self._eq.append(token)
 

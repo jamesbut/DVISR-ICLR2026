@@ -74,7 +74,7 @@ class q:
             out = self._net.forward(net_input, pre_softmax_mask).detach().numpy()
 
             # Sample token from categorical distribution
-            token = copy.deepcopy(
+            token = copy.copy(
                 np.random.choice(
                     self._token_set, 1, p=out[:len(self._token_set)]
                 )[0]
@@ -99,7 +99,7 @@ class q:
             elif token['type'] == 'const':
                 num_consts_required -= 1
 
-            token['pre_softmax_mask'] = copy.deepcopy(pre_softmax_mask)
+            token['pre_softmax_mask'] = pre_softmax_mask
 
             tokens.append(token)
 

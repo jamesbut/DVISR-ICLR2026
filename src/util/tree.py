@@ -30,7 +30,7 @@ def get_parent(tokens):
             if stack and i == len(tokens) - 1:
                 last_parent = stack[-1][0]
 
-    return copy.deepcopy(last_parent)
+    return last_parent
 
 
 # Get sibling of the final token in the list tokens
@@ -74,7 +74,7 @@ def get_sibling(tokens):
             # the stack
             sibling = operators[-1][2] if arity == 2 else None
 
-    return copy.deepcopy(sibling)
+    return sibling
 
 
 # Determines whether the next token in the sequence of tokens will be a
