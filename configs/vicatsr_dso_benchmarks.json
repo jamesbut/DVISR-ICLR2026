@@ -31,8 +31,8 @@
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
-            "rnn_hidden_layer_size": 256,
-            "_rnn_hidden_layer_size": 32,
+            "_rnn_hidden_layer_size": 256,
+            "rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
