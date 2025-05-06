@@ -47,6 +47,10 @@ def analyse_results(exp_dir):
     # Create domain
     domain = create_domain(config['domain'])
 
+    # Apply masks to best model
+    best_z.apply_pre_softmax_mask(config['algorithm']['max_num_tokens'],
+                                  q_z._net_masks)
+
     # Sample from q(z) and plot
     sample_and_plot(domain, q_z, init_q_z, best_z)
 
@@ -155,6 +159,17 @@ def sample_and_plot(domain, q, init_q, best_z):
         }
     }
     print(json.dumps(sampled_metrics, indent=4))
+
+    print('\nBest model:\n\n')
+    print(f'y = {best_z.get_infix()}')
+    print(f'y = {best_z.get_infix(True)}')
+    # Check for invalid model
+    y = best_z.evaluate(x)
+    if y is None:
+        print('INVALID')
+    print(f'log p(x|z) = {log_likelihood(data, best_z)}')
+    print(f'p(z) = {q.pdf(best_z)}\n')
+
 
     # Print models sampled from q(z)
     print('\nSampled models:\n\n')
