@@ -626,8 +626,8 @@ class Reachability(unittest.TestCase):
             'name': 'DSOBenchmarks'
         }
 
-    # Test reachability of Nguyen polynomials under certain configs
-    def test_nguyen_poly(self):
+    # Test reachability of Nguyen problems under certain configs
+    def test_nguyen(self):
 
         self._config['algorithm']['operators']['binary_ops'] = [
             '+', '-', '*', '/'
@@ -697,6 +697,34 @@ class Reachability(unittest.TestCase):
         self.assertEqual(eq6.get_infix(True),
                          'x_0**6 + x_0**5 + x_0**4 + x_0**3 + x_0**2 + x_0')
         self.assertTrue(alg._q.pdf(eq6) > 0.0)
+
+        # Check Nguyen-5 is reachable
+        eq7_str = '(sin((x_0 * x_0)) * cos(x_0)) - (x_0 / x_0)'
+        eq7 = Equation(infix_str=eq7_str, token_set=alg._token_set)
+        eq7.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq7.get_infix(True), 'sin(x_0**2)*cos(x_0) - 1')
+        self.assertTrue(alg._q.pdf(eq7) > 0.0)
+
+        # Check Nguyen-6 is reachable
+        eq8_str = 'sin(x_0) + sin(((x_0 * x_0) + x_0))'
+        eq8 = Equation(infix_str=eq8_str, token_set=alg._token_set)
+        eq8.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq8.get_infix(True), 'sin(x_0) + sin(x_0**2 + x_0)')
+        self.assertTrue(alg._q.pdf(eq8) > 0.0)
+
+        # Check Nguyen-7 is reachable
+        eq9_str = 'log(x_0 + (x_0 / x_0)) + log((x_0 * x_0) + (x_0 / x_0))'
+        eq9 = Equation(infix_str=eq9_str, token_set=alg._token_set)
+        eq9.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq9.get_infix(True), 'log(x_0 + 1) + log(x_0**2 + 1)')
+        self.assertTrue(alg._q.pdf(eq9) > 0.0)
+
+        # Check Nguyen-8 is reachable
+        eq10_str = 'exp((x_0 / (x_0 + x_0)) * log(x_0))'
+        eq10 = Equation(infix_str=eq10_str, token_set=alg._token_set)
+        eq10.apply_pre_softmax_mask(alg._max_num_tokens, alg._net_masks)
+        self.assertEqual(eq10.get_infix(True), 'sqrt(x_0)')
+        self.assertTrue(alg._q.pdf(eq10) > 0.0)
 
 
 if __name__ == "__main__":

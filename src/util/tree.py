@@ -1,8 +1,5 @@
 # Tree utils
 
-import copy
-
-
 # Get parent of the final token in the list tokens
 def get_parent(tokens):
 
