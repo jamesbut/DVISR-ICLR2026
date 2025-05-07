@@ -31,7 +31,8 @@
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
-            "rnn_hidden_layer_size": 256,
+            "_rnn_hidden_layer_size": 256,
+            "rnn_hidden_layer_size": 128,
             "_rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
             "parent_input": true,
@@ -39,8 +40,8 @@
             "previous_input": false
         },
         "remove_x_vars": false,
-        "_behaviour_policy": "target",
-        "behaviour_policy": "equal_prob_tokens",
+        "behaviour_policy": "target",
+        "_behaviour_policy": "equal_prob_tokens",
         "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
