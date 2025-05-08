@@ -31,10 +31,9 @@
         "target_policy": {
             "_learning_rate": 2e-4,
             "learning_rate": 5e-4,
-            "_rnn_hidden_layer_size": 256,
-            "rnn_hidden_layer_size": 128,
+            "rnn_hidden_layer_size": 256,
             "_rnn_hidden_layer_size": 32,
-            "init_gru_weights_zero": false,
+            "init_gru_weights_zero": true,
             "parent_input": true,
             "sibling_input": true,
             "previous_input": false
@@ -55,7 +54,7 @@
         },
         "max_likelihood": false,
         "distr_over_consts": false,
-        "plotting": true,
+        "plotting": false,
         "track_kl_divergence": false,
         "calculate_posteriors": false,
         "enum_exps": false,
