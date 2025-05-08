@@ -33,10 +33,11 @@
             "learning_rate": 5e-4,
             "rnn_hidden_layer_size": 256,
             "_rnn_hidden_layer_size": 32,
-            "init_gru_weights_zero": true,
+            "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
-            "previous_input": false
+            "previous_input": false,
+            "_grad_clip": 10.0
         },
         "remove_x_vars": false,
         "behaviour_policy": "target",
