@@ -13,8 +13,14 @@ import os
 
 def analyse_results(run_dir):
 
-    # Assume that a run directory is given
-    exp_dir = '/'.join(run_dir.split('/')[:-1])
+    # Determine whether a run or an experiment directory has been provided
+    parent_dir = run_dir.split('/')[-1]
+
+    # Set exp directory accordingly
+    if 'run_' in parent_dir:
+        exp_dir = '/'.join(run_dir.split('/')[:-1])
+    else:
+        exp_dir = run_dir
 
     # Read config
     with open(exp_dir + '/config.json', 'r') as file:
