@@ -11,14 +11,17 @@ import numpy as np
 import os
 
 
-def analyse_results(exp_dir):
+def analyse_results(run_dir):
+
+    # Assume that a run directory is given
+    exp_dir = '/'.join(run_dir.split('/')[:-1])
 
     # Read config
     with open(exp_dir + '/config.json', 'r') as file:
         config = json.load(file)
 
     # Read results
-    with open(exp_dir + '/results.json', 'r') as file:
+    with open(run_dir + '/results.json', 'r') as file:
         results = json.load(file)
 
     # print(json.dumps(results, indent=4))
@@ -35,8 +38,8 @@ def analyse_results(exp_dir):
 
     # Create network paths to reflect the directory that the data is currently
     # in
-    results['q']['net_path'] = os.getcwd() + '/' + exp_dir + '/net.pt'
-    results['init_q']['net_path'] = os.getcwd() + '/' + exp_dir + '/init_net.pt'
+    results['q']['net_path'] = os.getcwd() + '/' + run_dir + '/net.pt'
+    results['init_q']['net_path'] = os.getcwd() + '/' + run_dir + '/init_net.pt'
 
     # Read q(z)
     q_z = q.from_json(results['q'])
@@ -122,11 +125,12 @@ def sample_and_plot(domain, q, init_q, best_z):
 
     for m, o in zip(models, opacities):
         y = m[0].evaluate(x)
-        plt.plot(x, y,
-                 label=f'y = {m[0].get_infix()} | '
-                       f'y = {m[0].get_infix(True)} '
-                       f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
-                 c='tab:blue', alpha=o)
+        if y is not None:
+            plt.plot(x, y,
+                     label=f'y = {m[0].get_infix()} | '
+                           f'y = {m[0].get_infix(True)} '
+                           f'(ln p(x|z): {m[1]:.2f}, q(z): {m[2]:.3f})',
+                     c='tab:blue', alpha=o)
 
     # Sample from initial q is given
     init_models = []
@@ -169,7 +173,6 @@ def sample_and_plot(domain, q, init_q, best_z):
         print('INVALID')
     print(f'log p(x|z) = {log_likelihood(data, best_z)}')
     print(f'p(z) = {q.pdf(best_z)}\n')
-
 
     # Print models sampled from q(z)
     print('\nSampled models:\n\n')
