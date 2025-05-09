@@ -58,6 +58,9 @@ class Writer():
 
         self._initialised = True
 
+        # Keep track of the run number
+        self._run_num = 0
+
     # Write experiment results to file
     def write_results(self, results):
 
@@ -66,22 +69,34 @@ class Writer():
 
         # The torch network can not be serialised so this is written
         # separately here
-        net_path = self._exp_dir_path + '/net.pt'
-        results['q']['net'].save(net_path)
+        self.write_q_net(results['q']['net'], 'net.pt')
         del results['q']['net']
-
-        results['q']['net_path'] = net_path
 
         # print(json.dumps(results, indent=4))
 
         # Write results that could be serialised to json
-        with open(self._exp_dir_path + '/results.json', 'w') as file:
+        with open(self.run_dir_path() + '/results.json', 'w') as file:
             json.dump(results, file, indent=4)
 
-        print('Experiment results written to file')
+        print('Experiment results written to file\n')
+
+        self._run_num += 1
+
+    # Write the .pt net file of q_z
+    def write_q_net(self, net, pt_file_name):
+
+        # Create run directory if it doesn't already exist
+        if not os.path.exists(self.run_dir_path()):
+            os.makedirs(self.run_dir_path())
+
+        q_net_file_path = self.run_dir_path() + '/' + pt_file_name
+        net.save(q_net_file_path)
 
     def exp_dir_path(self):
         return self._exp_dir_path
+
+    def run_dir_path(self):
+        return self._exp_dir_path + '/run_' + str(self._run_num)
 
     # Write training log line to log file
     def write_log(self, log):
@@ -89,15 +104,13 @@ class Writer():
         if not self._write_to_file:
             return
 
-        if not hasattr(self, '_log_file_path'):
-            self._log_file_path = self._exp_dir_path + '/log.txt'
-            open(self._log_file_path, 'w').close()
+        log_file_path = self.run_dir_path() + '/log.txt'
 
         # Add timestamp to log
         log = f'[{datetime.now()}] ' + log + '\n'
 
         # Append log line to log file
-        with open(self._log_file_path, 'a') as f:
+        with open(log_file_path, 'a') as f:
             f.write(log)
 
     # Calculates the number of the directory to store exp data in

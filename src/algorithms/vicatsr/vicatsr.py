@@ -184,13 +184,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         if writer:
 
-            # Set file path for the initial q(z)
-            init_q_file_path = writer.exp_dir_path() + '/init_net.pt'
-
-            # Write initial q(z)
+            # Write initial q(z) .pt file
             init_q = self._q.to_json()
-            init_q['net_path'] = init_q_file_path
-            init_q['net'].save(init_q_file_path)
+            writer.write_q_net(init_q['net'], 'init_net.pt')
             del init_q['net']
 
         if self._max_likelihood_flag:

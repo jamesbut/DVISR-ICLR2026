@@ -23,36 +23,40 @@ def run_exps(args):
     writer = Writer(config)
     writer.initialise()
 
-    # Create domain
-    domain = create_domain(config['domain'])
+    num_runs = config.get('execution', {}).get('num_runs', 1)
 
-    # If domain is SRBench, run their code for analysis
-    if hasattr(domain, 'name') and domain.name == 'SRBench':
+    for i in range(num_runs):
 
-        # Set config path as environment variable to be used later in
-        # the spaghetti SRBench process...
-        os.environ['config_path'] = config_path
+        # Create domain
+        domain = create_domain(config['domain'])
 
-        # Run SRBench domain
-        domain.run()
+        # If domain is SRBench, run their code for analysis
+        if hasattr(domain, 'name') and domain.name == 'SRBench':
 
-    else:
+            # Set config path as environment variable to be used later in
+            # the spaghetti SRBench process...
+            os.environ['config_path'] = config_path
 
-        data = domain.create_data()
+            # Run SRBench domain
+            domain.run()
 
-        # Create algoritm
-        alg = create_algorithm(config['algorithm'], domain)
+        else:
 
-        # Train model
-        start = time.time()
+            data = domain.create_data()
 
-        alg.train(data, writer)
+            # Create algoritm
+            alg = create_algorithm(config['algorithm'], domain)
 
-        end = time.time()
-        print(f'Train time: {(end - start)/3600:.5f} hours')
+            # Train model
+            start = time.time()
 
-    # Save results to file
-    writer.write_results(alg.results())
+            alg.train(data, writer)
+
+            end = time.time()
+            print(f'Train time: {(end - start)/3600:.5f} hours')
+
+        # Save results to file
+        writer.write_results(alg.results())
 
 
 def main():

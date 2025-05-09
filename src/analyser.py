@@ -33,7 +33,7 @@ def analyse_results(exp_dir):
 
     plot_results(results)
 
-    # Alter network paths to reflect the directory that the data is currently
+    # Create network paths to reflect the directory that the data is currently
     # in
     results['q']['net_path'] = os.getcwd() + '/' + exp_dir + '/net.pt'
     results['init_q']['net_path'] = os.getcwd() + '/' + exp_dir + '/init_net.pt'

@@ -65,5 +65,8 @@
     },
     "writer": {
         "write_to_file": true
+    },
+    "execution": {
+        "num_runs": 5
     }
 }
