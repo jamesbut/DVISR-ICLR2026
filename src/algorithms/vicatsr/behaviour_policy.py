@@ -19,7 +19,7 @@ class BPStrategy(Enum):
 class BehaviourPolicy:
 
     def __init__(self, name, target_policy, token_set, max_num_tokens,
-                 all_eqs=None):
+                 net_masks, all_eqs=None):
 
         if name not in BPStrategy.__members__.keys():
             raise KeyError(f'{name} not a behaviour policy strategy')
@@ -44,6 +44,7 @@ class BehaviourPolicy:
 
         self._token_set = token_set
         self._max_num_tokens = max_num_tokens
+        self._net_masks = net_masks
 
         # Precompute and store number of constants and unary operators
         self._num_consts = sum(1 if t['type'] == 'const' else 0
@@ -62,7 +63,8 @@ class BehaviourPolicy:
             return self._sample_eq_prob_tokens()
 
     def sample_and_optimise(self, data, log_likelihood_func):
-        return optimise_eq_consts(self.sample(), data, log_likelihood_func)
+        return optimise_eq_consts(self.sample(), data, log_likelihood_func,
+                                  self._max_num_tokens, self._net_masks)
 
     # Determine the pdf of a particular equation under the behavioural policy
     def pdf(self, z):

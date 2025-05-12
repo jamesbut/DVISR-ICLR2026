@@ -1,10 +1,12 @@
 {
     "domain": {
         "name": "WrittenExpression",
-        "expression": "`x1` * `x1` + `x1`",
+        "expression": "`x_0` * `x_0`",
+        "_expression": "`x1` * `x1` + `x1`",
         "_expression": "`x1` * `x1` * `x1` + `x1`",
         "_expression": "`x1` * `x1` * `x1` + `x1` * `x1`",
-        "x_mins": [-1.0],
+        "_x_mins": [-1.0],
+        "x_mins": [0.0],
         "x_maxs": [1.0],
         "x_step_sizes": [0.1]
     },
@@ -13,44 +15,58 @@
         "operators": {
             "binary_ops": ["*", "+"],
             "_binary_ops": ["*"],
-            "_unary_ops": ["sin"]
+            "unary_ops": ["sin"]
         },
+        "constraints": [
+            "inverse_ops",
+            "nested_trigs"
+        ],
         "prior_mean": 0.0,
         "prior_variance": 100.0,
         "_q_const_variance": 0.1,
         "num_steps": 10,
-        "num_eq_samples": 250,
+        "num_eq_samples": 25,
         "_max_num_tokens": 5,
-        "max_num_tokens": 5,
+        "max_num_tokens": 3,
         "target_policy": {
-            "learning_rate": 2e-4,
+            "learning_rate": 5e-4,
             "_learning_rate": 1e-3,
-            "rnn_hidden_layer_size": 256,
-            "_rnn_hidden_layer_size": 32,
+            "_rnn_hidden_layer_size": 256,
+            "rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
-            "previous_input": false
+            "previous_input": false,
+            "_grad_clip": 10.0
         },
         "remove_x_vars": false,
-        "plotting": true,
-        "track_kl_divergence": false,
-        "calculate_posteriors": true,
         "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
         "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
-        "baseline": {
+        "_baseline": {
             "name": "mean"
         },
-        "_baseline": {
+        "baseline": {
             "name": "ewma",
             "alpha": 0.25,
             "jumpstart": true
         },
-        "max_likelihood": true,
+        "max_likelihood": false,
         "distr_over_consts": false,
-        "x_seed": 18
+        "plotting": true,
+        "track_kl_divergence": true,
+        "calculate_posteriors": true,
+        "enum_exps": true,
+        "stop_when_true_expr_found": false,
+        "x_seed": 18,
+        "verbosity": 1
+    },
+    "writer": {
+        "write_to_file": true
+    },
+    "execution": {
+        "num_runs": 1
     }
 }

@@ -221,10 +221,7 @@ class Equation:
         # Check whether forced consts have already been applied
         for token in self._eq:
             if 'pre_softmax_mask' in token:
-                raise RuntimeError(
-                    'Trying to apply pre softmax masks to an equation that '
-                    'already has them set'
-                )
+                return
 
         num_consts_required = 1
         for i, token in enumerate(self._eq):
@@ -242,6 +239,23 @@ class Equation:
                 num_consts_required += 1
             elif token['type'] == 'const':
                 num_consts_required -= 1
+
+    # Checks whether this equation is valid given network masks
+    def valid_eq(self, max_num_tokens, net_masks):
+
+        # Apply pre softmask mask if not already been applied
+        self.apply_pre_softmax_mask(max_num_tokens, net_masks)
+
+        # Check whether all tokens would have been allowed under the masks
+        for token in self._eq:
+
+            if token['pre_softmax_mask'] is None:
+                continue
+
+            if token['pre_softmax_mask'][token['id']] < 0.0:
+                return False
+
+        return True
 
     def convert_distr_to_opt_consts(self):
         for t in self._eq:
@@ -307,7 +321,8 @@ class Equation:
 
 
 # Optimise consts in equation to maximise log likelihood
-def optimise_eq_consts(eq, data, log_likelihood_func):
+def optimise_eq_consts(eq, data, log_likelihood_func,
+                       max_num_tokens, net_masks):
 
     # If there are no consts to optimise just return original equation
     if eq.num_opt_consts() == 0:
@@ -316,18 +331,20 @@ def optimise_eq_consts(eq, data, log_likelihood_func):
     # Initial guess of all ones
     init_x = np.ones(eq.num_opt_consts())
 
-    def min_func(x, eq, data, log_likelihood_func):
+    def min_func(x, eq, data, log_likelihood_func, max_num_tokens, net_masks):
 
         # Evaluate equation with opt consts set as x
         eq.set_opt_consts(x)
 
-        log_likelihood = log_likelihood_func(data, eq)
+        log_likelihood = log_likelihood_func(data, eq, max_num_tokens,
+                                             net_masks)
 
         return -log_likelihood
 
     # Optimise log likelihood with respect to op constants
     res = scipy.optimize.minimize(min_func, init_x,
-                                  args=(eq, data, log_likelihood_func),
+                                  args=(eq, data, log_likelihood_func,
+                                        max_num_tokens, net_masks),
                                   method='bfgs')
 
     if not res['success']:

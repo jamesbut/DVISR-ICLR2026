@@ -218,7 +218,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             # Calculate likelihoods of sampled models
             log_likelihoods = np.array(
-                [log_likelihood(data, z) for z in sampled_z]
+                [log_likelihood(data, z, self._max_num_tokens, self._net_masks)
+                 for z in sampled_z]
             )
 
             # Set the reward to the log likelihood
@@ -314,8 +315,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             all_exps_sorted = sorted(all_exps, key=lambda z: self._q.pdf(z).item(),
                                      reverse=True)
             for i, z in enumerate(all_exps_sorted):
+                ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
                 print(f'{i+1}  z: {z.get_infix()}    q(z): {self._q.pdf(z).item()} '
-                      f'p(x|z): {likelihood(data, z)} '
+                      f'p(x|z): {ll} '
                       f'q_b(z): {self._behaviour_policy.pdf(z)}')
                 '''
                 print('z: ' + z.get_infix() + '    q(z): '
@@ -507,6 +509,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._behaviour_policy = BehaviourPolicy(self._behaviour_policy_name,
                                                  self._q, self._token_set,
                                                  self._max_num_tokens,
+                                                 self._net_masks,
                                                  all_models)
 
     def _prior(self, z):
@@ -530,7 +533,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     # Calculate posterior for specific model z
     def posterior(self, data, z, all_z):
-        return likelihood(data, z) * self._prior(z) / self.evidence(data, all_z)
+        return (likelihood(data, z, self._max_num_tokens, self._net_masks)
+                * self._prior(z) / self.evidence(data, all_z))
 
     # Calculate the true posterior for all enumerated models
     def posteriors(self, data):
@@ -556,7 +560,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Calculate p(x) based on the law of total probability
         if total_num_distr_consts == 0:
-            p_x = sum([likelihood(data, z) * self._prior(z) for z in zs])
+            p_x = sum([
+                likelihood(data, z, self._max_num_tokens, self._net_masks)
+                * self._prior(z)
+                for z in zs
+            ])
 
         # Calculate p(x) using a numerical integrator
         else:
@@ -594,7 +602,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 if any(c < 0.0 or c > 1.0 for c in other_z_consts):
                     return 0.0
 
-                return likelihood(data, z) * self._prior(z)
+                ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+
+                return ll * self._prior(z)
 
             # Create integration bounds
             # The first bound is for selecting the particular expression
@@ -619,7 +629,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Calculate log likelihoods of sampled models
         log_likelihoods = torch.tensor(
-            [log_likelihood(data, z) for z in samples],
+            [log_likelihood(data, z, self._max_num_tokens, self._net_masks)
+             for z in samples],
             requires_grad=False
         )
 
@@ -713,24 +724,34 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._results['q'] = self._q.to_json()
 
         if self._plotting:
+
             # plt.plot(range(self._num_steps), mus, label='mu')
             # plt.legend()
             # plt.show()
+
             if self._track_kl_divergence:
                 plt.plot(range(self._num_steps), self._results['kl_divs'])
+                plt.xlabel('Epoch')
+                plt.ylabel('KL Divergence')
                 plt.show()
+
             plt.plot(range(self._num_steps), self._results['all_elbos'],
-                     label='ELBO')
+                     label='Average ELBO')
+
             if self._calc_posteriors_flag:
                 log_ev = self._results['log_ev']
                 plt.plot(range(self._num_steps), [log_ev] * self._num_steps,
                          label=f'log p(x): {log_ev:.5f}')
+
+            plt.xlabel('Epoch')
             plt.legend()
             plt.show()
 
             plt.plot(range(self._num_steps), self._results['all_lls'],
                      label='p(x|z)')
-            plt.legend()
+            plt.xlabel('Epoch')
+            plt.ylabel('Average log p(x|z)')
+            # plt.legend()
             plt.show()
 
         if self._calc_posteriors_flag:
@@ -748,7 +769,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         if self._enum_all_exps:
             # Order all models by q(z) and print
-            all_z = [(z, p_z_x, self._q.pdf(z).item(), log_likelihood(data, z),
+            all_z = [(z, p_z_x, self._q.pdf(z).item(),
+                      log_likelihood(data, z, self._max_num_tokens,
+                                     self._net_masks),
                       self._q.get_consts_params(z))
                      for z, p_z_x in zip(all_exps, self._true_posteriors)]
             all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
@@ -774,8 +797,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             all_z = copy.deepcopy(self._enumerate_expressions(data))
             for z in all_z:
                 z.convert_distr_to_opt_consts()
-            optimised_z = [(optimise_eq_consts(z, data, log_likelihood),
-                            log_likelihood(data, z))
+            optimised_z = [(optimise_eq_consts(z, data, log_likelihood,
+                                               self._max_num_tokens,
+                                               self._net_masks),
+                            log_likelihood(data, z, self._max_num_tokens,
+                                           self._net_masks))
                            for z in all_z]
             optimised_z = sorted(optimised_z, key=lambda z: z[1], reverse=True)
             print('Optimised models:')
@@ -868,7 +894,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Optimise constants according to maximum likelihood if there are
         # any optimisable constants
         if data is not None:
-            all_expressions = [optimise_eq_consts(eq, data, log_likelihood)
+            all_expressions = [optimise_eq_consts(eq, data, log_likelihood,
+                                                  self._max_num_tokens,
+                                                  self._net_masks)
                                for eq in all_expressions]
 
         print('...expressions enumerated')
@@ -957,7 +985,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         for i in range(num_samples):
             model = self._q.sample()
             pdf = self._q.pdf(model)
-            ll = log_likelihood(self._data, model)
+            ll = log_likelihood(self._data, model, self._max_num_tokens,
+                                self._net_masks)
             models.append((model, ll, pdf))
 
         # Sort models by log likelihoods so the plot is a little clearer
@@ -1055,13 +1084,19 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         '''
 
 
-def log_likelihood(data, z):
+def log_likelihood(data, z, max_num_tokens, net_masks):
 
     means = z.evaluate(data['x'])
 
     # If z evaluates to None, it means it is not a valid equation under
     # the current domain, hence it is made very unlikely
     if means is None:
+        return -1e6
+
+    # If z violates constraints, it means that it is impossible
+    # I wanted to alter to the prior, but it is more complicated than
+    # making it a very unlikely model
+    if not z.valid_eq(max_num_tokens, net_masks):
         return -1e6
 
     log_likelihoods = [scipy.stats.norm.logpdf(y, mean)
@@ -1075,13 +1110,19 @@ def log_likelihood(data, z):
     return log_likelihood
 
 
-def likelihood(data, z):
+def likelihood(data, z, max_num_tokens, net_masks):
 
     means = z.evaluate(data['x'])
 
     # If z evaluates to None, it means it is not a valid equation under
     # the current domain, hence it is made very unlikely
     if means is None:
+        return 0.0
+
+    # If z violates constraints, it means that it is impossible
+    # I wanted to alter to the prior, but it is more complicated than
+    # making it a very unlikely model
+    if not z.valid_eq(max_num_tokens, net_masks):
         return 0.0
 
     likelihoods = [scipy.stats.norm.pdf(y, mean)
