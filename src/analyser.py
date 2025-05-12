@@ -9,6 +9,7 @@ from algorithms.vicatsr.equation import Equation
 from util.norms import normalise_value
 import numpy as np
 import os
+from pathlib import Path
 
 
 def analyse_results(run_dir):
@@ -26,9 +27,34 @@ def analyse_results(run_dir):
     with open(exp_dir + '/config.json', 'r') as file:
         config = json.load(file)
 
-    # Read results
-    with open(run_dir + '/results.json', 'r') as file:
-        results = json.load(file)
+    # Old file setup - one run without run_ directories
+    if os.path.exists(exp_dir + '/results.json'):
+
+        with open(exp_dir + '/results.json', 'r') as file:
+            results = json.load(file)
+
+        plot_results([results])
+
+    # Single run directory given
+    elif exp_dir != run_dir:
+
+        with open(run_dir + '/results.json', 'r') as file:
+            results = json.load(file)
+
+        plot_results([results])
+
+    # Multiple runs given in the form of an experiment directory
+    else:
+
+        # Read results from all runs
+        run_dirs = [p for p in Path(exp_dir).iterdir() if p.is_dir()]
+        results = []
+        for rd in run_dirs:
+            with open(str(rd) + '/results.json', 'r') as file:
+                results.append(json.load(file))
+
+        # Plot all results
+        plot_results(results)
 
     # print(json.dumps(results, indent=4))
     print('True z:', results['true_z'])
@@ -39,8 +65,6 @@ def analyse_results(run_dir):
     # Read in best model
     best_z = Equation(infix_str=results['best_z']['eq'],
                       token_set=results['q']['token_set'])
-
-    plot_results(results)
 
     # Create network paths to reflect the directory that the data is currently
     # in
@@ -66,31 +90,95 @@ def analyse_results(run_dir):
 
 def plot_results(results):
 
-    if results['kl_divs']:
-        plt.plot(range(len(results['kl_divs'])), results['kl_divs'],
-                 label='KL divergence')
-        plt.legend()
+    # Collate results
+    kl_divs = []
+    elbos = []
+    lls = []
+    l_joints = []
+    for r in results:
+        if 'kl_divs' in r and r['kl_divs']:
+            kl_divs.append(r['kl_divs'])
+        if 'all_elbos' in r and r['all_elbos']:
+            elbos.append(r['all_elbos'])
+        if 'all_lls' in r and r['all_lls']:
+            lls.append(r['all_lls'])
+        if 'all_l_joints' in r and r['all_l_joints']:
+            l_joints.append(r['all_l_joints'])
+
+    kl_divs = np.array(kl_divs)
+    elbos = np.array(elbos)
+    lls = np.array(lls)
+    l_joints = np.array(l_joints)
+
+    x = range(elbos.shape[1])
+
+    # Plot KL divergences
+    if kl_divs.size != 0:
+        medians = np.median(kl_divs, axis=0)
+        q1s = np.percentile(kl_divs, 25, axis=0)
+        q3s = np.percentile(kl_divs, 75, axis=0)
+
+        plt.plot(x, medians)
+
+        plt.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+
+        plt.xlabel('Epoch')
+        plt.ylabel('KL Divergence')
+        plt.tight_layout()
         plt.show()
 
-    if results['all_elbos']:
-        elbos_len = len(results['all_elbos'])
+    # Plot ELBOs
+    if elbos.size != 0:
+        medians = np.median(elbos, axis=0)
+        q1s = np.percentile(elbos, 25, axis=0)
+        q3s = np.percentile(elbos, 75, axis=0)
 
-        plt.plot(range(elbos_len), results['all_elbos'],
-                 label='ELBO')
+        plt.plot(x, medians, label='ELBO')
 
-        if results['log_ev']:
-            log_ev = results['log_ev']
-            plt.plot(range(elbos_len), [log_ev] * elbos_len,
+        plt.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+
+        if results[0]['log_ev']:
+            log_ev = results[0]['log_ev']
+            plt.plot(x, [log_ev] * len(x),
                      label=f'log p(x): {log_ev:.5f}')
 
         plt.legend()
+        plt.xlabel('Epoch')
+        plt.ylabel('ELBO')
+        plt.tight_layout()
         plt.show()
 
-    if results['all_lls']:
-        plt.plot(range(len(results['all_lls'])), results['all_lls'],
-                 label='p(x|z)')
-        plt.legend()
+    # Plot log likelihoods
+    if lls.size != 0:
+        medians = np.median(lls, axis=0)
+        q1s = np.percentile(lls, 25, axis=0)
+        q3s = np.percentile(lls, 75, axis=0)
+
+        plt.plot(x, medians)
+
+        plt.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+
+        plt.xlabel('Epoch')
+        plt.ylabel('log p(x|z)')
+        plt.tight_layout()
         plt.show()
+
+    # Plot log joints
+    if l_joints.size != 0:
+        medians = np.median(l_joints, axis=0)
+        q1s = np.percentile(l_joints, 25, axis=0)
+        q3s = np.percentile(l_joints, 75, axis=0)
+
+        plt.plot(x, medians)
+
+        plt.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+
+        plt.xlabel('Epoch')
+        plt.ylabel('log p(x,z)')
+        plt.tight_layout()
+        plt.show()
+
+    exit()
 
 
 def sample_and_plot(domain, q, init_q, best_z):
