@@ -346,6 +346,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             'kl_divs': [],
             'all_elbos': [],
             'all_lls': [],
+            'all_l_joints': [],
             'log_ev': None,
             'epoch_true_model_located': None,
             'r_max': None,
@@ -366,12 +367,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                  for i in range(self._num_eq_samples)]
 
             # Calculate ELBO
-            elbos, log_likelihoods = self.elbos(data, sampled_z)
+            elbos, log_likelihoods, log_priors = self.elbos(data, sampled_z)
+            log_joints = log_likelihoods + log_priors
+
+            # Record important stats
             self._results['all_elbos'].append(elbos.mean().item())
             self._results['all_lls'].append(log_likelihoods.mean().item())
-
-            # num_none_eqs = sum(1 for ll in log_likelihoods if ll < -1e5)
-            # print(f'Num None eqs: {num_none_eqs}')
+            self._results['all_l_joints'].append(log_joints.mean().item())
 
             # Track values of interest
             # if self._distr_over_consts:
@@ -647,7 +649,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         )
 
         # Calculate and return ELBO and log likelihoods
-        return log_likelihoods + log_priors - log_q_zs, log_likelihoods
+        return (log_likelihoods + log_priors - log_q_zs,
+                log_likelihoods, log_priors)
 
     # Calculate the KL divergence between q(z) and p(z|x)
     def kl_divergence(self, data, num_samples):
@@ -748,9 +751,16 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             plt.show()
 
             plt.plot(range(self._num_steps), self._results['all_lls'],
-                     label='p(x|z)')
+                     label='log p(x|z)')
             plt.xlabel('Epoch')
             plt.ylabel('Average log p(x|z)')
+            # plt.legend()
+            plt.show()
+
+            plt.plot(range(self._num_steps), self._results['all_l_joints'],
+                     label='log p(x,z)')
+            plt.xlabel('Epoch')
+            plt.ylabel('Average log p(x,z)')
             # plt.legend()
             plt.show()
 

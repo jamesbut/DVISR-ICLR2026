@@ -24,8 +24,8 @@
         "prior_mean": 0.0,
         "prior_variance": 100.0,
         "_q_const_variance": 0.1,
-        "num_steps": 10,
-        "num_eq_samples": 25,
+        "num_steps": 1000,
+        "num_eq_samples": 250,
         "_max_num_tokens": 5,
         "max_num_tokens": 3,
         "target_policy": {
@@ -55,7 +55,7 @@
         },
         "max_likelihood": false,
         "distr_over_consts": false,
-        "plotting": true,
+        "plotting": false,
         "track_kl_divergence": true,
         "calculate_posteriors": true,
         "enum_exps": true,
@@ -67,6 +67,6 @@
         "write_to_file": true
     },
     "execution": {
-        "num_runs": 1
+        "num_runs": 10
     }
 }
