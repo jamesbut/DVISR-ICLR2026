@@ -56,6 +56,10 @@ def analyse_results(run_dir):
         # Plot all results
         plot_results(results)
 
+        # Use first set of results for further analysis below
+        results = results[0]
+        run_dir = str(run_dirs[0])
+
     # print(json.dumps(results, indent=4))
     print('True z:', results['true_z'])
     print(f'Best z: {json.dumps(results["best_z"], indent=4)}')
@@ -177,8 +181,6 @@ def plot_results(results):
         plt.ylabel('log p(x,z)')
         plt.tight_layout()
         plt.show()
-
-    exit()
 
 
 def sample_and_plot(domain, q, init_q, best_z):

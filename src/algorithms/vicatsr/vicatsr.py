@@ -1094,7 +1094,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         '''
 
 
-def log_likelihood(data, z, max_num_tokens, net_masks):
+def log_likelihood(data, z, max_num_tokens=None, net_masks=None):
 
     means = z.evaluate(data['x'])
 
@@ -1106,8 +1106,9 @@ def log_likelihood(data, z, max_num_tokens, net_masks):
     # If z violates constraints, it means that it is impossible
     # I wanted to alter to the prior, but it is more complicated than
     # making it a very unlikely model
-    if not z.valid_eq(max_num_tokens, net_masks):
-        return -1e6
+    if max_num_tokens is not None and net_masks is not None:
+        if not z.valid_eq(max_num_tokens, net_masks):
+            return -1e6
 
     log_likelihoods = [scipy.stats.norm.logpdf(y, mean)
                        for y, mean in zip(data['y'], means)]
