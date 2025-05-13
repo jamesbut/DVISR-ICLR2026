@@ -11,16 +11,20 @@ def get_args_parser():
 
     # Run experiments with a configuration file
     parser.add_argument('-c', '--config')
+    parser.add_argument(
+        '-ca', '--config_args',
+        help='Modify config via the command line'
+    )
 
     # Analyse results
     parser.add_argument(
         '-a', '--analyse',
         help='Provide experiment directory to analyse, e.g. results/exp_4'
     )
-
     parser.add_argument(
-        '-ca', '--config_args',
-        help='Modify config via the command line'
+        '--save', action='store_true',
+        help='Specifies that figures generated during analysis should be '
+             'saved to file'
     )
 
     return parser

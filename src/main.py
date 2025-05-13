@@ -66,7 +66,7 @@ def main():
 
     # Analyse results
     if args.analyse:
-        analyse_results(args.analyse)
+        analyse_results(args)
 
     # Run experiments
     else:

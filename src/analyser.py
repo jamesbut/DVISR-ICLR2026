@@ -12,7 +12,9 @@ import os
 from pathlib import Path
 
 
-def analyse_results(run_dir):
+def analyse_results(args):
+
+    run_dir = args.analyse
 
     # Determine whether a run or an experiment directory has been provided
     parent_dir = run_dir.split('/')[-1]
@@ -33,7 +35,7 @@ def analyse_results(run_dir):
         with open(exp_dir + '/results.json', 'r') as file:
             results = json.load(file)
 
-        plot_results([results])
+        plot_results([results], args.save)
 
     # Single run directory given
     elif exp_dir != run_dir:
@@ -41,7 +43,7 @@ def analyse_results(run_dir):
         with open(run_dir + '/results.json', 'r') as file:
             results = json.load(file)
 
-        plot_results([results])
+        plot_results([results], args.save)
 
     # Multiple runs given in the form of an experiment directory
     else:
@@ -54,7 +56,7 @@ def analyse_results(run_dir):
                 results.append(json.load(file))
 
         # Plot all results
-        plot_results(results)
+        plot_results(results, args.save)
 
         # Use first set of results for further analysis below
         results = results[0]
@@ -92,7 +94,11 @@ def analyse_results(run_dir):
     sample_and_plot(domain, q_z, init_q_z, best_z)
 
 
-def plot_results(results):
+def plot_results(results, save):
+
+    # Create figures directory if it doesn't yet exist
+    if save:
+        os.makedirs('figures', exist_ok=True)
 
     # Collate results
     kl_divs = []
@@ -129,6 +135,10 @@ def plot_results(results):
         plt.xlabel('Epoch')
         plt.ylabel('KL Divergence')
         plt.tight_layout()
+
+        if save:
+            plt.savefig('figures/kl_divs.svg', format='svg')
+
         plt.show()
 
     # Plot ELBOs
@@ -150,6 +160,10 @@ def plot_results(results):
         plt.xlabel('Epoch')
         plt.ylabel('ELBO')
         plt.tight_layout()
+
+        if save:
+            plt.savefig('figures/elbos.svg', format='svg')
+
         plt.show()
 
     # Plot log likelihoods
@@ -165,6 +179,10 @@ def plot_results(results):
         plt.xlabel('Epoch')
         plt.ylabel('log p(x|z)')
         plt.tight_layout()
+
+        if save:
+            plt.savefig('figures/log_likelihoods.svg', format='svg')
+
         plt.show()
 
     # Plot log joints
@@ -180,6 +198,10 @@ def plot_results(results):
         plt.xlabel('Epoch')
         plt.ylabel('log p(x,z)')
         plt.tight_layout()
+
+        if save:
+            plt.savefig('figures/log_joints.svg', format='svg')
+
         plt.show()
 
 

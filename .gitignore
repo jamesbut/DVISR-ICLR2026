@@ -5,6 +5,7 @@ backups/
 srbench_results/
 results/
 *.prof
+figures/
 
 /libs/*
 !/libs/.gitkeep
