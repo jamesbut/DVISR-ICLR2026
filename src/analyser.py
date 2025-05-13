@@ -11,6 +11,7 @@ from util.norms import normalise_value
 import numpy as np
 import os
 from pathlib import Path
+from util.stats import median
 
 
 def analyse_results(args):
@@ -59,9 +60,12 @@ def analyse_results(args):
         # Plot all results
         plot_results(results, args.save)
 
-        # Use first set of results for further analysis below
-        results = results[0]
-        run_dir = str(run_dirs[0])
+        # Use run with the median final ELBO for analysis below
+        final_elbos = [r['all_elbos'][-1] for r in results]
+        med_elbo, med_idx = median(final_elbos, reverse_sort=True,
+                                   prefer_lower=True)
+        results = results[med_idx]
+        run_dir = str(run_dirs[med_idx])
 
     # print(json.dumps(results, indent=4))
     print('True z:', results['true_z'])
