@@ -154,7 +154,7 @@ def plot_results(results, save):
         if results[0]['log_ev']:
             log_ev = results[0]['log_ev']
             plt.plot(x, [log_ev] * len(x),
-                     label=f'log p(x): {log_ev:.5f}')
+                     label=f'log p(X,y): {log_ev:.5f}')
 
         plt.legend()
         plt.xlabel('Epoch')
