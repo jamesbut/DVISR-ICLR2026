@@ -4,6 +4,7 @@ import json
 import matplotlib.pyplot as plt
 from algorithms.vicatsr.q import q
 from domains.domain_factory import create_domain
+from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.vicatsr import log_likelihood
 from algorithms.vicatsr.equation import Equation
 from util.norms import normalise_value
@@ -93,6 +94,10 @@ def analyse_results(args):
     # Sample from q(z) and plot
     sample_and_plot(domain, q_z, init_q_z, best_z)
 
+    # Calculate true posteriors and compare to q(z)
+    if args.true_pos:
+        calc_true_posteriors(config, domain, q_z)
+
 
 def plot_results(results, save):
 
@@ -122,7 +127,15 @@ def plot_results(results, save):
 
     x = range(elbos.shape[1])
 
-    # Plot KL divergences
+    plot_kl_divs(x, kl_divs, save)
+    plot_elbos(x, elbos, save, results)
+    plot_log_likelihoods(x, lls, save)
+    plot_log_joints(x, l_joints, save)
+
+
+# Plot KL divergences
+def plot_kl_divs(x, kl_divs, save):
+
     if kl_divs.size != 0:
         medians = np.median(kl_divs, axis=0)
         q1s = np.percentile(kl_divs, 25, axis=0)
@@ -141,7 +154,10 @@ def plot_results(results, save):
 
         plt.show()
 
-    # Plot ELBOs
+
+# Plot ELBOs
+def plot_elbos(x, elbos, save, results):
+
     if elbos.size != 0:
         medians = np.median(elbos, axis=0)
         q1s = np.percentile(elbos, 25, axis=0)
@@ -166,7 +182,10 @@ def plot_results(results, save):
 
         plt.show()
 
-    # Plot log likelihoods
+
+# Plot log likelihoods
+def plot_log_likelihoods(x, lls, save):
+
     if lls.size != 0:
         medians = np.median(lls, axis=0)
         q1s = np.percentile(lls, 25, axis=0)
@@ -185,7 +204,10 @@ def plot_results(results, save):
 
         plt.show()
 
-    # Plot log joints
+
+# Plot log joints
+def plot_log_joints(x, l_joints, save):
+
     if l_joints.size != 0:
         medians = np.median(l_joints, axis=0)
         q1s = np.percentile(l_joints, 25, axis=0)
@@ -324,3 +346,37 @@ def sample_and_plot(domain, q, init_q, best_z):
 
     plt.legend()
     plt.show()
+
+
+# Enumerate models and calculate true posteriors
+def calc_true_posteriors(config, domain, q_z):
+
+    # Create algoritm, data and initialise
+    alg = create_algorithm(config['algorithm'], domain)
+    data = domain.create_data()
+    alg._initialise(data)
+
+    true_posteriors, all_exps = alg.posteriors(data)
+    kl_divergence = alg.kl_divergence(data, num_samples=1000)
+    print('KL divergence:', kl_divergence)
+
+    # Order all models by q(z) and print
+    all_z = [(z, p_z_x, q_z.pdf(z).item(),
+              log_likelihood(data, z, alg._max_num_tokens, alg._net_masks),
+              q_z.get_consts_params(z))
+             for z, p_z_x in zip(all_exps, true_posteriors)]
+    all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
+
+    # Get longest eq string in order to format nicely
+    eq_str_length = max(len(z[0].get_infix()) for z in all_z)
+
+    for i, z in enumerate(all_z):
+        out_str = (f'z: {z[0].get_infix():<{eq_str_length+3}} '
+                   f'z: {z[0].get_infix(simplify=True):<25} '
+                   f'q(z): {z[2]:.10f}  '
+                   f'p(z|x): {z[1]:.10f}  p(x|z): {z[3]:.10f}')
+        if alg._distr_over_consts:
+            out_str += f'   q consts params: {z[4]}'
+        print(out_str)
+        if i > 100:
+            break

@@ -21,10 +21,16 @@ def get_args_parser():
         '-a', '--analyse',
         help='Provide experiment directory to analyse, e.g. results/exp_4'
     )
+    # Save figures to file
     parser.add_argument(
         '--save', action='store_true',
         help='Specifies that figures generated during analysis should be '
              'saved to file'
+    )
+    # Calculate true posteriors for all models
+    parser.add_argument(
+        '--true_pos', action='store_true',
+        help='Calculate true posteriors of all models'
     )
 
     return parser
