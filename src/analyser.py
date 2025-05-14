@@ -27,6 +27,8 @@ def analyse_results(args):
     else:
         exp_dir = run_dir
 
+    run_dirs = [run_dir]
+
     # Read config
     with open(exp_dir + '/config.json', 'r') as file:
         config = json.load(file)
@@ -37,7 +39,9 @@ def analyse_results(args):
         with open(exp_dir + '/results.json', 'r') as file:
             results = json.load(file)
 
-        plot_results([results], args.save)
+        all_results = [results]
+
+        plot_results(all_results, args.save)
 
     # Single run directory given
     elif exp_dir != run_dir:
@@ -45,26 +49,28 @@ def analyse_results(args):
         with open(run_dir + '/results.json', 'r') as file:
             results = json.load(file)
 
-        plot_results([results], args.save)
+        all_results = [results]
+
+        plot_results(all_results, args.save)
 
     # Multiple runs given in the form of an experiment directory
     else:
 
         # Read results from all runs
         run_dirs = [p for p in Path(exp_dir).iterdir() if p.is_dir()]
-        results = []
+        all_results = []
         for rd in run_dirs:
             with open(str(rd) + '/results.json', 'r') as file:
-                results.append(json.load(file))
+                all_results.append(json.load(file))
 
         # Plot all results
-        plot_results(results, args.save)
+        plot_results(all_results, args.save)
 
         # Use run with the median final ELBO for analysis below
-        final_elbos = [r['all_elbos'][-1] for r in results]
+        final_elbos = [r['all_elbos'][-1] for r in all_results]
         med_elbo, med_idx = median(final_elbos, reverse_sort=True,
                                    prefer_lower=True)
-        results = results[med_idx]
+        results = all_results[med_idx]
         run_dir = str(run_dirs[med_idx])
 
     # print(json.dumps(results, indent=4))
@@ -100,7 +106,7 @@ def analyse_results(args):
 
     # Calculate true posteriors and compare to q(z)
     if args.true_pos:
-        calc_true_posteriors(config, domain, q_z)
+        calc_true_posteriors(config, domain, all_results, run_dirs)
 
 
 def plot_results(results, save):
@@ -353,22 +359,50 @@ def sample_and_plot(domain, q, init_q, best_z):
 
 
 # Enumerate models and calculate true posteriors
-def calc_true_posteriors(config, domain, q_z):
+def calc_true_posteriors(config, domain, all_results, run_dirs):
 
-    # Create algoritm, data and initialise
+    # Create algorithm, data and initialise
     alg = create_algorithm(config['algorithm'], domain)
     data = domain.create_data()
     alg._initialise(data)
 
     true_posteriors, all_exps = alg.posteriors(data)
-    kl_divergence = alg.kl_divergence(data, num_samples=1000)
-    print('KL divergence:', kl_divergence)
+
+    q_z_vals = []
+
+    # Calculate sample mean of q_z and standard deviation for quantification
+    # of uncertainty by considering all runs
+    for r, rd in zip(all_results, run_dirs):
+
+        # Create network paths to reflect the directory that the data is
+        # currently in
+        r['q']['net_path'] = os.getcwd() + '/' + str(rd) + '/net.pt'
+        r['init_q']['net_path'] = os.getcwd() + '/' + str(rd) + '/init_net.pt'
+
+        # Read q(z)
+        q_z = q.from_json(r['q'])
+        alg._r = q_z
+
+        # kl_divergence = alg.kl_divergence(data, num_samples=1000)
+        # print('KL divergence:', kl_divergence)
+
+        q_z_vals.append([q_z.pdf(z).item() for z in all_exps])
+
+    q_z_vals = np.array(q_z_vals)
+    q_z_means = np.mean(q_z_vals, axis=0)
+    q_z_stds = np.std(q_z_vals, axis=0)
+    q_z_medians = np.median(q_z_vals, axis=0)
+    q_z_q1s = np.percentile(q_z_vals, 25, axis=0)
+    q_z_q3s = np.percentile(q_z_vals, 75, axis=0)
+    q_z_iqrs = q_z_q3s - q_z_q1s
 
     # Order all models by q(z) and print
-    all_z = [(z, p_z_x, q_z.pdf(z).item(),
+    all_z = [(z, p_z_x, q_z_med, q_z_q1, q_z_q3, q_z_iqr,
               log_likelihood(data, z, alg._max_num_tokens, alg._net_masks),
               q_z.get_consts_params(z))
-             for z, p_z_x in zip(all_exps, true_posteriors)]
+             for z, p_z_x, q_z_med, q_z_q1, q_z_q3, q_z_iqr in
+             zip(all_exps, true_posteriors, q_z_medians,
+                 q_z_q1s, q_z_q3s, q_z_iqrs)]
     all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
 
     # Get longest eq string in order to format nicely
@@ -377,10 +411,10 @@ def calc_true_posteriors(config, domain, q_z):
     for i, z in enumerate(all_z):
         out_str = (f'z: {z[0].get_infix():<{eq_str_length+3}} '
                    f'z: {z[0].get_infix(simplify=True):<25} '
-                   f'q(z): {z[2]:.10f}  '
-                   f'p(z|x): {z[1]:.10f}  p(x|z): {z[3]:.10f}')
+                   f'q(z): {z[2]:.10f} [{z[3]:.10f}, {z[4]:.10f}] '
+                   f'p(z|x): {z[1]:.10f}  p(x|z): {z[6]:.10f}')
         if alg._distr_over_consts:
-            out_str += f'   q consts params: {z[4]}'
+            out_str += f'   q consts params: {z[7]}'
         print(out_str)
         if i > 100:
             break

@@ -15,7 +15,6 @@ def median(items, reverse_sort=False, prefer_lower=False):
     items = sorted([(val, idx) for idx, val in enumerate(items)],
                    reverse=reverse_sort)
 
-    print(items)
     # Odd number of values
     if n % 2 == 1:
 
