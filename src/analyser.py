@@ -411,8 +411,9 @@ def calc_true_posteriors(config, domain, all_results, run_dirs):
     for i, z in enumerate(all_z):
         out_str = (f'z: {z[0].get_infix():<{eq_str_length+3}} '
                    f'z: {z[0].get_infix(simplify=True):<25} '
+                   f'p(z|x): {z[1]:.10f} '
                    f'q(z): {z[2]:.10f} [{z[3]:.10f}, {z[4]:.10f}] '
-                   f'p(z|x): {z[1]:.10f}  p(x|z): {z[6]:.10f}')
+                   f'p(x|z): {z[6]:.10f}')
         if alg._distr_over_consts:
             out_str += f'   q consts params: {z[7]}'
         print(out_str)
