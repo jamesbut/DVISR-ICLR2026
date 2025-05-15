@@ -768,15 +768,13 @@ class Integrator(unittest.TestCase):
         log_evidence_split_sum = self._alg.log_evidence(
             self._data,
             self._alg._enumerate_expressions(self._data),
-            split_sum=True
+            split_sum=True,
+            reset=True
         )
 
         self.assertAlmostEqual(log_evidence_no_split_sum,
                                log_evidence_split_sum,
                                places=8)
-
-        print(log_evidence_no_split_sum)
-        print(log_evidence_split_sum)
 
 
 if __name__ == "__main__":

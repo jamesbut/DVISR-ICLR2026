@@ -549,8 +549,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         return p_z_x, all_z
 
-    def evidence(self, data, zs, split_sum=True):
-        if self._evidence is None:
+    def evidence(self, data, zs, split_sum=True, reset=False):
+        if self._evidence is None or reset:
             self._evidence = self._calculate_evidence(data, zs, split_sum)
         return self._evidence
 
@@ -598,7 +598,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if idx >= len(all_exps):
                 return 0.0
 
-            z = copy.deepcopy(all_exps[idx])
+            z = copy.copy(all_exps[idx])
 
             # Parse consts relevant to selected expression
             this_z_consts = x[cumm_num_consts[idx] + 1:
@@ -617,24 +617,65 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             return ll * self._prior(z)
 
         def joint_func(*args):
-            pass
 
-        # Create integration bounds
-        # The first bound is for selecting the particular expression
-        # The remaining bounds are for each of the optimisable constants
-        integration_bounds = [[0, len(zs)]]
+            # Unpack arguments
+            num_consts = args[-1]
+            idx = args[-2]
+            z = args[-3]
+            cumm_num_consts = [0] + list(itertools.accumulate(num_consts))
+            x = args[:-3]
 
-        for i in range(total_num_distr_consts):
-            integration_bounds.append([-np.inf, np.inf])
+            z = copy.copy(z)
 
-        p_x, error = scipy.integrate.nquad(joint_func_no_split,
-                                           integration_bounds,
-                                           args=(zs, num_distr_consts))
+            # Parse consts relevant to selected expression
+            this_z_consts = x[cumm_num_consts[idx]:
+                              cumm_num_consts[idx + 1]]
+            other_z_consts = x[:cumm_num_consts[idx]] \
+                             + x[cumm_num_consts[idx + 1]:]
+
+            if z.num_distr_consts() > 0:
+                z.set_distr_consts(this_z_consts)
+
+            if any(c < 0.0 or c > 1.0 for c in other_z_consts):
+                return 0.0
+
+            ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+
+            return ll * self._prior(z)
+
+        # Sum over expressions is separated from the integration
+        if split_sum:
+
+            # Create integration bounds for continuous parameters
+            integration_bounds = [[-np.inf, np.inf]
+                                  for _ in range(total_num_distr_consts)]
+
+            p_x = 0.0
+            for i, z in enumerate(zs):
+                res, error = scipy.integrate.nquad(joint_func,
+                                                   integration_bounds,
+                                                   args=(z, i,
+                                                         num_distr_consts))
+                p_x += res
+
+        else:
+
+            # Create integration bounds
+            # The first bound is for selecting the particular expression
+            # The remaining bounds are for each of the optimisable constants
+            integration_bounds = [[0, len(zs)]]
+
+            for i in range(total_num_distr_consts):
+                integration_bounds.append([-np.inf, np.inf])
+
+            p_x, error = scipy.integrate.nquad(joint_func_no_split,
+                                               integration_bounds,
+                                               args=(zs, num_distr_consts))
 
         return p_x
 
-    def log_evidence(self, data, zs, split_sum=True):
-        return math.log(self.evidence(data, zs, split_sum))
+    def log_evidence(self, data, zs, split_sum=True, reset=False):
+        return math.log(self.evidence(data, zs, split_sum, reset))
 
     # Calculate list of values such that when you take the mean, you get the
     # ELBO.
