@@ -21,13 +21,15 @@
             "inverse_ops",
             "nested_trigs"
         ],
-        "prior_mean": 0.0,
-        "prior_variance": 100.0,
+        "prior_mean": 0.35,
+        "prior_variance": 0.1,
+        "_prior_mean": 0.0,
+        "_prior_variance": 100.0,
         "_q_const_variance": 0.1,
         "num_steps": 1000,
         "num_eq_samples": 250,
         "_max_num_tokens": 5,
-        "max_num_tokens": 3,
+        "max_num_tokens": 1,
         "target_policy": {
             "learning_rate": 5e-4,
             "_learning_rate": 1e-3,
@@ -54,7 +56,7 @@
             "jumpstart": true
         },
         "max_likelihood": false,
-        "distr_over_consts": false,
+        "distr_over_consts": true,
         "plotting": false,
         "track_kl_divergence": true,
         "calculate_posteriors": true,
@@ -64,9 +66,9 @@
         "verbosity": 1
     },
     "writer": {
-        "write_to_file": true
+        "write_to_file": false
     },
     "execution": {
-        "num_runs": 10
+        "num_runs": 1
     }
 }

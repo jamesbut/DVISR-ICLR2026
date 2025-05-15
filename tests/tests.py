@@ -727,5 +727,57 @@ class Reachability(unittest.TestCase):
         self.assertTrue(alg._q.pdf(eq10) > 0.0)
 
 
+class Integrator(unittest.TestCase):
+
+    def setUp(self):
+
+        # Read config
+        self._config = read_json(os.getcwd()
+                                 + '/configs/test_configs/vicatsr.json')
+
+        self._config['domain'] = {
+            "name": "WrittenExpression",
+            "expression": "`x_0` * `x_0`",
+            "x_mins": [0.0],
+            "x_maxs": [1.0],
+            "x_step_sizes": [0.1]
+        }
+        self._config['algorithm']['distr_over_consts'] = True
+        self._config['algorithm']['binary_ops'] = ['+', '*']
+        self._config['algorithm']['prior_variance'] = 0.1
+
+        # Create domain
+        self._domain = create_domain(self._config['domain'])
+        self._data = self._domain.create_data()
+
+        # Create algorithm
+        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+    def test_evidence(self):
+
+        log_evidence_no_split_sum = self._alg.log_evidence(
+            self._data,
+            self._alg._enumerate_expressions(self._data),
+            split_sum=False
+        )
+
+        self.assertAlmostEqual(log_evidence_no_split_sum, -10.485845747449712,
+                               places=8)
+
+        log_evidence_split_sum = self._alg.log_evidence(
+            self._data,
+            self._alg._enumerate_expressions(self._data),
+            split_sum=True
+        )
+
+        self.assertAlmostEqual(log_evidence_no_split_sum,
+                               log_evidence_split_sum,
+                               places=8)
+
+        print(log_evidence_no_split_sum)
+        print(log_evidence_split_sum)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -549,13 +549,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         return p_z_x, all_z
 
-    def evidence(self, data, zs):
+    def evidence(self, data, zs, split_sum=True):
         if self._evidence is None:
-            self._evidence = self._calculate_evidence(data, zs)
+            self._evidence = self._calculate_evidence(data, zs, split_sum)
         return self._evidence
 
     # Calculate p(x) (evidence) over all models, zs
-    def _calculate_evidence(self, data, zs):
+    def _calculate_evidence(self, data, zs, split_sum=True):
 
         num_distr_consts = [e.num_distr_consts() for e in zs]
         total_num_distr_consts = sum(num_distr_consts)
@@ -621,8 +621,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                                args=(zs, num_distr_consts))
         return p_x
 
-    def log_evidence(self, data, zs):
-        return math.log(self.evidence(data, zs))
+    def log_evidence(self, data, zs, split_sum=True):
+        return math.log(self.evidence(data, zs, split_sum))
 
     # Calculate list of values such that when you take the mean, you get the
     # ELBO.

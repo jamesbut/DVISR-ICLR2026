@@ -85,6 +85,9 @@ class Writer():
     # Write the .pt net file of q_z
     def write_q_net(self, net, pt_file_name):
 
+        if not self._write_to_file:
+            return
+
         # Create run directory if it doesn't already exist
         if not os.path.exists(self.run_dir_path()):
             os.makedirs(self.run_dir_path())
