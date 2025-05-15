@@ -570,55 +570,67 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Calculate p(x) using a numerical integrator
         else:
-            # return [None] * len(all_exps), all_exps
+            p_x = self._integrate_joint(data, zs, total_num_distr_consts,
+                                        num_distr_consts, split_sum)
 
-            def joint_func(*args):
+        return p_x
 
-                # Unpack arguments
-                num_consts = args[-1]
-                cumm_num_consts = [0] + list(itertools.accumulate(num_consts))
-                total_num_consts = sum(num_consts)
-                x = args[:total_num_consts + 1]
-                all_exps = args[total_num_consts + 1]
+    def _integrate_joint(self, data, zs, total_num_distr_consts,
+                         num_distr_consts, split_sum=True):
 
-                # Sample a particular expression
-                samp = x[0]
-                idx = int(samp)
+        # return [None] * len(all_exps), all_exps
 
-                # This might happen if the integrator samples exactly the
-                # upper bound
-                if idx >= len(all_exps):
-                    return 0.0
+        def joint_func_no_split(*args):
 
-                z = copy.deepcopy(all_exps[idx])
+            # Unpack arguments
+            num_consts = args[-1]
+            cumm_num_consts = [0] + list(itertools.accumulate(num_consts))
+            total_num_consts = sum(num_consts)
+            x = args[:total_num_consts + 1]
+            all_exps = args[total_num_consts + 1]
 
-                # Parse consts relevant to selected expression
-                this_z_consts = x[cumm_num_consts[idx] + 1:
-                                  cumm_num_consts[idx + 1] + 1]
-                other_z_consts = x[1:cumm_num_consts[idx] + 1] \
-                                 + x[cumm_num_consts[idx + 1] + 1:]
+            # Sample a particular expression
+            samp = x[0]
+            idx = int(samp)
 
-                if z.num_distr_consts() > 0:
-                    z.set_distr_consts(this_z_consts)
+            # This might happen if the integrator samples exactly the
+            # upper bound
+            if idx >= len(all_exps):
+                return 0.0
 
-                if any(c < 0.0 or c > 1.0 for c in other_z_consts):
-                    return 0.0
+            z = copy.deepcopy(all_exps[idx])
 
-                ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+            # Parse consts relevant to selected expression
+            this_z_consts = x[cumm_num_consts[idx] + 1:
+                              cumm_num_consts[idx + 1] + 1]
+            other_z_consts = x[1:cumm_num_consts[idx] + 1] \
+                             + x[cumm_num_consts[idx + 1] + 1:]
 
-                return ll * self._prior(z)
+            if z.num_distr_consts() > 0:
+                z.set_distr_consts(this_z_consts)
 
-            # Create integration bounds
-            # The first bound is for selecting the particular expression
-            # The remaining bounds are for each of the optimisable constants
-            integration_bounds = [[0, len(zs)]]
+            if any(c < 0.0 or c > 1.0 for c in other_z_consts):
+                return 0.0
 
-            for i in range(total_num_distr_consts):
-                integration_bounds.append([-np.inf, np.inf])
+            ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
 
-            p_x, error = scipy.integrate.nquad(joint_func,
-                                               integration_bounds,
-                                               args=(zs, num_distr_consts))
+            return ll * self._prior(z)
+
+        def joint_func(*args):
+            pass
+
+        # Create integration bounds
+        # The first bound is for selecting the particular expression
+        # The remaining bounds are for each of the optimisable constants
+        integration_bounds = [[0, len(zs)]]
+
+        for i in range(total_num_distr_consts):
+            integration_bounds.append([-np.inf, np.inf])
+
+        p_x, error = scipy.integrate.nquad(joint_func_no_split,
+                                           integration_bounds,
+                                           args=(zs, num_distr_consts))
+
         return p_x
 
     def log_evidence(self, data, zs, split_sum=True):
