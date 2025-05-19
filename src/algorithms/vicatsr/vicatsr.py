@@ -138,6 +138,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Flag whether to calculate posteriors at the end of training
         self._calc_posteriors_flag = config.get('calculate_posteriors', True)
 
+        # Flag to indicate whether an integration over distributional
+        # constants will be performed when calculating the posterior
+        self._posterior_integration = config.get('posterior_integration',
+                                                 False)
+
         # Flag for whether to ever enumerate all expressions
         self._enum_all_exps = config.get('enum_exps', True)
 
@@ -544,18 +549,25 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Enumerate all expressions
         all_z = self._enumerate_expressions(data)
 
-        # Calculate p(z|x) for all expressions
-        p_z_x = [self.posterior(data, z, all_z) for z in all_z]
+        # Integrate over distributional constants
+        if self._distr_over_consts and self._posterior_integration:
+            # TODO: Implement
+            pass
+
+        else:
+
+            # Calculate p(z|x) for all expressions
+            p_z_x = [self.posterior(data, z, all_z) for z in all_z]
 
         return p_z_x, all_z
 
-    def evidence(self, data, zs, split_sum=True, reset=False):
+    def evidence(self, data, zs, int_method='only_own_c', reset=False):
         if self._evidence is None or reset:
-            self._evidence = self._calculate_evidence(data, zs, split_sum)
+            self._evidence = self._calculate_evidence(data, zs, int_method)
         return self._evidence
 
     # Calculate p(x) (evidence) over all models, zs
-    def _calculate_evidence(self, data, zs, split_sum=True):
+    def _calculate_evidence(self, data, zs, int_method):
 
         num_distr_consts = [e.num_distr_consts() for e in zs]
         total_num_distr_consts = sum(num_distr_consts)
@@ -571,12 +583,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Calculate p(x) using a numerical integrator
         else:
             p_x = self._integrate_joint(data, zs, total_num_distr_consts,
-                                        num_distr_consts, split_sum)
+                                        num_distr_consts, int_method)
 
         return p_x
 
     def _integrate_joint(self, data, zs, total_num_distr_consts,
-                         num_distr_consts, split_sum=True):
+                         num_distr_consts, int_method):
 
         # return [None] * len(all_exps), all_exps
 
@@ -616,7 +628,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             return ll * self._prior(z)
 
-        def joint_func(*args):
+        def joint_func_all_c(*args):
 
             # Unpack arguments
             num_consts = args[-1]
@@ -643,8 +655,21 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             return ll * self._prior(z)
 
+        def joint_func(*args):
+
+            # Unpack arguments
+            z = args[-1]
+            cs = args[:-1]
+
+            # Set consts
+            z = copy.copy(z)
+            z.set_distr_consts(cs)
+
+            ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+            return ll * self._prior(z)
+
         # Sum over expressions is separated from the integration
-        if split_sum:
+        if int_method == 'split_sum':
 
             # Create integration bounds for continuous parameters
             integration_bounds = [[-np.inf, np.inf]
@@ -659,10 +684,31 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                       self._net_masks) * self._prior(z)
 
                 else:
-                    res, error = scipy.integrate.nquad(joint_func,
+                    res, error = scipy.integrate.nquad(joint_func_all_c,
                                                        integration_bounds,
                                                        args=(z, i,
                                                              num_distr_consts))
+                    p_x += res
+
+        # Only integrate over the c values in the particular z in question
+        elif int_method == 'only_own_c':
+
+            p_x = 0.0
+            for i, z in enumerate(zs):
+
+                # Create integration bounds for continuous parameters
+                integration_bounds = [[-np.inf, np.inf]
+                                      for _ in range(z.num_distr_consts())]
+
+                # If z has no distributional constants, no need to integrate
+                if z.num_distr_consts() == 0:
+                    p_x += likelihood(data, z, self._max_num_tokens,
+                                      self._net_masks) * self._prior(z)
+
+                else:
+                    res, error = scipy.integrate.nquad(joint_func,
+                                                       integration_bounds,
+                                                       args=(z,))
                     p_x += res
 
         else:
@@ -681,8 +727,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         return p_x
 
-    def log_evidence(self, data, zs, split_sum=True, reset=False):
-        return math.log(self.evidence(data, zs, split_sum, reset))
+    def log_evidence(self, data, zs, int_method='only_own_c', reset=False):
+        return math.log(self.evidence(data, zs, int_method, reset))
 
     # Calculate list of values such that when you take the mean, you get the
     # ELBO.

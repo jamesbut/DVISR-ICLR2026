@@ -769,7 +769,7 @@ class Integrator(unittest.TestCase):
         log_evidence_no_split_sum = self._alg.log_evidence(
             self._data,
             all_exprs,
-            split_sum=False
+            int_method='no_split_sum'
         )
 
         self.assertAlmostEqual(log_evidence_no_split_sum, -10.485845747449712,
@@ -780,13 +780,27 @@ class Integrator(unittest.TestCase):
         log_evidence_split_sum = self._alg.log_evidence(
             self._data,
             all_exprs,
-            split_sum=True,
+            int_method='split_sum',
             reset=True
         )
 
         # Check these evidence values are the same
         self.assertAlmostEqual(log_evidence_no_split_sum,
                                log_evidence_split_sum,
+                               places=8)
+
+        # Calculate log evidence by splitting the sum over expressions and
+        # only integrating over the c values in the particular equation
+        log_evidence_only_own_c = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True
+        )
+
+        # Check these evidence values are the same
+        self.assertAlmostEqual(log_evidence_no_split_sum,
+                               log_evidence_only_own_c,
                                places=8)
 
         # Check posterior integrates to 1
