@@ -9,8 +9,14 @@ from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.equation import Equation
 from algorithms.vicatsr.net_masks import NetMasks
+from algorithms.vicatsr.vicatsr import likelihood
 from util.tree import get_parent, get_sibling, is_descendent
 import torch
+from scipy.stats import norm
+import numpy as np
+import math
+import copy
+import scipy
 
 
 class VICatSR(unittest.TestCase):
@@ -756,25 +762,155 @@ class Integrator(unittest.TestCase):
 
     def test_evidence(self):
 
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        # Calculate log evidence without splitting the sum out of the numerical
+        # integration
         log_evidence_no_split_sum = self._alg.log_evidence(
             self._data,
-            self._alg._enumerate_expressions(self._data),
+            all_exprs,
             split_sum=False
         )
 
         self.assertAlmostEqual(log_evidence_no_split_sum, -10.485845747449712,
                                places=8)
 
+        # Calculate log evidence by splitting the sum over expressions out of
+        # the numerical integration
         log_evidence_split_sum = self._alg.log_evidence(
             self._data,
-            self._alg._enumerate_expressions(self._data),
+            all_exprs,
             split_sum=True,
             reset=True
         )
 
+        # Check these evidence values are the same
         self.assertAlmostEqual(log_evidence_no_split_sum,
                                log_evidence_split_sum,
                                places=8)
+
+        # Check posterior integrates to 1
+        def post(ev, z, data, alg):
+            return (likelihood(data, z, alg._max_num_tokens, alg._net_masks)
+                    * alg._prior(z) / ev)
+
+        def post_func(*args):
+
+            z = copy.copy(args[1])
+            c = args[0]
+            data = args[2]
+            ev = args[3]
+            alg = args[4]
+
+            if z.num_distr_consts() == 0:
+                if c < 0.0 or c > 1.0:
+                    return 0.0
+            else:
+                z.set_distr_consts([c])
+
+            return post(ev, z, data, alg)
+
+        def int_post(ev):
+            integration_bounds = [[-np.inf, np.inf]]
+
+            int_p_z_x = 0.0
+            for z in all_exprs:
+                out, error = scipy.integrate.nquad(
+                    post_func,
+                    integration_bounds,
+                    args=(z,
+                          self._data,
+                          ev,
+                          self._alg)
+                )
+                int_p_z_x += out
+
+            return int_p_z_x
+
+        int_post_numeric = int_post(np.exp(log_evidence_split_sum))
+
+        self.assertAlmostEqual(int_post_numeric, 1.0, places=10)
+
+        # Check prior integrates to 1
+        def prior_func(*args):
+
+            z = copy.copy(args[1])
+            c = args[0]
+            alg = args[2]
+
+            if z.num_distr_consts() == 0:
+                if c < 0.0 or c > 1.0:
+                    return 0.0
+            else:
+                z.set_distr_consts([c])
+
+            return alg._prior(z)
+
+        int_prior = 0.0
+        for z in all_exprs:
+            out, error = scipy.integrate.nquad(
+                prior_func,
+                [[-np.inf, np.inf]],
+                args=(z, self._alg)
+            )
+            int_prior += out
+
+        self.assertAlmostEqual(int_prior, 1.0, places=10)
+
+        # Calculate log evidence analytically
+        # NOTE: I tried to do this but I could not get the calculated
+        # evidence to match the evidence calculated by the numerical integrator
+
+        '''
+        # First expression y = x
+        z1 = all_exprs[1]
+        # Second expression y = c
+        z2 = all_exprs[0]
+        z2.set_distr_consts([self._config['algorithm']['prior_mean']])
+
+        prior_std = self._config['algorithm']['prior_variance']
+        ll_std = 1.0
+
+        p_z1 = 0.5
+        p_z2 = 0.5
+        p_x_z1 = likelihood(self._data, z1, self._alg._max_num_tokens,
+                            self._alg._net_masks)
+        joint_z1 = p_z1 * p_x_z1
+
+        y_mean = np.mean(self._data['y'])
+
+        y_spread = math.prod(norm.pdf(self._data['y'], y_mean, ll_std))
+
+        x_mean_l_var = prior_std ** 2 + (ll_std ** 2 / len(self._data['y']))
+        x_mean_l = norm.pdf(
+            y_mean,
+            self._config['algorithm']['prior_mean'],
+            np.sqrt(x_mean_l_var)
+        )
+
+        p_x_z2 = x_mean_l * y_spread
+
+        joint_z2 = p_z2 * p_x_z2
+
+        p_x_analytic = joint_z1 + joint_z2
+
+        print('joint z1:', joint_z1)
+        print('joint z2:', joint_z2)
+        print('x_mean_l_var:', x_mean_l_var)
+        print('p(x|z1):', p_x_z1)
+        print('p(z1):', p_z1)
+        print('p(z2):', p_z2)
+        print('x_mean_l:', x_mean_l)
+        print('y_spread:', y_spread)
+        print('p_x_z2:', p_x_z2)
+
+        print('p(x):', p_x_analytic)
+        print('log(p(x)):', np.log(p_x_analytic))
+        print('numerical p(x):', log_evidence_split_sum)
+
+        int_post_analytic = int_post(p_x_analytic)
+        print('Int post analytic:', int_post_analytic)
+        '''
 
 
 if __name__ == "__main__":

@@ -652,11 +652,18 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             p_x = 0.0
             for i, z in enumerate(zs):
-                res, error = scipy.integrate.nquad(joint_func,
-                                                   integration_bounds,
-                                                   args=(z, i,
-                                                         num_distr_consts))
-                p_x += res
+
+                # If z has no distributional constants, no need to integrate
+                if z.num_distr_consts() == 0:
+                    p_x += likelihood(data, z, self._max_num_tokens,
+                                      self._net_masks) * self._prior(z)
+
+                else:
+                    res, error = scipy.integrate.nquad(joint_func,
+                                                       integration_bounds,
+                                                       args=(z, i,
+                                                             num_distr_consts))
+                    p_x += res
 
         else:
 
