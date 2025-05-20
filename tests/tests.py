@@ -760,7 +760,7 @@ class Integrator(unittest.TestCase):
         self._alg = create_algorithm(self._config['algorithm'], self._domain)
         self._alg._initialise(self._data)
 
-    def test_evidence(self):
+    def test_evidence_simple(self):
 
         all_exprs = self._alg._enumerate_expressions(self._data)
 
@@ -804,71 +804,13 @@ class Integrator(unittest.TestCase):
                                places=8)
 
         # Check posterior integrates to 1
-        def post(ev, z, data, alg):
-            return (likelihood(data, z, alg._max_num_tokens, alg._net_masks)
-                    * alg._prior(z) / ev)
-
-        def post_func(*args):
-
-            z = copy.copy(args[1])
-            c = args[0]
-            data = args[2]
-            ev = args[3]
-            alg = args[4]
-
-            if z.num_distr_consts() == 0:
-                if c < 0.0 or c > 1.0:
-                    return 0.0
-            else:
-                z.set_distr_consts([c])
-
-            return post(ev, z, data, alg)
-
-        def int_post(ev):
-            integration_bounds = [[-np.inf, np.inf]]
-
-            int_p_z_x = 0.0
-            for z in all_exprs:
-                out, error = scipy.integrate.nquad(
-                    post_func,
-                    integration_bounds,
-                    args=(z,
-                          self._data,
-                          ev,
-                          self._alg)
-                )
-                int_p_z_x += out
-
-            return int_p_z_x
-
-        int_post_numeric = int_post(np.exp(log_evidence_split_sum))
-
+        int_post_numeric = self._int_post(
+            np.exp(log_evidence_split_sum), all_exprs
+        )
         self.assertAlmostEqual(int_post_numeric, 1.0, places=10)
 
         # Check prior integrates to 1
-        def prior_func(*args):
-
-            z = copy.copy(args[1])
-            c = args[0]
-            alg = args[2]
-
-            if z.num_distr_consts() == 0:
-                if c < 0.0 or c > 1.0:
-                    return 0.0
-            else:
-                z.set_distr_consts([c])
-
-            return alg._prior(z)
-
-        int_prior = 0.0
-        for z in all_exprs:
-            out, error = scipy.integrate.nquad(
-                prior_func,
-                [[-np.inf, np.inf]],
-                args=(z, self._alg)
-            )
-            int_prior += out
-
+        int_prior = self._int_prior(all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
         # Calculate log evidence analytically
@@ -925,6 +867,119 @@ class Integrator(unittest.TestCase):
         int_post_analytic = int_post(p_x_analytic)
         print('Int post analytic:', int_post_analytic)
         '''
+
+    # Test evidence calculation when there is more than one constant
+    # in all the possible expressions
+    def test_evidence_un_op(self):
+
+        self._config['algorithm']['max_num_tokens'] = 2
+
+        # Create algorithm
+        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        # Calculate log evidence by splitting the sum over expressions out of
+        # the numerical integration
+        log_evidence_split_sum = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='split_sum',
+            reset=True
+        )
+
+        # Calculate log evidence by splitting the sum over expressions and
+        # only integrating over the c values in the particular equation
+        log_evidence_only_own_c = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True
+        )
+
+        # Check these evidence values are the same
+        self.assertAlmostEqual(log_evidence_split_sum,
+                               log_evidence_only_own_c,
+                               places=10)
+
+        # Check the integration of posterior is 1.0
+        int_post_numeric = self._int_post(
+            np.exp(log_evidence_only_own_c), all_exprs
+        )
+        self.assertAlmostEqual(int_post_numeric, 1.0, places=10)
+
+        # Check prior integrates to 1
+        int_prior = self._int_prior(all_exprs)
+        self.assertAlmostEqual(int_prior, 1.0, places=10)
+
+    def _int_post(self, ev, all_exprs):
+        integration_bounds = [[-np.inf, np.inf]]
+
+        int_p_z_x = 0.0
+        for z in all_exprs:
+            out, error = scipy.integrate.nquad(
+                post_func,
+                integration_bounds,
+                args=(z,
+                      self._data,
+                      ev,
+                      self._alg)
+            )
+            int_p_z_x += out
+
+        return int_p_z_x
+
+    def _int_prior(self, all_exprs):
+
+        int_prior = 0.0
+        for z in all_exprs:
+            out, error = scipy.integrate.nquad(
+                prior_func,
+                [[-np.inf, np.inf]],
+                args=(z, self._alg)
+            )
+            int_prior += out
+
+        return int_prior
+
+
+# Check posterior integrates to 1
+def post(ev, z, data, alg):
+    return (likelihood(data, z, alg._max_num_tokens, alg._net_masks)
+            * alg._prior(z) / ev)
+
+
+def post_func(*args):
+
+    z = copy.copy(args[1])
+    c = args[0]
+    data = args[2]
+    ev = args[3]
+    alg = args[4]
+
+    if z.num_distr_consts() == 0:
+        if c < 0.0 or c > 1.0:
+            return 0.0
+    else:
+        z.set_distr_consts([c])
+
+    return post(ev, z, data, alg)
+
+
+def prior_func(*args):
+
+    z = copy.copy(args[1])
+    c = args[0]
+    alg = args[2]
+
+    if z.num_distr_consts() == 0:
+        if c < 0.0 or c > 1.0:
+            return 0.0
+    else:
+        z.set_distr_consts([c])
+
+    return alg._prior(z)
 
 
 if __name__ == "__main__":
