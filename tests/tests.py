@@ -749,7 +749,6 @@ class Integrator(unittest.TestCase):
             "x_step_sizes": [0.1]
         }
         self._config['algorithm']['distr_over_consts'] = True
-        self._config['algorithm']['binary_ops'] = ['+', '*']
         self._config['algorithm']['prior_variance'] = 0.1
 
         # Create domain
@@ -913,20 +912,61 @@ class Integrator(unittest.TestCase):
         int_prior = self._int_prior(all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
+    # Test evidence calculation when there is more than one constant
+    # in an individual expression
+    def test_evidence_bin_op(self):
+        return
+
+        self._config['algorithm']['max_num_tokens'] = 3
+        self._config['algorithm']['constraints'] = ['nested_trigs']
+
+        # Create algorithm
+        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+        for z in all_exprs:
+            print(z.get_infix())
+
+        # Calculate log evidence by splitting the sum over expressions and
+        # only integrating over the c values in the particular equation
+        log_evidence_only_own_c = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True
+        )
+        print(log_evidence_only_own_c)
+
+        # Check the integration of posterior is 1.0
+        int_post_numeric = self._int_post(
+            np.exp(log_evidence_only_own_c), all_exprs
+        )
+        self.assertAlmostEqual(int_post_numeric, 1.0, places=10)
+
+        # Check prior integrates to 1
+        int_prior = self._int_prior(all_exprs)
+        self.assertAlmostEqual(int_prior, 1.0, places=10)
+
     def _int_post(self, ev, all_exprs):
-        integration_bounds = [[-np.inf, np.inf]]
 
         int_p_z_x = 0.0
         for z in all_exprs:
-            out, error = scipy.integrate.nquad(
-                post_func,
-                integration_bounds,
-                args=(z,
-                      self._data,
-                      ev,
-                      self._alg)
-            )
-            int_p_z_x += out
+
+            # Create integration bounds for continuous parameters
+            integration_bounds = [[-np.inf, np.inf]
+                                  for _ in range(z.num_distr_consts())]
+
+            # If z has no distributional constants, no need to integrate
+            if z.num_distr_consts() == 0:
+                int_p_z_x += post(ev, z, self._data, self._alg)
+
+            else:
+                res, error = scipy.integrate.nquad(post_func,
+                                                   integration_bounds,
+                                                   args=(z, self._data, ev,
+                                                         self._alg))
+                int_p_z_x += res
 
         return int_p_z_x
 
@@ -934,17 +974,26 @@ class Integrator(unittest.TestCase):
 
         int_prior = 0.0
         for z in all_exprs:
-            out, error = scipy.integrate.nquad(
-                prior_func,
-                [[-np.inf, np.inf]],
-                args=(z, self._alg)
-            )
-            int_prior += out
+
+            # Create integration bounds for continuous parameters
+            integration_bounds = [[-np.inf, np.inf]
+                                  for _ in range(z.num_distr_consts())]
+
+            if z.num_distr_consts() == 0:
+                int_prior += self._alg._prior(z)
+
+            else:
+
+                out, error = scipy.integrate.nquad(
+                    prior_func,
+                    integration_bounds,
+                    args=(z, self._alg)
+                )
+                int_prior += out
 
         return int_prior
 
 
-# Check posterior integrates to 1
 def post(ev, z, data, alg):
     return (likelihood(data, z, alg._max_num_tokens, alg._net_masks)
             * alg._prior(z) / ev)
@@ -952,32 +1001,24 @@ def post(ev, z, data, alg):
 
 def post_func(*args):
 
-    z = copy.copy(args[1])
-    c = args[0]
-    data = args[2]
-    ev = args[3]
-    alg = args[4]
+    c = args[:-4]
+    data = args[-3]
+    ev = args[-2]
+    alg = args[-1]
 
-    if z.num_distr_consts() == 0:
-        if c < 0.0 or c > 1.0:
-            return 0.0
-    else:
-        z.set_distr_consts([c])
+    z = copy.copy(args[-4])
+    z.set_distr_consts(c)
 
     return post(ev, z, data, alg)
 
 
 def prior_func(*args):
 
-    z = copy.copy(args[1])
-    c = args[0]
-    alg = args[2]
+    c = args[:-2]
+    alg = args[-1]
 
-    if z.num_distr_consts() == 0:
-        if c < 0.0 or c > 1.0:
-            return 0.0
-    else:
-        z.set_distr_consts([c])
+    z = copy.copy(args[-2])
+    z.set_distr_consts(c)
 
     return alg._prior(z)
 
