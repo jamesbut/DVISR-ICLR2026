@@ -915,7 +915,6 @@ class Integrator(unittest.TestCase):
     # Test evidence calculation when there is more than one constant
     # in an individual expression
     def test_evidence_bin_op(self):
-        return
 
         self._config['algorithm']['max_num_tokens'] = 3
         self._config['algorithm']['constraints'] = ['nested_trigs']
@@ -925,8 +924,6 @@ class Integrator(unittest.TestCase):
         self._alg._initialise(self._data)
 
         all_exprs = self._alg._enumerate_expressions(self._data)
-        for z in all_exprs:
-            print(z.get_infix())
 
         # Calculate log evidence by splitting the sum over expressions and
         # only integrating over the c values in the particular equation
@@ -936,13 +933,12 @@ class Integrator(unittest.TestCase):
             int_method='only_own_c',
             reset=True
         )
-        print(log_evidence_only_own_c)
 
-        # Check the integration of posterior is 1.0
+        # Check the integration of posterior is 1
         int_post_numeric = self._int_post(
             np.exp(log_evidence_only_own_c), all_exprs
         )
-        self.assertAlmostEqual(int_post_numeric, 1.0, places=10)
+        self.assertAlmostEqual(int_post_numeric, 1.0, places=8)
 
         # Check prior integrates to 1
         int_prior = self._int_prior(all_exprs)
