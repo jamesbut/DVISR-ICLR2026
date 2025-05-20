@@ -551,8 +551,36 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Integrate over distributional constants
         if self._distr_over_consts and self._posterior_integration:
-            # TODO: Implement
-            pass
+
+            def post_func(*args):
+
+                # Unpack arguments
+                z = args[-1]
+                cs = args[:-1]
+
+                # Set consts
+                z = copy.copy(z)
+                z.set_distr_consts(cs)
+
+                return self.posterior(self._data, z,
+                                      self._enumerate_expressions(self._data))
+
+            p_z_x = []
+            for i, z in enumerate(all_z):
+
+                # Create integration bounds for continuous parameters
+                integration_bounds = [[-np.inf, np.inf]
+                                      for _ in range(z.num_distr_consts())]
+
+                # If z has no distributional constants, no need to integrate
+                if z.num_distr_consts() == 0:
+                    p_z_x.append(self.posterior(data, z, all_z))
+
+                else:
+                    res, error = scipy.integrate.nquad(post_func,
+                                                       integration_bounds,
+                                                       args=(z,))
+                    p_z_x.append(res)
 
         else:
 
