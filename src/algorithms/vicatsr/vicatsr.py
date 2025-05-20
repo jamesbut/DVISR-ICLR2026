@@ -860,44 +860,10 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Add q to results
         self._results['q'] = self._q.to_json()
 
-        if self._plotting:
+        # Plot some metrics
+        self._plot_post_elbo_analysis()
 
-            # plt.plot(range(self._num_steps), mus, label='mu')
-            # plt.legend()
-            # plt.show()
-
-            if self._track_kl_divergence:
-                plt.plot(range(self._num_steps), self._results['kl_divs'])
-                plt.xlabel('Epoch')
-                plt.ylabel('KL Divergence')
-                plt.show()
-
-            plt.plot(range(self._num_steps), self._results['all_elbos'],
-                     label='Average ELBO')
-
-            if self._calc_posteriors_flag:
-                log_ev = self._results['log_ev']
-                plt.plot(range(self._num_steps), [log_ev] * self._num_steps,
-                         label=f'log p(x): {log_ev:.5f}')
-
-            plt.xlabel('Epoch')
-            plt.legend()
-            plt.show()
-
-            plt.plot(range(self._num_steps), self._results['all_lls'],
-                     label='log p(x|z)')
-            plt.xlabel('Epoch')
-            plt.ylabel('Average log p(x|z)')
-            # plt.legend()
-            plt.show()
-
-            plt.plot(range(self._num_steps), self._results['all_l_joints'],
-                     label='log p(x,z)')
-            plt.xlabel('Epoch')
-            plt.ylabel('Average log p(x,z)')
-            # plt.legend()
-            plt.show()
-
+        # Calculate true posteriors
         if self._calc_posteriors_flag:
 
             self._true_posteriors, all_exps = self.posteriors(data)
@@ -911,13 +877,53 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 all_exps = self._enumerate_expressions(data)
                 self._true_posteriors = [None] * len(all_exps)
 
+        # Enumerate all expressions and print out
         if self._enum_all_exps:
+
+            # Integrate w.r.t c for q(z, c) values
+            if self._posterior_integration:
+
+                def qz_func(*args):
+
+                    # Unpack arguments
+                    z = args[-1]
+                    cs = args[:-1]
+
+                    # Set consts
+                    z = copy.copy(z)
+                    z.set_distr_consts(cs)
+
+                    return self._q.pdf(z)
+
+                q_zs = []
+                for i, z in enumerate(all_exps):
+
+                    # Create integration bounds for continuous parameters
+                    integration_bounds = [[-np.inf, np.inf]
+                                          for _ in range(z.num_distr_consts())]
+
+                    # If z has no distributional constants, no need to integrate
+                    if z.num_distr_consts() == 0:
+                        q_zs.append(self._q.pdf(z))
+
+                    else:
+                        res, error = scipy.integrate.nquad(qz_func,
+                                                           integration_bounds,
+                                                           args=(z,))
+                        q_zs.append(res)
+
+            # Otherwise just calculate q(z,c) for whatever values are currently
+            # set to c
+            else:
+                q_zs = [self._q.pdf(z).item() for z in all_exps]
+
             # Order all models by q(z) and print
-            all_z = [(z, p_z_x, self._q.pdf(z).item(),
+            all_z = [(z, p_z_x, q_z,
                       log_likelihood(data, z, self._max_num_tokens,
                                      self._net_masks),
                       self._q.get_consts_params(z))
-                     for z, p_z_x in zip(all_exps, self._true_posteriors)]
+                     for z, p_z_x, q_z in zip(all_exps, self._true_posteriors,
+                                              q_zs)]
             all_z = sorted(all_z, key=lambda z: z[2], reverse=True)
 
             # Get longest eq string in order to format nicely
@@ -1047,6 +1053,46 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         self._all_exps = all_expressions
         return self._all_exps
+
+    def _plot_post_elbo_analysis(self):
+
+        if self._plotting:
+
+            # plt.plot(range(self._num_steps), mus, label='mu')
+            # plt.legend()
+            # plt.show()
+
+            if self._track_kl_divergence:
+                plt.plot(range(self._num_steps), self._results['kl_divs'])
+                plt.xlabel('Epoch')
+                plt.ylabel('KL Divergence')
+                plt.show()
+
+            plt.plot(range(self._num_steps), self._results['all_elbos'],
+                     label='Average ELBO')
+
+            if self._calc_posteriors_flag:
+                log_ev = self._results['log_ev']
+                plt.plot(range(self._num_steps), [log_ev] * self._num_steps,
+                         label=f'log p(x): {log_ev:.5f}')
+
+            plt.xlabel('Epoch')
+            plt.legend()
+            plt.show()
+
+            plt.plot(range(self._num_steps), self._results['all_lls'],
+                     label='log p(x|z)')
+            plt.xlabel('Epoch')
+            plt.ylabel('Average log p(x|z)')
+            # plt.legend()
+            plt.show()
+
+            plt.plot(range(self._num_steps), self._results['all_l_joints'],
+                     label='log p(x,z)')
+            plt.xlabel('Epoch')
+            plt.ylabel('Average log p(x,z)')
+            # plt.legend()
+            plt.show()
 
     # Plot best model found and true model if available
     def _plot_best_and_true_model(self):
