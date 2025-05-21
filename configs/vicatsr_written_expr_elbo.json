@@ -18,10 +18,10 @@
             "_unary_ops": ["sin"]
         },
         "prior_mean": 0.35,
-        "prior_variance": 1.0,
+        "prior_sd": 1.0,
         "_prior_mean": 0.0,
-        "_prior_variance": 100.0,
-        "_q_const_variance": 0.1,
+        "_prior_sd": 100.0,
+        "_q_const_sd": 0.1,
         "num_steps": 1000,
         "num_eq_samples": 250,
         "_max_num_tokens": 3,

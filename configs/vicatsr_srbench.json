@@ -12,8 +12,8 @@
             "_unary_ops": ["sin"]
         },
         "prior_mean": 0.0,
-        "prior_variance": 100.0,
-        "_q_const_variance": 0.1,
+        "prior_sd": 100.0,
+        "_q_const_sd": 0.1,
         "num_steps": 10,
         "num_eq_samples": 10,
         "_max_num_tokens": 5,

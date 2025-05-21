@@ -16,8 +16,8 @@
             "_consts": ["opt_const"]
         },
         "prior_mean": 0.35,
-        "prior_variance": 1.0,
-        "_q_const_variance": 0.1,
+        "prior_sd": 1.0,
+        "_q_const_sd": 0.1,
         "num_steps": 5,
         "num_eq_samples": 100,
         "_max_num_tokens": 5,

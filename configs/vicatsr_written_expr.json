@@ -13,23 +13,25 @@
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "binary_ops": ["*", "+"],
-            "_binary_ops": ["*"],
-            "unary_ops": ["sin"]
+            "_binary_ops": ["*", "+"],
+            "binary_ops": ["*"],
+            "unary_ops": ["cos"]
         },
         "constraints": [
             "inverse_ops",
             "nested_trigs"
         ],
-        "prior_mean": 0.35,
-        "prior_variance": 0.1,
+        "_prior_mean": 0.35,
+        "_prior_sd": 0.1,
+        "prior_mean": 0.0,
+        "prior_sd": 10,
         "_prior_mean": 0.0,
-        "_prior_variance": 100.0,
-        "_q_const_variance": 0.1,
+        "_prior_sd": 100.0,
+        "_q_const_sd": 0.1,
         "num_steps": 1000,
         "num_eq_samples": 250,
         "_max_num_tokens": 5,
-        "max_num_tokens": 1,
+        "max_num_tokens": 2,
         "target_policy": {
             "learning_rate": 5e-4,
             "_learning_rate": 1e-3,

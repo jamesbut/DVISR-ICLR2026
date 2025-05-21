@@ -61,13 +61,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 self._token_id += 1
 
             self._distr_over_consts = False
-            self._q_const_variance = None
+            self._q_const_sd = None
 
         else:
 
             if 'distr_over_consts' in config and not config['distr_over_consts']:
                 self._distr_over_consts = False
-                self._q_const_variance = None
+                self._q_const_sd = None
 
             else:
 
@@ -77,7 +77,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                         "id": self._token_id})
                 self._token_id += 1
                 self._distr_over_consts = True
-                self._q_const_variance = config.get('q_const_variance', None)
+                self._q_const_sd = config.get('q_const_sd', None)
 
         # Optional constraints on expressions
         self._constraints = config.get('constraints', None)
@@ -124,7 +124,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Information about the prior
         self._prior_mean = config.get('prior_mean', 0.0)
-        self._prior_variance = config.get('prior_variance', 1.0)
+        self._prior_sd = config.get('prior_sd', 1.0)
 
         # Remove x variables as tokens
         self._remove_x_vars = config.get('remove_x_vars', False)
@@ -501,7 +501,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Create surrogate distribution, q, which is optimised to approximate
         # the posterior
         self._q = q(self._token_set, self._max_depth, self._max_num_tokens,
-                    self._distr_over_consts, self._q_const_variance,
+                    self._distr_over_consts, self._q_const_sd,
                     self._net_masks, self._previous_input,
                     self._parent_input, self._sibling_input,
                     self._hidden_layer_size, self._init_gru_zero)
@@ -530,7 +530,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             for c in z.distr_const_tokens():
                 const_prior = scipy.stats.norm.pdf(c['value'],
                                                    self._prior_mean,
-                                                   self._prior_variance)
+                                                   self._prior_sd)
                 prior *= const_prior
 
         return prior
@@ -942,7 +942,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Optimise constants according to maximum likelihood and print
         # Of course, this is not necessarily the mode of the posterior but
-        # if the variance of the prior is wide enough, it will be close
+        # if the std dev of the prior is wide enough, it will be close
         if self._distr_over_consts:
             all_z = copy.deepcopy(self._enumerate_expressions(data))
             for z in all_z:
@@ -1223,8 +1223,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         x = np.arange(-5.0, 5.0, 0.01)
         exps = [copy.deepcopy(all_exps[0]) for _ in range(len(x))]
-        for val, e in zip(x, exps):
-            e.set_distr_consts([val])
+        for c, e in zip(x, exps):
+            e.set_distr_consts([c])
 
         priors = [self._prior(z) for z in exps]
         likelihoods = [likelihood(data, z) for z in exps]
@@ -1255,23 +1255,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         plt.legend()
 
         plt.show()
-
-        # Check posterior integrates to 1
-        '''
-        def post_func(*args):
-
-            z = copy.deepcopy(args[1])
-            z.set_distr_consts([args[0]])
-            return self.posterior(data, z, [z], evidence)
-
-        integration_bounds = [[-np.inf, np.inf]]
-
-        out, error = scipy.integrate.nquad(post_func,
-                                           integration_bounds,
-                                           args=(exps[0], data, evidence))
-        print(out)
-        print(error)
-        '''
 
 
 def log_likelihood(data, z, max_num_tokens=None, net_masks=None):

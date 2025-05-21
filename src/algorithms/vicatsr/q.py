@@ -15,7 +15,7 @@ from .net_masks import NetMasks
 class q:
 
     def __init__(self, token_set, max_depth, max_num_tokens,
-                 distr_over_consts, const_variance,
+                 distr_over_consts, const_sd,
                  net_masks, previous_input: bool,
                  parent_input: bool, sibling_input: bool,
                  hidden_layer_size: int = None,
@@ -30,9 +30,9 @@ class q:
         self._net_masks = net_masks
         self._constraints = net_masks.constraints
 
-        # Variance for normal distribution over constants
+        # Std dev for normal distribution over constants
         # If set to None, this is also optimised
-        self._const_variance = const_variance
+        self._const_sd = const_sd
 
         # Determines what is input into the network
         self._previous_input = previous_input
@@ -50,7 +50,7 @@ class q:
         else:
             self._net = NN(rnn_input_size, len(token_set),
                            hidden_layer_size, distr_over_consts,
-                           True if const_variance is None else False,
+                           True if const_sd is None else False,
                            init_gru_zero)
 
     def sample(self):
@@ -84,13 +84,13 @@ class q:
             # then sample value from distribution
             if self._distr_over_consts and token['op'] == 'distr_const':
 
-                # Variance of const distribution is either given in config
+                # Std dev of const distribution is either given in config
                 # or optimised
-                const_variance = out[-1] if self._const_variance is None \
-                                         else self._const_variance
+                const_sd = out[-1] if self._const_sd is None \
+                                   else self._const_sd
                 # Sample
                 token['value'] = np.random.normal(loc=out[-2],
-                                                  scale=const_variance)
+                                                  scale=const_sd)
 
             # Increase or decrease the number of constants required
             # depending on the sample token type
@@ -128,13 +128,13 @@ class q:
 
             if self._distr_over_consts and t['sub_type'] == 'float_const':
 
-                # Variance of const distribution is either given in config
+                # Std dev of const distribution is either given in config
                 # or optimised
-                const_variance = out[-1] if self._const_variance is None \
-                                         else self._const_variance
+                const_sd = out[-1] if self._const_sd is None \
+                                   else self._const_sd
 
                 probs.append(torch.exp(torch.distributions.normal.Normal(
-                    loc=out[-2], scale=const_variance
+                    loc=out[-2], scale=const_sd
                 ).log_prob(torch.tensor(t['value']))))
 
         return torch.prod(torch.stack(probs))
@@ -160,13 +160,13 @@ class q:
 
             if self._distr_over_consts and t['sub_type'] == 'float_const':
 
-                # Variance of const distribution is either given in config
+                # Std dev of const distribution is either given in config
                 # or optimised
-                const_variance = out[-1] if self._const_variance is None \
-                                         else self._const_variance
+                const_sd = out[-1] if self._const_sd is None \
+                                    else self._const_sd
 
                 log_probs.append(torch.distributions.normal.Normal(
-                    loc=out[-2], scale=const_variance
+                    loc=out[-2], scale=const_sd
                 ).log_prob(torch.tensor(t['value'])))
 
         return torch.sum(torch.stack(log_probs))
