@@ -749,7 +749,7 @@ class Integrator(unittest.TestCase):
             "x_step_sizes": [0.1]
         }
         self._config['algorithm']['distr_over_consts'] = True
-        self._config['algorithm']['prior_variance'] = 0.1
+        self._config['algorithm']['prior_sd'] = 0.1
 
         # Create domain
         self._domain = create_domain(self._config['domain'])
