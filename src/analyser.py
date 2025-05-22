@@ -5,13 +5,15 @@ import matplotlib.pyplot as plt
 from algorithms.vicatsr.q import q
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
-from algorithms.vicatsr.vicatsr import log_likelihood
+from algorithms.vicatsr.vicatsr import log_likelihood, likelihood
 from algorithms.vicatsr.equation import Equation
 from util.norms import normalise_value
+from util.permutations import compute_permutations
 import numpy as np
 import os
 from pathlib import Path
 from util.stats import median
+import copy
 
 
 def analyse_results(args):
@@ -56,15 +58,17 @@ def analyse_results(args):
     # Multiple runs given in the form of an experiment directory
     else:
 
-        # Read results from all runs
-        run_dirs = [p for p in Path(exp_dir).iterdir() if p.is_dir()]
+        # Read results from all runs if results.json has been created.
+        # If not, the run has typically not finished so do not include.
+        run_dirs = [p for p in Path(exp_dir).iterdir()
+                    if p.is_dir() and os.path.exists(str(p) + '/results.json')]
         all_results = []
         for rd in run_dirs:
             with open(str(rd) + '/results.json', 'r') as file:
                 all_results.append(json.load(file))
 
         # Plot all results
-        plot_results(all_results, args.save)
+        # plot_results(all_results, args.save)
 
         # Use run with the median final ELBO for analysis below
         final_elbos = [r['all_elbos'][-1] for r in all_results]
@@ -97,16 +101,24 @@ def analyse_results(args):
     # Create domain
     domain = create_domain(config['domain'])
 
+    # Create algorithm, data and initialise
+    alg = create_algorithm(config['algorithm'], domain)
+    data = domain.create_data()
+    alg._initialise(data)
+
     # Apply masks to best model
     best_z.apply_pre_softmax_mask(config['algorithm']['max_num_tokens'],
                                   q_z._net_masks)
 
     # Sample from q(z) and plot
-    sample_and_plot(domain, q_z, init_q_z, best_z)
+    # sample_and_plot(domain, q_z, init_q_z, best_z, alg, data)
 
     # Calculate true posteriors and compare to q(z)
     if args.true_pos:
-        calc_true_posteriors(config, domain, all_results, run_dirs)
+        calc_true_posteriors(config, alg, data, all_results, run_dirs)
+
+    # Plot distributions over c
+    plot_c_distrs(alg, data, q_z)
 
 
 def plot_results(results, save):
@@ -237,9 +249,8 @@ def plot_log_joints(x, l_joints, save):
         plt.show()
 
 
-def sample_and_plot(domain, q, init_q, best_z):
-
-    data = domain.create_data()
+# Sample from q(z) and plot
+def sample_and_plot(domain, q, init_q, best_z, alg, data):
 
     if data['x'].shape[1] > 1:
         print('WARNING: Cannot plot models when the number '
@@ -250,7 +261,8 @@ def sample_and_plot(domain, q, init_q, best_z):
     for i in range(10):
         model = q.sample()
         pdf = q.pdf(model)
-        ll = log_likelihood(data, model)
+        ll = log_likelihood(data, model, alg._likelihood_sd,
+                            alg._max_num_tokens, alg._net_masks)
         models.append((model, ll, pdf))
 
     # Sort models by log likelihoods so the plot is a little clearer
@@ -287,7 +299,8 @@ def sample_and_plot(domain, q, init_q, best_z):
     for i in range(10):
         model = init_q.sample()
         pdf = q.pdf(model)
-        ll = log_likelihood(data, model)
+        ll = log_likelihood(data, model, alg._likelihood_sd,
+                            alg._max_num_tokens, alg._net_masks)
         init_models.append((model, ll, pdf))
 
     for m in init_models:
@@ -321,7 +334,9 @@ def sample_and_plot(domain, q, init_q, best_z):
     y = best_z.evaluate(x)
     if y is None:
         print('INVALID')
-    print(f'log p(x|z) = {log_likelihood(data, best_z)}')
+    ll = log_likelihood(data, best_z, alg._likelihood_sd,
+                        alg._max_num_tokens, alg._net_masks)
+    print(f'log p(x|z) = {ll}')
     print(f'p(z) = {q.pdf(best_z)}\n')
 
     # Print models sampled from q(z)
@@ -358,13 +373,66 @@ def sample_and_plot(domain, q, init_q, best_z):
     plt.show()
 
 
-# Enumerate models and calculate true posteriors
-def calc_true_posteriors(config, domain, all_results, run_dirs):
+# Plot priors, likelihoods, joints and posterior for c values
+def plot_c_distrs(alg, data, q):
 
-    # Create algorithm, data and initialise
-    alg = create_algorithm(config['algorithm'], domain)
-    data = domain.create_data()
-    alg._initialise(data)
+    all_exps = alg._enumerate_expressions(data)
+
+    for e in all_exps:
+
+        if e.num_distr_consts() == 0:
+            continue
+
+        print('y =', e.get_infix())
+
+        num_distr_consts = e.num_distr_consts()
+
+        lbs = [-5.0] * num_distr_consts
+        ubs = [5.0] * num_distr_consts
+        step_size = 0.01
+        step_sizes = [step_size] * num_distr_consts
+        x = compute_permutations(lbs, ubs, step_sizes)
+
+        exps = [copy.deepcopy(e) for _ in range(len(x))]
+        for c, e in zip(x, exps):
+            e.set_distr_consts(c)
+
+        priors = [alg._prior(z) for z in exps]
+        likelihoods = [likelihood(data, z, alg._likelihood_sd,
+                                  alg._max_num_tokens, alg._net_masks)
+                       for z in exps]
+        joints = [l * p for p, l in zip(priors, likelihoods)]
+        evidence = alg.evidence(data, [exps[0]])
+        posteriors = [j / evidence for j in joints]
+        qs = [q.pdf(z).item() for z in exps]
+
+        prior_max = x[np.argmax(priors)]
+        likelihood_max = x[np.argmax(likelihoods)]
+        joint_max = x[np.argmax(joints)]
+        posterior_max = x[np.argmax(posteriors)]
+        q_max = x[np.argmax(qs)]
+
+        print('Evidence:', evidence)
+        print('Prior max:', prior_max)
+        print('Likelihood max:', likelihood_max)
+        print('Joint max:', joint_max)
+        print('Posterior max:', posterior_max)
+        print('q max:', q_max)
+        print('----------------------')
+
+        plt.plot(x, priors, label='Prior')
+        plt.plot(x, likelihoods, label='Likelihood')
+        plt.plot(x, joints, label='Joint')
+        plt.plot(x, posteriors, label='Posterior')
+        plt.plot(x, qs, label='q(z)')
+
+        plt.legend()
+
+        plt.show()
+
+
+# Enumerate models and calculate true posteriors
+def calc_true_posteriors(config, alg, data, all_results, run_dirs):
 
     true_posteriors, all_exps = alg.posteriors(data)
 

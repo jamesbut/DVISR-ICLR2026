@@ -126,6 +126,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._prior_mean = config.get('prior_mean', 0.0)
         self._prior_sd = config.get('prior_sd', 1.0)
 
+        # Likelihood standard deviation
+        self._likelihood_sd = config.get('likelihood_sd', 1.0)
+
         # Remove x variables as tokens
         self._remove_x_vars = config.get('remove_x_vars', False)
 
@@ -206,8 +209,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     def _maximise_likelihood(self, data):
 
-        self._data = data
-
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
         # Keep track of sampled z with the highest maximum likelihood
@@ -223,7 +224,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             # Calculate likelihoods of sampled models
             log_likelihoods = np.array(
-                [log_likelihood(data, z, self._max_num_tokens, self._net_masks)
+                [log_likelihood(data, z, self._likelihood_sd,
+                                self._max_num_tokens, self._net_masks)
                  for z in sampled_z]
             )
 
@@ -320,15 +322,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             all_exps_sorted = sorted(all_exps, key=lambda z: self._q.pdf(z).item(),
                                      reverse=True)
             for i, z in enumerate(all_exps_sorted):
-                ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+                ll = likelihood(data, z, self._likelihood_sd,
+                                self._max_num_tokens, self._net_masks)
                 print(f'{i+1}  z: {z.get_infix()}    q(z): {self._q.pdf(z).item()} '
                       f'p(x|z): {ll} '
                       f'q_b(z): {self._behaviour_policy.pdf(z)}')
-                '''
-                print('z: ' + z.get_infix() + '    q(z): '
-                      + str(self._q.pdf(z).item()) + '     p(x|z): '
-                      + str(likelihood(data, z)))
-                '''
                 # if i > 20:
                     # break
 
@@ -341,8 +339,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         return self._q, all_exps
 
     def _maximise_elbo(self, data):
-
-        self._data = data
 
         optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
 
@@ -519,6 +515,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                                  self._net_masks,
                                                  all_models)
 
+        self._data = data
+
     def _prior(self, z):
 
         total_num_eqs = calculate_total_num_eqs(self._token_set,
@@ -540,7 +538,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     # Calculate posterior for specific model z
     def posterior(self, data, z, all_z):
-        return (likelihood(data, z, self._max_num_tokens, self._net_masks)
+        return (likelihood(data, z, self._likelihood_sd,
+                           self._max_num_tokens, self._net_masks)
                 * self._prior(z) / self.evidence(data, all_z))
 
     # Calculate the true posterior for all enumerated models
@@ -603,7 +602,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Calculate p(x) based on the law of total probability
         if total_num_distr_consts == 0:
             p_x = sum([
-                likelihood(data, z, self._max_num_tokens, self._net_masks)
+                likelihood(data, z, self._likelihood_sd,
+                           self._max_num_tokens, self._net_masks)
                 * self._prior(z)
                 for z in zs
             ])
@@ -652,7 +652,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if any(c < 0.0 or c > 1.0 for c in other_z_consts):
                 return 0.0
 
-            ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+            ll = likelihood(data, z, self._likelihood_sd,
+                            self._max_num_tokens, self._net_masks)
 
             return ll * self._prior(z)
 
@@ -679,7 +680,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if any(c < 0.0 or c > 1.0 for c in other_z_consts):
                 return 0.0
 
-            ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+            ll = likelihood(data, z, self._likelihood_sd,
+                            self._max_num_tokens, self._net_masks)
 
             return ll * self._prior(z)
 
@@ -693,7 +695,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             z = copy.copy(z)
             z.set_distr_consts(cs)
 
-            ll = likelihood(data, z, self._max_num_tokens, self._net_masks)
+            ll = likelihood(data, z, self._likelihood_sd,
+                            self._max_num_tokens, self._net_masks)
             return ll * self._prior(z)
 
         # Sum over expressions is separated from the integration
@@ -706,9 +709,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             p_x = 0.0
             for i, z in enumerate(zs):
 
+                z = copy.deepcopy(z)
+
                 # If z has no distributional constants, no need to integrate
                 if z.num_distr_consts() == 0:
-                    p_x += likelihood(data, z, self._max_num_tokens,
+                    p_x += likelihood(data, z, self._likelihood_sd,
+                                      self._max_num_tokens,
                                       self._net_masks) * self._prior(z)
 
                 else:
@@ -724,13 +730,16 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             p_x = 0.0
             for i, z in enumerate(zs):
 
+                z = copy.deepcopy(z)
+
                 # Create integration bounds for continuous parameters
                 integration_bounds = [[-np.inf, np.inf]
                                       for _ in range(z.num_distr_consts())]
 
                 # If z has no distributional constants, no need to integrate
                 if z.num_distr_consts() == 0:
-                    p_x += likelihood(data, z, self._max_num_tokens,
+                    p_x += likelihood(data, z, self._likelihood_sd,
+                                      self._max_num_tokens,
                                       self._net_masks) * self._prior(z)
 
                 else:
@@ -765,7 +774,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Calculate log likelihoods of sampled models
         log_likelihoods = torch.tensor(
-            [log_likelihood(data, z, self._max_num_tokens, self._net_masks)
+            [log_likelihood(data, z, self._likelihood_sd,
+                            self._max_num_tokens, self._net_masks)
              for z in samples],
             requires_grad=False
         )
@@ -919,8 +929,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             # Order all models by q(z) and print
             all_z = [(z, p_z_x, q_z,
-                      log_likelihood(data, z, self._max_num_tokens,
-                                     self._net_masks),
+                      log_likelihood(data, z, self._likelihood_sd,
+                                     self._max_num_tokens, self._net_masks),
                       self._q.get_consts_params(z))
                      for z, p_z_x, q_z in zip(all_exps, self._true_posteriors,
                                               q_zs)]
@@ -950,7 +960,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             optimised_z = [(optimise_eq_consts(z, data, log_likelihood,
                                                self._max_num_tokens,
                                                self._net_masks),
-                            log_likelihood(data, z, self._max_num_tokens,
+                            log_likelihood(data, z, self._likelihood_sd,
+                                           self._max_num_tokens,
                                            self._net_masks))
                            for z in all_z]
             optimised_z = sorted(optimised_z, key=lambda z: z[1], reverse=True)
@@ -970,7 +981,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         print(f'\nMax ELBO: {max(self._results["all_elbos"])}')
 
-        self._plot_distrs(data)
+        self._plot_distrs()
         self._plot_samples_best_and_true_model(plot_best=False)
 
     # Enumerate all expressions according to a specific token set and a maximum
@@ -1175,8 +1186,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         for i in range(num_samples):
             model = self._q.sample()
             pdf = self._q.pdf(model)
-            ll = log_likelihood(self._data, model, self._max_num_tokens,
-                                self._net_masks)
+            ll = log_likelihood(self._data, model, self._likelihood_sd,
+                                self._max_num_tokens, self._net_masks)
             models.append((model, ll, pdf))
 
         # Sort models by log likelihoods so the plot is a little clearer
@@ -1207,7 +1218,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     # Plot priors, likelihoods, joints and posterior for simplest case.
     # NOTE: This is just for testing and should not be used functionally.
-    def _plot_distrs(self, data):
+    def _plot_distrs(self):
 
         if not self._plotting:
             return
@@ -1215,7 +1226,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         if not self._enum_all_exps:
             return
 
-        all_exps = self._enumerate_expressions(data)
+        all_exps = self._enumerate_expressions(self._data)
 
         if len(all_exps) > 2:
             # print('Cannot plot distributions for more than y=c')
@@ -1227,9 +1238,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             e.set_distr_consts([c])
 
         priors = [self._prior(z) for z in exps]
-        likelihoods = [likelihood(data, z) for z in exps]
+        likelihoods = [likelihood(self._data, z, self._likelihood_sd,
+                                  self._max_num_tokens, self._net_masks)
+                       for z in exps]
         joints = [l * p for p, l in zip(priors, likelihoods)]
-        evidence = self.evidence(data, [exps[0]])
+        evidence = self.evidence(self._data, [exps[0]])
         posteriors = [j / evidence for j in joints]
         qs = [self._q.pdf(z).item() for z in exps]
 
@@ -1257,7 +1270,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         plt.show()
 
 
-def log_likelihood(data, z, max_num_tokens=None, net_masks=None):
+def log_likelihood(data, z, l_sd, max_num_tokens=None, net_masks=None):
 
     means = z.evaluate(data['x'])
 
@@ -1273,7 +1286,7 @@ def log_likelihood(data, z, max_num_tokens=None, net_masks=None):
         if not z.valid_eq(max_num_tokens, net_masks):
             return -1e6
 
-    log_likelihoods = [scipy.stats.norm.logpdf(y, mean)
+    log_likelihoods = [scipy.stats.norm.logpdf(y, mean, l_sd)
                        for y, mean in zip(data['y'], means)]
     log_likelihood = sum(log_likelihoods)
 
@@ -1284,7 +1297,7 @@ def log_likelihood(data, z, max_num_tokens=None, net_masks=None):
     return log_likelihood
 
 
-def likelihood(data, z, max_num_tokens, net_masks):
+def likelihood(data, z, l_sd, max_num_tokens, net_masks):
 
     means = z.evaluate(data['x'])
 
@@ -1299,7 +1312,7 @@ def likelihood(data, z, max_num_tokens, net_masks):
     if not z.valid_eq(max_num_tokens, net_masks):
         return 0.0
 
-    likelihoods = [scipy.stats.norm.pdf(y, mean)
+    likelihoods = [scipy.stats.norm.pdf(y, mean, l_sd)
                    for y, mean in zip(data['y'], means)]
     return math.prod(likelihoods)
 

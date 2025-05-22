@@ -21,22 +21,23 @@
             "inverse_ops",
             "nested_trigs"
         ],
-        "_prior_mean": 0.35,
-        "_prior_sd": 0.1,
         "prior_mean": 0.0,
-        "prior_sd": 10,
+        "_prior_sd": 0.1,
+        "_prior_mean": 0.0,
+        "prior_sd": 1,
         "_prior_mean": 0.0,
         "_prior_sd": 100.0,
+        "likelihood_sd": 3.0,
         "_q_const_sd": 0.1,
         "num_steps": 1000,
-        "num_eq_samples": 250,
+        "num_eq_samples": 1000,
         "_max_num_tokens": 5,
         "max_num_tokens": 2,
         "target_policy": {
-            "learning_rate": 5e-4,
+            "learning_rate": 2e-4,
             "_learning_rate": 1e-3,
             "_rnn_hidden_layer_size": 256,
-            "rnn_hidden_layer_size": 32,
+            "rnn_hidden_layer_size": 64,
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
@@ -70,9 +71,9 @@
         "verbosity": 1
     },
     "writer": {
-        "write_to_file": false
+        "write_to_file": true
     },
     "execution": {
-        "num_runs": 1
+        "num_runs": 10
     }
 }

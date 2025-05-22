@@ -12,9 +12,7 @@ from algorithms.vicatsr.net_masks import NetMasks
 from algorithms.vicatsr.vicatsr import likelihood
 from util.tree import get_parent, get_sibling, is_descendent
 import torch
-from scipy.stats import norm
 import numpy as np
-import math
 import copy
 import scipy
 
