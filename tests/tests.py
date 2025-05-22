@@ -989,7 +989,8 @@ class Integrator(unittest.TestCase):
 
 
 def post(ev, z, data, alg):
-    return (likelihood(data, z, alg._max_num_tokens, alg._net_masks)
+    return (likelihood(data, z, alg._likelihood_sd,
+                       alg._max_num_tokens, alg._net_masks)
             * alg._prior(z) / ev)
 
 
