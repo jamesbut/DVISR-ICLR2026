@@ -32,7 +32,7 @@
         "num_steps": 1000,
         "num_eq_samples": 1000,
         "_max_num_tokens": 5,
-        "max_num_tokens": 2,
+        "max_num_tokens": 1,
         "target_policy": {
             "learning_rate": 2e-4,
             "_learning_rate": 1e-3,
@@ -74,6 +74,6 @@
         "write_to_file": true
     },
     "execution": {
-        "num_runs": 10
+        "num_runs": 1
     }
 }

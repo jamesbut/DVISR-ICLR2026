@@ -68,7 +68,7 @@ def analyse_results(args):
                 all_results.append(json.load(file))
 
         # Plot all results
-        # plot_results(all_results, args.save)
+        plot_results(all_results, args.save)
 
         # Use run with the median final ELBO for analysis below
         final_elbos = [r['all_elbos'][-1] for r in all_results]
@@ -163,10 +163,13 @@ def plot_kl_divs(x, kl_divs, save):
         q1s = np.percentile(kl_divs, 25, axis=0)
         q3s = np.percentile(kl_divs, 75, axis=0)
 
-        plt.plot(x, medians)
+        plt.plot(x, medians, label='KL divergence')
 
         plt.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
 
+        plt.plot(x, [0] * len(x), label='y = 0')
+
+        plt.legend()
         plt.xlabel('Epoch')
         plt.ylabel('KL Divergence')
         plt.tight_layout()
@@ -402,9 +405,12 @@ def plot_c_distrs(alg, data, q):
                                   alg._max_num_tokens, alg._net_masks)
                        for z in exps]
         joints = [l * p for p, l in zip(priors, likelihoods)]
-        evidence = alg.evidence(data, [exps[0]])
+        evidence = alg.evidence(data, all_exps)
         posteriors = [j / evidence for j in joints]
         qs = [q.pdf(z).item() for z in exps]
+
+        # for c, l in zip(x, likelihoods):
+        #     print(str(c) + '        ' + str(l))
 
         prior_max = x[np.argmax(priors)]
         likelihood_max = x[np.argmax(likelihoods)]

@@ -792,9 +792,21 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             requires_grad=False
         )
 
+        elbos = log_likelihoods + log_priors - log_q_zs
+
+        '''
+        for z, ll, qz, lp, el in zip(samples[:10], log_likelihoods,
+                                     log_q_zs, log_priors, elbos):
+            out_str = (f'           z: {z.get_infix():<25} '
+                       f'log p(x|z): {ll:.10f}  '
+                       f'log q(z): {qz:.10f}  '
+                       f'log p(z): {lp:.10f}  '
+                       f'ELBO: {el:.10f}')
+            print(out_str)
+        '''
+
         # Calculate and return ELBO and log likelihoods
-        return (log_likelihoods + log_priors - log_q_zs,
-                log_likelihoods, log_priors)
+        return elbos, log_likelihoods, log_priors
 
     # Calculate the KL divergence between q(z) and p(z|x)
     def kl_divergence(self, data, num_samples):
