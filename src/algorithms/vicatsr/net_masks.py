@@ -101,7 +101,7 @@ class NetMasks:
                     masks += ['no_log']
 
             # Mask for not all children of an operator being float constants
-            if 'all_child_float_consts' in self._constraints:
+            if 'all_child_float_consts' in self._constraints and sampled_tokens:
 
                 if sampled_tokens[-1]['type'] == 'un_op':
                     masks += ['all_child_float_consts']

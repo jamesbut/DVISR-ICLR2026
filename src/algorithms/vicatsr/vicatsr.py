@@ -132,6 +132,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Remove x variables as tokens
         self._remove_x_vars = config.get('remove_x_vars', False)
 
+        # Check that there is no float const constraint if x vars have been
+        # removed
+        if self._remove_x_vars:
+            assert 'all_child_float_consts' not in self._constraints
+
         # Plot if available
         self._plotting = config.get('plotting', False)
 
