@@ -370,7 +370,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         if self._calc_posteriors_flag:
             self._results['log_ev'] = self.log_evidence(
                 data, self._enumerate_expressions(data),
-                int_method=self._evidence_integration_method, reset=False,
+                int_method=self._evidence_integration_method,
+                reset=False,
                 log_space=True,
                 int_error_tol=self._evidence_integrator_error_tol
             )
@@ -576,15 +577,31 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
     def posterior(self, data, z, all_z):
         return (likelihood(data, z, self._likelihood_sd,
                            self._max_num_tokens, self._net_masks)
-                * self._prior(z) / self.evidence(data, all_z))
+                * self._prior(z)
+                / self.evidence(
+                    data, all_z,
+                    int_method=self._evidence_integration_method,
+                    reset=False,
+                    log_space=True,
+                    int_error_tol=self._evidence_integrator_error_tol
+                ))
 
     def posterior_log_space(self, data, z, all_z):
+
         llh = log_likelihood(data, z, self._likelihood_sd,
                              self._max_num_tokens, self._net_masks)
         lp = self._log_prior_log_space(z)
         log_joint = llh + lp
 
-        return np.exp(log_joint) / self.evidence(data, all_z)
+        ev = self.evidence(
+            data, all_z,
+            int_method=self._evidence_integration_method,
+            reset=False,
+            log_space=True,
+            int_error_tol=self._evidence_integrator_error_tol
+        )
+
+        return np.exp(log_joint) / ev
 
     # Calculate the true posterior for all enumerated models
     def posteriors(self, data):
@@ -912,7 +929,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Calculate priors, ln p(z), for sampled models
         log_priors = torch.tensor(
-            # [self._log_prior(z) for z in samples],
             [self._log_prior_log_space(z) for z in samples],
             requires_grad=False
         )
@@ -946,8 +962,16 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Enumerate all expressions
         all_z = self._enumerate_expressions(data)
 
+        log_ev = self.log_evidence(
+            data, all_z,
+            int_method=self._evidence_integration_method,
+            reset=False,
+            log_space=True,
+            int_error_tol=self._evidence_integrator_error_tol
+        )
+
         # Calculate KL divergence
-        kl_divergence = self.log_evidence(data, all_z) - elbo
+        kl_divergence = log_ev - elbo
 
         return kl_divergence.item()
 
