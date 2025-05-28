@@ -65,6 +65,7 @@
         "calculate_posteriors": true,
         "posterior_integration": true,
         "evidence_integration_method": "only_own_c",
+        "evidence_integrator_error_tol": 1e-30,
         "enum_exps": true,
         "stop_when_true_expr_found": false,
         "x_seed": 18,

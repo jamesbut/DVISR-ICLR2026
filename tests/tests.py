@@ -928,10 +928,12 @@ class Integrator(unittest.TestCase):
     # in all the possible expressions
     def test_evidence_un_op(self):
 
-        self._config['algorithm']['max_num_tokens'] = 2
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['max_num_tokens'] = 2
 
         # Create algorithm
-        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg = create_algorithm(config['algorithm'], self._domain)
         self._alg._initialise(self._data)
 
         all_exprs = self._alg._enumerate_expressions(self._data)
@@ -973,11 +975,13 @@ class Integrator(unittest.TestCase):
     # in an individual expression
     def test_evidence_bin_op(self):
 
-        self._config['algorithm']['max_num_tokens'] = 3
-        self._config['algorithm']['constraints'] = ['nested_trigs']
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['max_num_tokens'] = 3
+        config['algorithm']['constraints'] = ['nested_trigs']
 
         # Create algorithm
-        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg = create_algorithm(config['algorithm'], self._domain)
         self._alg._initialise(self._data)
 
         all_exprs = self._alg._enumerate_expressions(self._data)
@@ -1002,19 +1006,20 @@ class Integrator(unittest.TestCase):
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
     # Test posterior integrates to 1.0
-    # TODO: Big issues in here!
+    # Evidence is VERY small here so testing out the quality of the
+    # numerical integrator in this case
     def test_posterior_simple(self):
 
-        self._config['algorithm']['prior_mean'] = 10.0
-        # self._config['algorithm']['prior_mean'] = 0.35
-        self._config['algorithm']['prior_sd'] = 1.0
-        self._config['algorithm']['likelihood_sd'] = 3.0
-        # self._config['algorithm']['likelihood_sd'] = 1.0
+        config = copy.deepcopy(self._config)
 
-        self._config['algorithm']['remove_x_vars'] = True
+        config['algorithm']['prior_mean'] = 10.0
+        config['algorithm']['prior_sd'] = 1.0
+        config['algorithm']['likelihood_sd'] = 3.0
+
+        config['algorithm']['remove_x_vars'] = True
 
         # Create algorithm
-        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg = create_algorithm(config['algorithm'], self._domain)
         self._alg._initialise(self._data)
 
         all_exprs = self._alg._enumerate_expressions(self._data)
@@ -1026,21 +1031,11 @@ class Integrator(unittest.TestCase):
             all_exprs,
             int_method='only_own_c',
             reset=True,
-            log_space=True
+            log_space=True,
+            int_error_tol=1e-30
         )
 
-        print('numeric log p(x):', log_evidence)
-
-        analytic_log_ev = analytic_log_evidence(
-            self._data['y'],
-            self._config['algorithm']['likelihood_sd'] ** 2,
-            self._config['algorithm']['prior_mean'],
-            self._config['algorithm']['prior_sd'] ** 2,
-        )
-        print('analytic log p(x):', analytic_log_ev)
-
-
-        # TEMP: Trying something a bit wacky
+        # Calculate posterior parameters analytically
         post_params = post_params_analytic(
             self._alg._prior_mean,
             self._alg._prior_sd,
@@ -1049,7 +1044,8 @@ class Integrator(unittest.TestCase):
             np.mean(self._alg._data['y'])
         )
 
-        strange_log_ev = analytic_evidence_post_params(
+        # Use these analytic posterior params to calculate the evidence
+        post_ev = analytic_evidence_post_params(
             post_params[0],
             post_params[1],
             all_exprs,
@@ -1058,25 +1054,19 @@ class Integrator(unittest.TestCase):
             log_likelihood,
             self._data
         )
-        print('Strange log p(x):', strange_log_ev)
-        print('p(x):', np.exp(log_evidence))
-        print('Strange p(x):', np.exp(strange_log_ev))
 
-        print('Post mean:', post_params[0])
-        print('Post sd:', post_params[1])
+        # Check both evidence values are essentially the same
+        self.assertAlmostEqual(np.log(post_ev), log_evidence)
 
         # Check posterior integrates to 1
         int_post = self._int_post(np.exp(log_evidence), all_exprs)
-        int_post_strange = self._int_post(np.exp(strange_log_ev), all_exprs)
-        # self.assertAlmostEqual(int_post, 1.0, places=10)
+        int_post_post_ev = self._int_post(post_ev, all_exprs)
+        self.assertAlmostEqual(int_post, 1.0, places=13)
+        self.assertAlmostEqual(int_post_post_ev, 1.0, places=13)
 
         # Check prior integrates to 1
         int_prior = self._int_prior(all_exprs)
-        # self.assertAlmostEqual(int_prior, 1.0, places=10)
-
-        print('Int post:', int_post)
-        print('Int post strange:', int_post_strange)
-        print('Int prior:', int_prior)
+        self.assertAlmostEqual(int_prior, 1.0, places=13)
 
     def _int_post(self, ev, all_exprs):
 
@@ -1161,46 +1151,6 @@ def prior_func(*args):
     z.set_distr_consts(c)
 
     return alg._prior(z)
-
-
-class AnalyticSolutions(unittest.TestCase):
-
-    def setUp(self):
-
-        # Read config
-        self._config = read_json(os.getcwd()
-                                 + '/configs/test_configs/vicatsr.json')
-
-        self._config['domain'] = {
-            "name": "WrittenExpression",
-            "expression": "`x_0` * `x_0`",
-            "x_mins": [0.0],
-            "x_maxs": [1.0],
-            "x_step_sizes": [0.1]
-        }
-        self._config['algorithm']['distr_over_consts'] = True
-        self._config['algorithm']['prior_sd'] = 0.1
-
-        # Create domain
-        self._domain = create_domain(self._config['domain'])
-        self._data = self._domain.create_data()
-
-        # Create algorithm
-        self._alg = create_algorithm(self._config['algorithm'], self._domain)
-        self._alg._initialise(self._data)
-
-    # Calculate parameters of posterior analytically
-    def test_analytic_posterior(self):
-
-        post_params = post_params_analytic(
-            self._alg._prior_mean,
-            self._alg._prior_sd,
-            self._alg._likelihood_sd,
-            len(self._alg._data['y']),
-            np.mean(self._alg._data['y'])
-        )
-
-        print(post_params)
 
 
 class LogSpace(unittest.TestCase):

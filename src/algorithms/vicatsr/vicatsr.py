@@ -146,6 +146,16 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         self._posterior_integration = config.get('posterior_integration',
                                                  False)
 
+        # Determines which method used to estimate evidence
+        self._evidence_integration_method = config.get(
+            'evidence_integration_method', 'only_own_c'
+        )
+
+        # Error tolerance for evidence numerical integrator
+        self._evidence_integrator_error_tol = config.get(
+            '_evidence_integrator_error_tol', None
+        )
+
         # Flag for whether to ever enumerate all expressions
         self._enum_all_exps = config.get('enum_exps', True)
 
@@ -360,7 +370,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         if self._calc_posteriors_flag:
             self._results['log_ev'] = self.log_evidence(
                 data, self._enumerate_expressions(data),
-                int_method='only_own_c', reset=False, log_space=True
+                int_method=self._evidence_integration_method, reset=False,
+                log_space=True,
+                int_error_tol=self._evidence_integrator_error_tol
             )
 
         for i in range(self._num_steps):
@@ -621,14 +633,15 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         return p_z_x, all_z
 
     def evidence(self, data, zs, int_method='only_own_c', reset=False,
-                 log_space=False):
+                 log_space=False, int_error_tol=None):
         if self._evidence is None or reset:
             self._evidence = self._calculate_evidence(data, zs, int_method,
-                                                      log_space)
+                                                      log_space, int_error_tol)
         return self._evidence
 
     # Calculate p(x) (evidence) over all models, zs
-    def _calculate_evidence(self, data, zs, int_method, log_space):
+    def _calculate_evidence(self, data, zs, int_method, log_space,
+                            int_error_tol):
 
         num_distr_consts = [e.num_distr_consts() for e in zs]
         total_num_distr_consts = sum(num_distr_consts)
@@ -656,12 +669,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         else:
             p_x = self._integrate_joint(data, zs, total_num_distr_consts,
                                         num_distr_consts, int_method,
-                                        log_space)
+                                        log_space, int_error_tol)
 
         return p_x
 
     def _integrate_joint(self, data, zs, total_num_distr_consts,
-                         num_distr_consts, int_method, log_space):
+                         num_distr_consts, int_method, log_space,
+                         int_error_tol):
 
         # return [None] * len(all_exps), all_exps
 
@@ -828,6 +842,17 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 integration_bounds = [[-np.inf, np.inf]
                                       for _ in range(z.num_distr_consts())]
 
+                # Reduce tolerance for error within integrator.
+                # When the evidence, p(x), is very small the integrator
+                # produced a large relative error, resulting in inaccurate
+                # evidence values.
+                # The default values of the below quantities are 1.49e-8.
+                if int_error_tol:
+                    opts = [{'epsabs': int_error_tol, 'epsrel': int_error_tol}
+                            for _ in range(z.num_distr_consts())]
+                else:
+                    opts = None
+
                 # If z has no distributional constants, no need to integrate
                 if z.num_distr_consts() == 0:
                     joint = np.exp(
@@ -841,9 +866,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 else:
                     res, error = scipy.integrate.nquad(joint_func,
                                                        integration_bounds,
-                                                       args=(z,))
-                    # print('Res:', res)
-                    # print('Error:', error)
+                                                       args=(z,),
+                                                       opts=opts)
                     p_x += res
 
         else:
@@ -863,8 +887,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         return p_x
 
     def log_evidence(self, data, zs, int_method='only_own_c', reset=False,
-                     log_space=False):
-        return math.log(self.evidence(data, zs, int_method, reset, log_space))
+                     log_space=False, int_error_tol=None):
+        return math.log(self.evidence(data, zs, int_method, reset, log_space,
+                                      int_error_tol))
 
     # Calculate list of values such that when you take the mean, you get the
     # ELBO.
@@ -1095,37 +1120,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         self._plot_distrs()
         self._plot_samples_best_and_true_model(plot_best=False)
-
-        '''
-        from algorithms.vicatsr.analytic_solutions import post_params_analytic, analytic_evidence_post_params
-
-        post_params = post_params_analytic(
-            self._prior_mean,
-            self._prior_sd,
-            self._likelihood_sd,
-            len(self._data['y']),
-            np.mean(self._data['y'])
-        )
-
-        exprs = self._enumerate_expressions(data)
-
-        strange_ev = analytic_evidence_post_params(
-            post_params[0],
-            post_params[1],
-            [exprs[0]],
-            self,
-            likelihood,
-            log_likelihood,
-            self._data
-        )
-
-        ev = strange_ev + (likelihood(data, exprs[1], self._likelihood_sd,
-                                      self._max_num_tokens, self._net_masks)
-                            * self._prior(exprs[1]))
-
-        print('Strange log p(x):', np.log(ev))
-        print('Strange p(x):', ev)
-        '''
 
     # Enumerate all expressions according to a specific token set and a maximum
     def _enumerate_expressions(self, data=None):
