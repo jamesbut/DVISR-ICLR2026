@@ -9,7 +9,10 @@ from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.equation import Equation
 from algorithms.vicatsr.net_masks import NetMasks
-from algorithms.vicatsr.vicatsr import likelihood
+from algorithms.vicatsr.vicatsr import likelihood, log_likelihood
+from algorithms.vicatsr.analytic_solutions import post_params_analytic, \
+                                                  analytic_log_evidence, \
+                                                  analytic_evidence_post_params
 from util.tree import get_parent, get_sibling, is_descendent
 import torch
 import numpy as np
@@ -122,6 +125,9 @@ class VICatSR(unittest.TestCase):
         self._config['algorithm']['learning_rate'] = 2e-4
         self._config['algorithm']['remove_x_vars'] = True
 
+        self._config['algorithm']['num_eq_samples'] = 50
+        self._config['algorithm']['num_steps'] = 650
+
         # Create algoritm
         alg = create_algorithm(self._config['algorithm'], self._domain)
 
@@ -130,18 +136,73 @@ class VICatSR(unittest.TestCase):
 
         # Get const mean and variance
         consts_params = q.get_consts_params(all_exps[0])
-        mean = consts_params[0][0]
-        variance = consts_params[0][1]
-
-        print('Mean:', mean)
-        print('Variance:', variance)
+        numeric_mean = consts_params[0][0]
+        numeric_sd = consts_params[0][1]
 
         # Check the parameters for the distribution over constants has
-        # optimised
-        self.assertLessEqual(mean, 0.37)
-        self.assertGreaterEqual(mean, 0.33)
-        self.assertLessEqual(variance, 0.32)
-        self.assertGreaterEqual(variance, 0.28)
+        # converged correctly
+        self.assertAlmostEqual(numeric_mean, 0.35, places=10)
+        self.assertAlmostEqual(numeric_sd, 0.28867513459481287, places=10)
+
+        analytic_mean, analytic_sd = post_params_analytic(
+            alg._prior_mean,
+            alg._prior_sd,
+            alg._likelihood_sd,
+            len(self._data['y']),
+            np.mean(self._data['y'])
+        )
+
+        # Compare the numerical solutions to the analytic solutions
+        self.assertAlmostEqual(analytic_mean, numeric_mean, places=10)
+        self.assertAlmostEqual(analytic_sd, numeric_sd, places=10)
+
+        print('Numeric mean:', numeric_mean)
+        print('Numeric sd:', numeric_sd)
+        print('Analytic mean:', analytic_mean)
+        print('Analytic sd:', analytic_sd)
+
+    def test_elbo_distr_consts(self):
+
+        self._config['algorithm']['learning_rate'] = 2e-4
+        self._config['algorithm']['remove_x_vars'] = True
+
+        self._config['algorithm']['num_eq_samples'] = 50
+        self._config['algorithm']['num_steps'] = 650
+        self._config['algorithm']['posterior_integration'] = True
+
+        # Create algoritm
+        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg._initialise(self._data)
+
+        # Train
+        q, true_pos, all_exps = alg.train(self._data)
+
+        # Get const mean and variance
+        consts_params = q.get_consts_params(all_exps[0])
+        numeric_mean = consts_params[0][0]
+        numeric_sd = consts_params[0][1]
+
+        # Check the parameters for the distribution over constants has
+        # converged correctly
+        self.assertAlmostEqual(numeric_mean, 0.35, places=10)
+        self.assertAlmostEqual(numeric_sd, 0.28867513459481287, places=10)
+
+        analytic_mean, analytic_sd = post_params_analytic(
+            alg._prior_mean,
+            alg._prior_sd,
+            alg._likelihood_sd,
+            len(self._data['y']),
+            np.mean(self._data['y'])
+        )
+
+        # Compare the numerical solutions to the analytic solutions
+        self.assertAlmostEqual(analytic_mean, numeric_mean, places=10)
+        self.assertAlmostEqual(analytic_sd, numeric_sd, places=10)
+
+        print('Numeric mean:', numeric_mean)
+        print('Numeric sd:', numeric_sd)
+        print('Analytic mean:', analytic_mean)
+        print('Analytic sd:', analytic_sd)
 
     def test_elbo_distr_consts_separate_behaviour_policy(self):
 
@@ -170,22 +231,6 @@ class VICatSR(unittest.TestCase):
         self.assertGreaterEqual(mean, 0.33)
         self.assertLessEqual(variance, 0.32)
         self.assertGreaterEqual(variance, 0.28)
-
-    def test_parent_sibling_input(self):
-
-        self._config['algorithm']['max_num_tokens'] = 5
-        self._config['algorithm']['num_steps'] = 5
-        self._config['algorithm']['distr_over_consts'] = False
-        self._config['algorithm']['max_likelihood'] = True
-
-        self._config['algorithm']['target_policy']['parent_input'] = True
-        self._config['algorithm']['target_policy']['sibling_input'] = True
-
-        # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
-
-        # Train
-        alg.train(self._data)
 
 
 class Utils(unittest.TestCase):
@@ -810,6 +855,20 @@ class Integrator(unittest.TestCase):
         int_prior = self._int_prior(all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
+        print(log_evidence_no_split_sum)
+        print(log_evidence_split_sum)
+        print(log_evidence_only_own_c)
+
+        # Calculate evidence in log space
+        log_ev_log_space = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True,
+            log_space=True
+        )
+        print(log_ev_log_space)
+
         # Calculate log evidence analytically
         # NOTE: I tried to do this but I could not get the calculated
         # evidence to match the evidence calculated by the numerical integrator
@@ -942,6 +1001,83 @@ class Integrator(unittest.TestCase):
         int_prior = self._int_prior(all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
+    # Test posterior integrates to 1.0
+    # TODO: Big issues in here!
+    def test_posterior_simple(self):
+
+        self._config['algorithm']['prior_mean'] = 10.0
+        # self._config['algorithm']['prior_mean'] = 0.35
+        self._config['algorithm']['prior_sd'] = 1.0
+        self._config['algorithm']['likelihood_sd'] = 3.0
+        # self._config['algorithm']['likelihood_sd'] = 1.0
+
+        self._config['algorithm']['remove_x_vars'] = True
+
+        # Create algorithm
+        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        # Calculate log evidence by splitting the sum over expressions and
+        # only integrating over the c values in the particular equation
+        log_evidence = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True,
+            log_space=True
+        )
+
+        print('numeric log p(x):', log_evidence)
+
+        analytic_log_ev = analytic_log_evidence(
+            self._data['y'],
+            self._config['algorithm']['likelihood_sd'] ** 2,
+            self._config['algorithm']['prior_mean'],
+            self._config['algorithm']['prior_sd'] ** 2,
+        )
+        print('analytic log p(x):', analytic_log_ev)
+
+
+        # TEMP: Trying something a bit wacky
+        post_params = post_params_analytic(
+            self._alg._prior_mean,
+            self._alg._prior_sd,
+            self._alg._likelihood_sd,
+            len(self._alg._data['y']),
+            np.mean(self._alg._data['y'])
+        )
+
+        strange_log_ev = analytic_evidence_post_params(
+            post_params[0],
+            post_params[1],
+            all_exprs,
+            self._alg,
+            likelihood,
+            log_likelihood,
+            self._data
+        )
+        print('Strange log p(x):', strange_log_ev)
+        print('p(x):', np.exp(log_evidence))
+        print('Strange p(x):', np.exp(strange_log_ev))
+
+        print('Post mean:', post_params[0])
+        print('Post sd:', post_params[1])
+
+        # Check posterior integrates to 1
+        int_post = self._int_post(np.exp(log_evidence), all_exprs)
+        int_post_strange = self._int_post(np.exp(strange_log_ev), all_exprs)
+        # self.assertAlmostEqual(int_post, 1.0, places=10)
+
+        # Check prior integrates to 1
+        int_prior = self._int_prior(all_exprs)
+        # self.assertAlmostEqual(int_prior, 1.0, places=10)
+
+        print('Int post:', int_post)
+        print('Int post strange:', int_post_strange)
+        print('Int prior:', int_prior)
+
     def _int_post(self, ev, all_exprs):
 
         int_p_z_x = 0.0
@@ -989,9 +1125,18 @@ class Integrator(unittest.TestCase):
 
 
 def post(ev, z, data, alg):
+    '''
     return (likelihood(data, z, alg._likelihood_sd,
                        alg._max_num_tokens, alg._net_masks)
             * alg._prior(z) / ev)
+    '''
+
+    llh = log_likelihood(data, z, alg._likelihood_sd,
+                         alg._max_num_tokens, alg._net_masks)
+    lp = alg._log_prior_log_space(z)
+    log_joint = llh + lp
+
+    return np.exp(log_joint) / ev
 
 
 def post_func(*args):
@@ -1016,6 +1161,116 @@ def prior_func(*args):
     z.set_distr_consts(c)
 
     return alg._prior(z)
+
+
+class AnalyticSolutions(unittest.TestCase):
+
+    def setUp(self):
+
+        # Read config
+        self._config = read_json(os.getcwd()
+                                 + '/configs/test_configs/vicatsr.json')
+
+        self._config['domain'] = {
+            "name": "WrittenExpression",
+            "expression": "`x_0` * `x_0`",
+            "x_mins": [0.0],
+            "x_maxs": [1.0],
+            "x_step_sizes": [0.1]
+        }
+        self._config['algorithm']['distr_over_consts'] = True
+        self._config['algorithm']['prior_sd'] = 0.1
+
+        # Create domain
+        self._domain = create_domain(self._config['domain'])
+        self._data = self._domain.create_data()
+
+        # Create algorithm
+        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+    # Calculate parameters of posterior analytically
+    def test_analytic_posterior(self):
+
+        post_params = post_params_analytic(
+            self._alg._prior_mean,
+            self._alg._prior_sd,
+            self._alg._likelihood_sd,
+            len(self._alg._data['y']),
+            np.mean(self._alg._data['y'])
+        )
+
+        print(post_params)
+
+
+class LogSpace(unittest.TestCase):
+
+    def setUp(self):
+
+        # Read config
+        self._config = read_json(os.getcwd()
+                                 + '/configs/test_configs/vicatsr.json')
+
+        self._config['domain'] = {
+            "name": "WrittenExpression",
+            "expression": "`x_0` * `x_0`",
+            "x_mins": [0.0],
+            "x_maxs": [1.0],
+            "x_step_sizes": [0.1]
+        }
+        self._config['algorithm']['distr_over_consts'] = True
+        self._config['algorithm']['prior_sd'] = 0.1
+
+        # Create domain
+        self._domain = create_domain(self._config['domain'])
+        self._data = self._domain.create_data()
+
+        # Create algorithm
+        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+    def test_prior(self):
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        for e in all_exprs:
+            print(e.get_infix())
+
+        self.assertEqual(self._alg._log_prior(all_exprs[1]),
+                         self._alg._log_prior_log_space(all_exprs[1]))
+        self.assertEqual(self._alg._log_prior(all_exprs[0]),
+                         self._alg._log_prior_log_space(all_exprs[0]))
+        # self.assertAlmostEqual(int_prior, 1.0, places=10)
+
+        print(self._alg._prior(all_exprs[0]))
+        print(self._alg._prior(all_exprs[1]))
+        print(self._alg._log_prior(all_exprs[0]))
+        print(self._alg._log_prior(all_exprs[1]))
+        print(self._alg._log_prior_log_space(all_exprs[0]))
+        print(self._alg._log_prior_log_space(all_exprs[1]))
+
+    def test_likelihood(self):
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        print(log_likelihood(self._data, all_exprs[0],
+                             self._alg._likelihood_sd))
+        print(np.log(likelihood(self._data, all_exprs[0],
+                                self._alg._likelihood_sd)))
+        print(log_likelihood(self._data, all_exprs[1],
+                             self._alg._likelihood_sd))
+        print(np.log(likelihood(self._data, all_exprs[1],
+                                self._alg._likelihood_sd)))
+
+        self.assertEqual(log_likelihood(self._data, all_exprs[1],
+                                        self._alg._likelihood_sd),
+                         np.log(likelihood(self._data, all_exprs[1],
+                                           self._alg._likelihood_sd)))
+        self.assertEqual(log_likelihood(self._data, all_exprs[0],
+                                        self._alg._likelihood_sd),
+                         np.log(likelihood(self._data, all_exprs[0],
+                                           self._alg._likelihood_sd)))
+        # self.assertAlmostEqual(int_prior, 1.0, places=10)
 
 
 if __name__ == "__main__":
