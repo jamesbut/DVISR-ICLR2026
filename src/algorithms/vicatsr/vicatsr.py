@@ -153,7 +153,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         # Error tolerance for evidence numerical integrator
         self._evidence_integrator_error_tol = config.get(
-            '_evidence_integrator_error_tol', None
+            'evidence_integrator_error_tol', None
         )
 
         # Flag for whether to ever enumerate all expressions
