@@ -40,6 +40,12 @@ class NetMasks:
              for t in token_set]
         )
 
+        # Mask to turn off float consts
+        self._no_float_consts_mask = np.array(
+            [-1e9 if t['sub_type'] == 'float_const' else 0.0
+             for t in token_set]
+        )
+
         # Masks to turn off variable constants
         self._no_var_masks = {}
         for t in token_set:
@@ -55,7 +61,8 @@ class NetMasks:
         if self._constraints:
             valid_constraints = [
                 "inverse_ops",
-                "nested_trigs"
+                "nested_trigs",
+                "all_child_float_consts"
             ]
 
             for c in self._constraints:
@@ -93,6 +100,16 @@ class NetMasks:
                 if sampled_tokens[-1]['op'] == 'exp':
                     masks += ['no_log']
 
+            # Mask for not all children of an operator being float constants
+            if 'all_child_float_consts' in self._constraints:
+
+                if sampled_tokens[-1]['type'] == 'un_op':
+                    masks += ['all_child_float_consts']
+
+                elif (sampled_tokens[-1]['sub_type'] == 'float_const'
+                      and sampled_tokens[-2]['type'] == 'bin_op'):
+                    masks += ['all_child_float_consts']
+
         return masks
 
     # Compose mask from multiple mask names
@@ -125,6 +142,10 @@ class NetMasks:
         # Do not sample trig ops
         if 'no_trig' in mask_names:
             mask += self._no_trig_mask
+
+        # Do not sample float consts
+        if 'all_child_float_consts' in mask_names:
+            mask += self._no_float_consts_mask
 
         return torch.from_numpy(mask)
 

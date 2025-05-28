@@ -15,11 +15,12 @@
         "operators": {
             "_binary_ops": ["*", "+"],
             "binary_ops": ["*"],
-            "unary_ops": ["cos"]
+            "_unary_ops": ["cos"]
         },
         "constraints": [
             "inverse_ops",
-            "nested_trigs"
+            "nested_trigs",
+            "all_child_float_consts"
         ],
         "prior_mean": 0.0,
         "_prior_sd": 0.1,
@@ -29,10 +30,11 @@
         "_prior_sd": 100.0,
         "likelihood_sd": 3.0,
         "_q_const_sd": 0.1,
-        "num_steps": 500,
-        "num_eq_samples": 1000,
+        "num_steps": 1000,
+        "num_eq_samples": 500,
+        "_num_eq_samples": 1000,
         "_max_num_tokens": 5,
-        "max_num_tokens": 1,
+        "max_num_tokens": 3,
         "target_policy": {
             "learning_rate": 2e-4,
             "_learning_rate": 1e-3,

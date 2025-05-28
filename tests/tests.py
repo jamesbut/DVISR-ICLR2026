@@ -539,8 +539,6 @@ class Utils(unittest.TestCase):
             {'op': 'exp', 'type': 'un_op'}
         ]
 
-        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs'])
-
         masks = net_masks.determine_masks(
             max_num_tokens=10, sampled_tokens=eq_4, num_consts_required=1
         )
@@ -555,8 +553,6 @@ class Utils(unittest.TestCase):
         eq_5 = [
             {'op': 'log', 'type': 'un_op'}
         ]
-
-        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs'])
 
         masks = net_masks.determine_masks(
             max_num_tokens=10, sampled_tokens=eq_5, num_consts_required=1
@@ -657,6 +653,80 @@ class Utils(unittest.TestCase):
             pre_softmax_mask,
             torch.tensor([-1e9, 0.0, 0.0, 0.0, -1e9, 0.0])
         ))
+
+        # Check for no_child_consts mask
+        token_set.append(
+            {'op': 5.0, 'type': 'const', 'sub_type': 'float_const', 'id': 6}
+        )
+
+        eq_9 = [
+            {'op': 'cos', 'type': 'un_op'},
+        ]
+
+        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs',
+                                         'all_child_float_consts'])
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_9, num_consts_required=1
+        )
+        self.assertEqual(masks, ['no_trig', 'all_child_float_consts'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([0.0, -1e9, -1e9, 0.0, 0.0, 0.0, -1e9])
+        ))
+
+        eq_10 = [
+                {'op': '+', 'type': 'bin_op', 'sub_type': None},
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_10, num_consts_required=2
+        )
+        self.assertEqual(masks, [])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(not pre_softmax_mask)
+
+        eq_11 = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None},
+            {'op': 5.0, 'type': 'const', 'sub_type': 'float_const'}
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_11, num_consts_required=1
+        )
+        self.assertEqual(masks, ['all_child_float_consts'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1e9])
+        ))
+
+        eq_12 = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None},
+            {'op': 'cos', 'type': 'un_op', 'sub_type': None},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const'}
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_12, num_consts_required=1
+        )
+        self.assertEqual(masks, [])
+
+        eq_13 = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None},
+            {'op': '+', 'type': 'bin_op', 'sub_type': None},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const'},
+            {'op': 5.0, 'type': 'const', 'sub_type': 'float_const'}
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_13, num_consts_required=1
+        )
+        self.assertEqual(masks, [])
 
 
 class Reachability(unittest.TestCase):
