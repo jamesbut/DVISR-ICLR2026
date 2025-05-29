@@ -20,6 +20,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 import pandas as pd
 from util.norms import normalise_value
 from .net_masks import NetMasks
+from .integrators import integrate_q_z_c
 
 
 class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
@@ -1056,40 +1057,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Enumerate all expressions and print out
         if self._enum_all_exps:
 
-            # Integrate w.r.t c for q(z, c) values
+            # Integrate w.r.t c for q(z,c) values
             if self._posterior_integration:
+                q_zs = integrate_q_z_c(self._q, all_exps)
 
-                def qz_func(*args):
-
-                    # Unpack arguments
-                    z = args[-1]
-                    cs = args[:-1]
-
-                    # Set consts
-                    z = copy.copy(z)
-                    z.set_distr_consts(cs)
-
-                    return self._q.pdf(z)
-
-                q_zs = []
-                for i, z in enumerate(all_exps):
-
-                    # Create integration bounds for continuous parameters
-                    integration_bounds = [[-np.inf, np.inf]
-                                          for _ in range(z.num_distr_consts())]
-
-                    # If z has no distributional constants, no need to integrate
-                    if z.num_distr_consts() == 0:
-                        q_zs.append(self._q.pdf(z))
-
-                    else:
-                        res, error = scipy.integrate.nquad(qz_func,
-                                                           integration_bounds,
-                                                           args=(z,))
-                        q_zs.append(res)
-
-            # Otherwise just calculate q(z,c) for whatever values are currently
-            # set to c
+            # Otherwise just calculate q(z,c) for whatever values are
+            # currently set to c
             else:
                 q_zs = [self._q.pdf(z).item() for z in all_exps]
 

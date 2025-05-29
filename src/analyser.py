@@ -7,6 +7,7 @@ from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.vicatsr import log_likelihood, likelihood
 from algorithms.vicatsr.equation import Equation
+from algorithms.vicatsr.integrators import integrate_q_z_c
 from util.norms import normalise_value
 from util.permutations import compute_permutations
 import numpy as np
@@ -460,7 +461,13 @@ def calc_true_posteriors(config, alg, data, all_results, run_dirs):
         # kl_divergence = alg.kl_divergence(data, num_samples=1000)
         # print('KL divergence:', kl_divergence)
 
-        q_z_vals.append([q_z.pdf(z).item() for z in all_exps])
+        if alg._posterior_integration:
+            q_z_vals.append(integrate_q_z_c(q_z, all_exps))
+
+        # Otherwise just calculate q(z,c) for whatever values are
+        # currently set to c
+        else:
+            q_z_vals.append([q_z.pdf(z).item() for z in all_exps])
 
     q_z_vals = np.array(q_z_vals)
     q_z_means = np.mean(q_z_vals, axis=0)
