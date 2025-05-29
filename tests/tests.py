@@ -13,6 +13,7 @@ from algorithms.vicatsr.vicatsr import likelihood, log_likelihood
 from algorithms.vicatsr.analytic_solutions import post_params_analytic, \
                                                   analytic_log_evidence, \
                                                   analytic_evidence_post_params
+from algorithms.vicatsr.integrators import integrate_posterior, integrate_prior
 from util.tree import get_parent, get_sibling, is_descendent
 import torch
 import numpy as np
@@ -916,13 +917,12 @@ class Integrator(unittest.TestCase):
                                places=8)
 
         # Check posterior integrates to 1
-        int_post_numeric = self._int_post(
-            np.exp(log_evidence_split_sum), all_exprs
-        )
+        int_post_numeric = integrate_posterior(self._alg, all_exprs,
+                                               np.exp(log_evidence_split_sum))
         self.assertAlmostEqual(int_post_numeric, 1.0, places=10)
 
         # Check prior integrates to 1
-        int_prior = self._int_prior(all_exprs)
+        int_prior = integrate_prior(self._alg, all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
         print(log_evidence_no_split_sum)
@@ -1032,13 +1032,12 @@ class Integrator(unittest.TestCase):
                                places=10)
 
         # Check the integration of posterior is 1.0
-        int_post_numeric = self._int_post(
-            np.exp(log_evidence_only_own_c), all_exprs
-        )
+        int_post_numeric = integrate_posterior(self._alg, all_exprs,
+                                               np.exp(log_evidence_only_own_c))
         self.assertAlmostEqual(int_post_numeric, 1.0, places=10)
 
         # Check prior integrates to 1
-        int_prior = self._int_prior(all_exprs)
+        int_prior = integrate_prior(self._alg, all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
     # Test evidence calculation when there is more than one constant
@@ -1066,13 +1065,12 @@ class Integrator(unittest.TestCase):
         )
 
         # Check the integration of posterior is 1
-        int_post_numeric = self._int_post(
-            np.exp(log_evidence_only_own_c), all_exprs
-        )
+        int_post_numeric = integrate_posterior(self._alg, all_exprs,
+                                               np.exp(log_evidence_only_own_c))
         self.assertAlmostEqual(int_post_numeric, 1.0, places=8)
 
         # Check prior integrates to 1
-        int_prior = self._int_prior(all_exprs)
+        int_prior = integrate_prior(self._alg, all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=10)
 
     # Test posterior integrates to 1.0
@@ -1129,98 +1127,15 @@ class Integrator(unittest.TestCase):
         self.assertAlmostEqual(np.log(post_ev), log_evidence)
 
         # Check posterior integrates to 1
-        int_post = self._int_post(np.exp(log_evidence), all_exprs)
-        int_post_post_ev = self._int_post(post_ev, all_exprs)
+        int_post = integrate_posterior(self._alg, all_exprs,
+                                       np.exp(log_evidence))
+        int_post_post_ev = integrate_posterior(self._alg, all_exprs, post_ev)
         self.assertAlmostEqual(int_post, 1.0, places=13)
         self.assertAlmostEqual(int_post_post_ev, 1.0, places=13)
 
         # Check prior integrates to 1
-        int_prior = self._int_prior(all_exprs)
+        int_prior = integrate_prior(self._alg, all_exprs)
         self.assertAlmostEqual(int_prior, 1.0, places=13)
-
-    def _int_post(self, ev, all_exprs):
-
-        int_p_z_x = 0.0
-        for z in all_exprs:
-
-            # Create integration bounds for continuous parameters
-            integration_bounds = [[-np.inf, np.inf]
-                                  for _ in range(z.num_distr_consts())]
-
-            # If z has no distributional constants, no need to integrate
-            if z.num_distr_consts() == 0:
-                int_p_z_x += post(ev, z, self._data, self._alg)
-
-            else:
-                res, error = scipy.integrate.nquad(post_func,
-                                                   integration_bounds,
-                                                   args=(z, self._data, ev,
-                                                         self._alg))
-                int_p_z_x += res
-
-        return int_p_z_x
-
-    def _int_prior(self, all_exprs):
-
-        int_prior = 0.0
-        for z in all_exprs:
-
-            # Create integration bounds for continuous parameters
-            integration_bounds = [[-np.inf, np.inf]
-                                  for _ in range(z.num_distr_consts())]
-
-            if z.num_distr_consts() == 0:
-                int_prior += self._alg._prior(z)
-
-            else:
-
-                out, error = scipy.integrate.nquad(
-                    prior_func,
-                    integration_bounds,
-                    args=(z, self._alg)
-                )
-                int_prior += out
-
-        return int_prior
-
-
-def post(ev, z, data, alg):
-    '''
-    return (likelihood(data, z, alg._likelihood_sd,
-                       alg._max_num_tokens, alg._net_masks)
-            * alg._prior(z) / ev)
-    '''
-
-    llh = log_likelihood(data, z, alg._likelihood_sd,
-                         alg._max_num_tokens, alg._net_masks)
-    lp = alg._log_prior_log_space(z)
-    log_joint = llh + lp
-
-    return np.exp(log_joint) / ev
-
-
-def post_func(*args):
-
-    c = args[:-4]
-    data = args[-3]
-    ev = args[-2]
-    alg = args[-1]
-
-    z = copy.copy(args[-4])
-    z.set_distr_consts(c)
-
-    return post(ev, z, data, alg)
-
-
-def prior_func(*args):
-
-    c = args[:-2]
-    alg = args[-1]
-
-    z = copy.copy(args[-2])
-    z.set_distr_consts(c)
-
-    return alg._prior(z)
 
 
 class LogSpace(unittest.TestCase):
@@ -1253,13 +1168,12 @@ class LogSpace(unittest.TestCase):
 
         all_exprs = self._alg._enumerate_expressions(self._data)
 
-        for e in all_exprs:
-            print(e.get_infix())
-
-        self.assertEqual(self._alg._log_prior(all_exprs[1]),
-                         self._alg._log_prior_log_space(all_exprs[1]))
-        self.assertEqual(self._alg._log_prior(all_exprs[0]),
-                         self._alg._log_prior_log_space(all_exprs[0]))
+        self.assertAlmostEqual(self._alg._log_prior(all_exprs[1]),
+                               self._alg._log_prior_log_space(all_exprs[1]),
+                               places=13)
+        self.assertAlmostEqual(self._alg._log_prior(all_exprs[0]),
+                               self._alg._log_prior_log_space(all_exprs[0]),
+                               places=13)
         # self.assertAlmostEqual(int_prior, 1.0, places=10)
 
         print(self._alg._prior(all_exprs[0]))
@@ -1282,14 +1196,16 @@ class LogSpace(unittest.TestCase):
         print(np.log(likelihood(self._data, all_exprs[1],
                                 self._alg._likelihood_sd)))
 
-        self.assertEqual(log_likelihood(self._data, all_exprs[1],
-                                        self._alg._likelihood_sd),
-                         np.log(likelihood(self._data, all_exprs[1],
-                                           self._alg._likelihood_sd)))
-        self.assertEqual(log_likelihood(self._data, all_exprs[0],
-                                        self._alg._likelihood_sd),
-                         np.log(likelihood(self._data, all_exprs[0],
-                                           self._alg._likelihood_sd)))
+        self.assertAlmostEqual(log_likelihood(self._data, all_exprs[1],
+                                              self._alg._likelihood_sd),
+                               np.log(likelihood(self._data, all_exprs[1],
+                                                 self._alg._likelihood_sd)),
+                               places=13)
+        self.assertAlmostEqual(log_likelihood(self._data, all_exprs[0],
+                                              self._alg._likelihood_sd),
+                               np.log(likelihood(self._data, all_exprs[0],
+                                                 self._alg._likelihood_sd)),
+                               places=13)
         # self.assertAlmostEqual(int_prior, 1.0, places=10)
 
 

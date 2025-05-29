@@ -292,3 +292,77 @@ def integrate_joint(vicatsr, data, zs, likelihood, log_likelihood,
                                            args=(zs, num_distr_consts))
 
     return p_x
+
+
+# Integrate posterior w.r.t z, c and x.
+# This should integrate to 1.0 if everything is working as expected
+def integrate_posterior(vicatsr, exprs, ev=None):
+
+    def posterior_func(*args):
+
+        c = args[:-4]
+        exprs = args[-3]
+        ev = args[-2]
+        vicatsr = args[-1]
+
+        z = copy.copy(args[-4])
+        z.set_distr_consts(c)
+
+        return vicatsr.posterior_log_space(vicatsr._data, z, exprs, ev)
+
+    int_p_z_x = 0.0
+    for z in exprs:
+
+        # Create integration bounds for continuous parameters
+        integration_bounds = [[-np.inf, np.inf]
+                              for _ in range(z.num_distr_consts())]
+
+        # If z has no distributional constants, no need to integrate
+        if z.num_distr_consts() == 0:
+            int_p_z_x += vicatsr.posterior_log_space(vicatsr._data, z,
+                                                     exprs, ev)
+
+        else:
+            res, error = scipy.integrate.nquad(posterior_func,
+                                               integration_bounds,
+                                               args=(z, exprs, ev,
+                                                     vicatsr))
+            int_p_z_x += res
+
+    return int_p_z_x
+
+
+# Integrate prior w.r.t z, c and x.
+# This should integrate to 1.0 if everything is working as expected
+def integrate_prior(vicatsr, exprs):
+
+    def prior_func(*args):
+
+        c = args[:-2]
+        vicatsr = args[-1]
+
+        z = copy.copy(args[-2])
+        z.set_distr_consts(c)
+
+        return vicatsr._prior(z)
+
+    int_prior = 0.0
+    for z in exprs:
+
+        # Create integration bounds for continuous parameters
+        integration_bounds = [[-np.inf, np.inf]
+                              for _ in range(z.num_distr_consts())]
+
+        if z.num_distr_consts() == 0:
+            int_prior += vicatsr._prior(z)
+
+        else:
+
+            out, error = scipy.integrate.nquad(
+                prior_func,
+                integration_bounds,
+                args=(z, vicatsr)
+            )
+            int_prior += out
+
+    return int_prior

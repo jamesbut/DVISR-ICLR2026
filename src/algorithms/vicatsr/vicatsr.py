@@ -9,7 +9,6 @@ from algorithms.algorithm import Algorithm
 import numpy as np
 import scipy
 import math
-import itertools
 import matplotlib.pyplot as plt
 import torch
 from .q import q
@@ -579,33 +578,43 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
         return log_prior
 
-    # Calculate posterior for specific model z
-    def posterior(self, data, z, all_z):
-        return (likelihood(data, z, self._likelihood_sd,
-                           self._max_num_tokens, self._net_masks)
-                * self._prior(z)
-                / self.evidence(
-                    data, all_z,
-                    int_method=self._evidence_integration_method,
-                    reset=False,
-                    log_space=True,
-                    int_error_tol=self._evidence_integrator_error_tol
-                ))
+    # Calculate posterior for specific model z.
+    # Once can provide their own evidence.
+    def posterior(self, data, z, all_z, evidence=None):
 
-    def posterior_log_space(self, data, z, all_z):
+        joint = (likelihood(data, z, self._likelihood_sd,
+                            self._max_num_tokens, self._net_masks)
+                 * self._prior(z))
+
+        if evidence:
+            ev = evidence
+        else:
+            ev = self.evidence(
+                data, all_z,
+                int_method=self._evidence_integration_method,
+                reset=False,
+                log_space=True,
+                int_error_tol=self._evidence_integrator_error_tol
+            )
+        return joint / ev
+
+    def posterior_log_space(self, data, z, all_z, evidence=None):
 
         llh = log_likelihood(data, z, self._likelihood_sd,
                              self._max_num_tokens, self._net_masks)
         lp = self._log_prior_log_space(z)
         log_joint = llh + lp
 
-        ev = self.evidence(
-            data, all_z,
-            int_method=self._evidence_integration_method,
-            reset=False,
-            log_space=True,
-            int_error_tol=self._evidence_integrator_error_tol
-        )
+        if evidence:
+            ev = evidence
+        else:
+            ev = self.evidence(
+                data, all_z,
+                int_method=self._evidence_integration_method,
+                reset=False,
+                log_space=True,
+                int_error_tol=self._evidence_integrator_error_tol
+            )
 
         return np.exp(log_joint) / ev
 
