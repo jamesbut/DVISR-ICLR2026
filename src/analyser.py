@@ -387,6 +387,10 @@ def plot_c_distrs(alg, data, q):
         if e.num_distr_consts() == 0:
             continue
 
+        if e.num_distr_consts() > 1:
+            print('Skipping: y =', e.get_infix())
+            continue
+
         print('y =', e.get_infix())
 
         num_distr_consts = e.num_distr_consts()
