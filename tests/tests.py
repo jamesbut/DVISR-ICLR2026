@@ -10,15 +10,13 @@ from algorithms.algorithm_factory import create_algorithm
 from algorithms.vicatsr.equation import Equation
 from algorithms.vicatsr.net_masks import NetMasks
 from algorithms.vicatsr.vicatsr import likelihood, log_likelihood
-from algorithms.vicatsr.analytic_solutions import post_params_analytic, \
-                                                  analytic_log_evidence, \
+from algorithms.vicatsr.analytic_solutions import post_params_analytic_c, \
                                                   analytic_evidence_post_params
 from algorithms.vicatsr.integrators import integrate_posterior, integrate_prior
 from util.tree import get_parent, get_sibling, is_descendent
 import torch
 import numpy as np
 import copy
-import scipy
 
 
 class VICatSR(unittest.TestCase):
@@ -145,7 +143,7 @@ class VICatSR(unittest.TestCase):
         self.assertAlmostEqual(numeric_mean, 0.35, places=10)
         self.assertAlmostEqual(numeric_sd, 0.28867513459481287, places=10)
 
-        analytic_mean, analytic_sd = post_params_analytic(
+        analytic_mean, analytic_sd = post_params_analytic_c(
             alg._prior_mean,
             alg._prior_sd,
             alg._likelihood_sd,
@@ -188,7 +186,7 @@ class VICatSR(unittest.TestCase):
         self.assertAlmostEqual(numeric_mean, 0.35, places=10)
         self.assertAlmostEqual(numeric_sd, 0.28867513459481287, places=10)
 
-        analytic_mean, analytic_sd = post_params_analytic(
+        analytic_mean, analytic_sd = post_params_analytic_c(
             alg._prior_mean,
             alg._prior_sd,
             alg._likelihood_sd,
@@ -1104,7 +1102,7 @@ class Integrator(unittest.TestCase):
         )
 
         # Calculate posterior parameters analytically
-        post_params = post_params_analytic(
+        post_params = post_params_analytic_c(
             self._alg._prior_mean,
             self._alg._prior_sd,
             self._alg._likelihood_sd,

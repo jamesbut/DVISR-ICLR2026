@@ -79,9 +79,8 @@ def integrate_p_z_c_x(vicatsr, exprs):
 
 
 # Integrate the joint, p(z,c,x), w.r.t z and c.
-# This results in p(x), the evidence
-def integrate_joint(vicatsr, data, zs, likelihood, log_likelihood,
-                    int_method, log_space, int_error_tol):
+# This results in p(x), the evidence.
+def integrate_joint(vicatsr, data, zs, int_method, log_space, int_error_tol):
 
     num_distr_consts = [e.num_distr_consts() for e in zs]
     total_num_distr_consts = sum(num_distr_consts)
@@ -119,21 +118,9 @@ def integrate_joint(vicatsr, data, zs, likelihood, log_likelihood,
             return 0.0
 
         if log_space:
-            joint = np.exp(
-                log_likelihood(
-                    data, z, vicatsr._likelihood_sd,
-                    vicatsr._max_num_tokens, vicatsr._net_masks
-                ) + vicatsr._log_prior_log_space(z)
-            )
-
+            return vicatsr.joint_log_space(z, data)
         else:
-
-            joint = likelihood(
-                data, z, vicatsr._likelihood_sd,
-                vicatsr._max_num_tokens, vicatsr._net_masks
-            ) * vicatsr._prior(z)
-
-        return joint
+            return vicatsr.joint(z, data)
 
     def joint_func_all_c(*args):
 
@@ -159,21 +146,9 @@ def integrate_joint(vicatsr, data, zs, likelihood, log_likelihood,
             return 0.0
 
         if log_space:
-            joint = np.exp(
-                log_likelihood(
-                    data, z, vicatsr._likelihood_sd,
-                    vicatsr._max_num_tokens, vicatsr._net_masks
-                ) + vicatsr._log_prior_log_space(z)
-            )
-
+            return vicatsr.joint_log_space(z, data)
         else:
-
-            joint = likelihood(
-                data, z, vicatsr._likelihood_sd,
-                vicatsr._max_num_tokens, vicatsr._net_masks
-            ) * vicatsr._prior(z)
-
-        return joint
+            return vicatsr.joint(z, data)
 
     def joint_func(*args):
 
@@ -186,21 +161,9 @@ def integrate_joint(vicatsr, data, zs, likelihood, log_likelihood,
         z.set_distr_consts(cs)
 
         if log_space:
-            joint = np.exp(
-                log_likelihood(
-                    data, z, vicatsr._likelihood_sd,
-                    vicatsr._max_num_tokens, vicatsr._net_masks
-                ) + vicatsr._log_prior_log_space(z)
-            )
-
+            return vicatsr.joint_log_space(z, data)
         else:
-
-            joint = likelihood(
-                data, z, vicatsr._likelihood_sd,
-                vicatsr._max_num_tokens, vicatsr._net_masks
-            ) * vicatsr._prior(z)
-
-        return joint
+            return vicatsr.joint(z, data)
 
     # Sum over expressions is separated from the integration
     if int_method == 'split_sum':
@@ -217,18 +180,9 @@ def integrate_joint(vicatsr, data, zs, likelihood, log_likelihood,
             # If z has no distributional constants, no need to integrate
             if z.num_distr_consts() == 0:
                 if log_space:
-                    joint = np.exp(
-                        log_likelihood(
-                            data, z, vicatsr._likelihood_sd,
-                            vicatsr._max_num_tokens, vicatsr._net_masks
-                        ) + vicatsr._log_prior_log_space(z)
-                    )
-                    p_x += joint
-
+                    p_x += vicatsr.joint_log_space(z, data)
                 else:
-                    p_x += likelihood(data, z, vicatsr._likelihood_sd,
-                                      vicatsr._max_num_tokens,
-                                      vicatsr._net_masks) * vicatsr._prior(z)
+                    p_x += vicatsr.joint(z, data)
 
             else:
                 res, error = scipy.integrate.nquad(joint_func_all_c,
@@ -262,13 +216,7 @@ def integrate_joint(vicatsr, data, zs, likelihood, log_likelihood,
 
             # If z has no distributional constants, no need to integrate
             if z.num_distr_consts() == 0:
-                joint = np.exp(
-                    log_likelihood(
-                        data, z, vicatsr._likelihood_sd,
-                        vicatsr._max_num_tokens, vicatsr._net_masks
-                    ) + vicatsr._log_prior_log_space(z)
-                )
-                p_x += joint
+                p_x += vicatsr.joint_log_space(z, data)
 
             else:
                 res, error = scipy.integrate.nquad(joint_func,

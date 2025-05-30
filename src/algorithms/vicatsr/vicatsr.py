@@ -582,10 +582,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
     # Once can provide their own evidence.
     def posterior(self, data, z, all_z, evidence=None):
 
-        joint = (likelihood(data, z, self._likelihood_sd,
-                            self._max_num_tokens, self._net_masks)
-                 * self._prior(z))
-
         if evidence:
             ev = evidence
         else:
@@ -596,15 +592,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 log_space=True,
                 int_error_tol=self._evidence_integrator_error_tol
             )
-        return joint / ev
+
+        return self.joint(z, data) / ev
 
     def posterior_log_space(self, data, z, all_z, evidence=None):
 
-        llh = log_likelihood(data, z, self._likelihood_sd,
-                             self._max_num_tokens, self._net_masks)
-        lp = self._log_prior_log_space(z)
-        log_joint = llh + lp
-
         if evidence:
             ev = evidence
         else:
@@ -616,7 +608,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 int_error_tol=self._evidence_integrator_error_tol
             )
 
-        return np.exp(log_joint) / ev
+        return self.joint_log_space(z, data) / ev
 
     # Calculate the true posterior for all enumerated models
     def posteriors(self, data):
@@ -651,26 +643,14 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Calculate p(x) based on the law of total probability
         if total_num_distr_consts == 0:
             if log_space:
-                p_x = sum([
-                    np.exp(
-                        log_likelihood(data, z, self._likelihood_sd,
-                                       self._max_num_tokens, self._net_masks)
-                        + self._log_prior_log_space(z)
-                    )
-                    for z in zs
-                ])
+                p_x = sum([self.joint_log_space(z, data) for z in zs])
             else:
-                p_x = sum([
-                    likelihood(data, z, self._likelihood_sd,
-                               self._max_num_tokens, self._net_masks)
-                    * self._prior(z)
-                    for z in zs
-                ])
+                p_x = sum([self.joint(z, data) for z in zs])
 
         # Calculate p(x) using a numerical integrator
         else:
-            p_x = integrate_joint(self, data, zs, likelihood, log_likelihood,
-                                  int_method, log_space, int_error_tol)
+            p_x = integrate_joint(self, data, zs, int_method,
+                                  log_space, int_error_tol)
 
         return p_x
 
@@ -678,6 +658,18 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                      log_space=False, int_error_tol=None):
         return math.log(self.evidence(data, zs, int_method, reset, log_space,
                                       int_error_tol))
+
+    def joint(self, z, data):
+        return (likelihood(data, z, self._likelihood_sd,
+                           self._max_num_tokens, self._net_masks)
+                * self._prior(z))
+
+    def joint_log_space(self, z, data):
+        return np.exp(
+            log_likelihood(data, z, self._likelihood_sd,
+                           self._max_num_tokens, self._net_masks)
+            + self._log_prior_log_space(z)
+        )
 
     # Calculate list of values such that when you take the mean, you get the
     # ELBO.
