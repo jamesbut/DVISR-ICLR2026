@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import scipy
 
@@ -7,7 +6,7 @@ import scipy
 def post_params_analytic_c(prior_mean, prior_sd, likelihood_sd, N, x_bar):
 
     post_var = 1 / ((N / likelihood_sd ** 2) + (1 / prior_sd ** 2))
-    post_sd = math.sqrt(post_var)
+    post_sd = np.sqrt(post_var)
 
     post_mean = post_var * ((prior_mean / prior_sd ** 2)
                             + (N * x_bar / likelihood_sd ** 2))
@@ -18,12 +17,12 @@ def post_params_analytic_c(prior_mean, prior_sd, likelihood_sd, N, x_bar):
 # Posterior parameter solutions for y = cx and a prior over c
 def post_params_analytic_cx(prior_mean, prior_sd, likelihood_sd, data):
 
-    sum_x_squared = sum(x ** 2 for x in data['x'])
-    sum_x_y = sum(x * y for x, y in zip(data['x'], data['y']))
+    sum_x_squared = sum(x ** 2 for x in data['x'])[0]
+    sum_x_y = sum(x * y for x, y in zip(data['x'], data['y']))[0]
 
     post_var = 1 / ((1 / prior_sd ** 2)
                     + (1 / likelihood_sd ** 2) * sum_x_squared)
-    post_sd = math.sqrt(post_var)
+    post_sd = np.sqrt(post_var)
 
     post_mean = post_var * ((prior_mean / prior_sd ** 2)
                             + (1 / likelihood_sd ** 2) * sum_x_y)
@@ -31,49 +30,102 @@ def post_params_analytic_cx(prior_mean, prior_sd, likelihood_sd, data):
     return post_mean, post_sd
 
 
-# Compute evidence analytically for the same situation as above using
-# the parameters of the posterior calculated analytically
-def analytic_evidence_post_params(post_mean, post_sd, all_exprs, alg,
-                                  likelihood, log_likelihood, data):
+# Compute evidence analytically when the posterior parameters have
+# been obtained
+def analytic_evidence_post_params(post_mean, post_sd, z, vicatsr):
 
     post_gauss = scipy.stats.norm(post_mean, post_sd)
 
-    z = all_exprs[0]
+    # Find float const token value
+    value = next((t['value'] for t in z.tokens()
+                  if t['sub_type'] == 'float_const'), None)
 
-    ev = (likelihood(data, z, alg._likelihood_sd,
-                     alg._max_num_tokens, alg._net_masks)
-          * alg._prior(z) / post_gauss.pdf(z.tokens()[0]['value']))
+    # Calculate evidence by dividing joint by posterior
+    ev = vicatsr.joint(z, vicatsr._data) / post_gauss.pdf(value)
 
     return ev
 
 
-def analytic_log_evidence_post_params(post_mean, post_sd, all_exprs, alg,
-                                      likelihood, log_likelihood, data):
+def analytic_log_evidence_post_params(post_mean, post_sd, z, vicatsr):
     return np.log(analytic_evidence_post_params(
-        post_mean, post_sd, all_exprs, alg, likelihood, log_likelihood, data
+        post_mean, post_sd, z, vicatsr
     ))
 
 
-# Attempt to calculate the evidence analytically if the expressions fit
-# a certain format
-def analytic_evidence(exprs, alg):
-
-    '''
-    def joint(e, alg):
-
-
+# Attempt to calculate the evidence analytically if the expressions are of a
+# certain form.
+# Return None if analytic evidence could not be calculated.
+def analytic_evidence(exprs, vicatsr):
 
     p_x = []
 
-    for e in expr:
+    # Check whether evidence can be calculated analytically for each
+    # expression and calculate it
+    for z in exprs:
 
-        # Check whether evidence can be calculated analytically for each
-        # expression
+        # If there are no distributional constants, evidence contribution
+        # is simply the joint
+        if z.num_distr_consts() == 0:
+            p_x.append(vicatsr.joint(z, vicatsr._data))
 
-        # If there are no distributional constants, evidence is simple
-        if e.num_distr_consts() == 0:
-            p_x.append()
-    '''
+        # Otherwise determine the form of the expression and then calculate
+        # evidence contribution accordingly
+        else:
+
+            # If expression is y = c
+            if (z.num_tokens() == 1
+                and z.tokens()[0]['sub_type'] == 'float_const'):
+
+                N = len(vicatsr._data['y'])
+                y_bar = np.mean(vicatsr._data['y'])
+
+                post_params = post_params_analytic_c(
+                    vicatsr._prior_mean, vicatsr._prior_sd,
+                    vicatsr._likelihood_sd, N, y_bar
+                )
+
+                p_x.append(
+                    analytic_evidence_post_params(
+                        post_params[0], post_params[1], z, vicatsr
+                    )
+                )
+
+            # If expression is y = cx
+            elif (z.num_tokens() == 3
+                  and any(t['op'] == '*' for t in z.tokens())
+                  and any(t['sub_type'] == 'float_const' for t in z.tokens())
+                  and any(t['sub_type'] == 'var_const' for t in z.tokens())):
+
+                post_params = post_params_analytic_cx(
+                    vicatsr._prior_mean,
+                    vicatsr._prior_sd,
+                    vicatsr._likelihood_sd,
+                    vicatsr._data)
+
+                p_x.append(
+                    analytic_evidence_post_params(
+                        post_params[0], post_params[1], z, vicatsr
+                    )
+                )
+
+            else:
+
+                # Check whether z is a invalid expression under the constraints.
+                # If invalid, it will not contribute anything to the evidence.
+                # Do not return None.
+                if not z.valid_eq(vicatsr._max_num_tokens, vicatsr._net_masks):
+                    continue
+
+                # If it is valid but just cannot be calculated then return None
+                else:
+                    return None
+
+    return sum(p_x)
+
+
+def analytic_log_evidence(exprs, vicatsr):
+    ev = analytic_evidence(exprs, vicatsr)
+    return np.log(ev) if ev else None
 
 
 # Compute evidence analytically for the same situation as above.

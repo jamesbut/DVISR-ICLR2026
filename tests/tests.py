@@ -11,7 +11,8 @@ from algorithms.vicatsr.equation import Equation
 from algorithms.vicatsr.net_masks import NetMasks
 from algorithms.vicatsr.vicatsr import likelihood, log_likelihood
 from algorithms.vicatsr.analytic_solutions import post_params_analytic_c, \
-                                                  analytic_evidence_post_params
+                                                  analytic_evidence_post_params, \
+                                                  analytic_log_evidence
 from algorithms.vicatsr.integrators import integrate_posterior, integrate_prior
 from util.tree import get_parent, get_sibling, is_descendent
 import torch
@@ -1205,6 +1206,128 @@ class LogSpace(unittest.TestCase):
                                                  self._alg._likelihood_sd)),
                                places=13)
         # self.assertAlmostEqual(int_prior, 1.0, places=10)
+
+
+class AnalyticSolutions(unittest.TestCase):
+
+    def setUp(self):
+
+        # Read config
+        self._config = read_json(os.getcwd()
+                                 + '/configs/test_configs/vicatsr.json')
+
+        self._config['domain'] = {
+            "name": "WrittenExpression",
+            "expression": "`x_0` * `x_0`",
+            "x_mins": [0.0],
+            "x_maxs": [1.0],
+            "x_step_sizes": [0.1]
+        }
+        self._config['algorithm']['distr_over_consts'] = True
+        self._config['algorithm']['prior_sd'] = 0.1
+
+        # Create domain
+        self._domain = create_domain(self._config['domain'])
+        self._data = self._domain.create_data()
+
+        # Create algorithm
+        self._alg = create_algorithm(self._config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+    # Check analytic solutions work when expressions are y = x and y = c
+    def test_analytic_solution_c(self):
+
+        config = copy.deepcopy(self._config)
+
+        ########################
+        # Check without x vars #
+        ########################
+        config['algorithm']['remove_x_vars'] = True
+
+        # Create algorithm
+        self._alg = create_algorithm(config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        # Calculate log evidence numerically
+        numeric_log_ev = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True,
+            log_space=True,
+            int_error_tol=1e-18
+        )
+
+        # Calculate log evidence analytically
+        analytic_log_ev = analytic_log_evidence(all_exprs, self._alg)
+
+        # Check both evidence values are essentially the same
+        self.assertAlmostEqual(numeric_log_ev, analytic_log_ev)
+
+        #####################
+        # Check with x vars #
+        #####################
+
+        config['algorithm']['remove_x_vars'] = False
+
+        # Create algorithm
+        self._alg = create_algorithm(config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        # Calculate log evidence numerically
+        numeric_log_ev = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True,
+            log_space=True,
+            int_error_tol=1e-18
+        )
+
+        # Calculate log evidence analytically
+        analytic_log_ev = analytic_log_evidence(all_exprs, self._alg)
+
+        # Check both evidence values are essentially the same
+        self.assertAlmostEqual(numeric_log_ev, analytic_log_ev)
+
+    # Check analytic solutions work when max number of tokens is 3 so there
+    # are c * x expressions which are analytically solvable
+    def test_analytic_solution_cx(self):
+
+        config = copy.deepcopy(self._config)
+
+        del config['algorithm']['operators']['unary_ops']
+        config['algorithm']['max_num_tokens'] = 3
+        config['algorithm']['constraints'] = ['all_child_float_consts']
+
+        # Create algorithm
+        self._alg = create_algorithm(config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        # Calculate log evidence numerically
+        numeric_log_ev = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True,
+            log_space=True,
+            int_error_tol=1e-25
+        )
+
+        # Calculate log evidence analytically
+        analytic_log_ev = analytic_log_evidence(all_exprs, self._alg)
+
+        # Check both evidence values are essentially the same
+        self.assertAlmostEqual(numeric_log_ev, analytic_log_ev, places=14)
+
+        print(numeric_log_ev)
+        print(analytic_log_ev)
 
 
 if __name__ == "__main__":
