@@ -329,7 +329,7 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             loss.backward()
 
-            self._optimser.step()
+            self._optimiser.step()
 
         '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)

@@ -1115,11 +1115,8 @@ class Integrator(unittest.TestCase):
         post_ev = analytic_evidence_post_params(
             post_params[0],
             post_params[1],
-            all_exprs,
-            self._alg,
-            likelihood,
-            log_likelihood,
-            self._data
+            all_exprs[0],
+            self._alg
         )
 
         # Check both evidence values are essentially the same
