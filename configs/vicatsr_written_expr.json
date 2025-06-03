@@ -49,12 +49,12 @@
             "sibling_input": true,
             "previous_input": false,
             "_grad_clip": 10.0,
-            "lr_scheduler": {
+            "_lr_scheduler": {
                 "type": "ExponentialLR",
                 "gamma": 0.95,
                 "verbosity": true
             },
-            "_lr_scheduler": {
+            "lr_scheduler": {
                 "type": "ReduceLROnPlateau",
                 "mode": "min",
                 "factor": 0.5,
