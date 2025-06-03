@@ -30,21 +30,39 @@
         "_prior_sd": 100.0,
         "likelihood_sd": 3.0,
         "_q_const_sd": 0.1,
-        "num_steps": 1000,
+        "num_steps": 500,
         "num_eq_samples": 500,
         "_num_eq_samples": 1000,
         "_max_num_tokens": 5,
         "max_num_tokens": 3,
         "target_policy": {
-            "learning_rate": 2e-4,
-            "_learning_rate": 1e-3,
+            "optimiser": {
+                "type": "RMSProp",
+                "lr": 1e-2,
+                "alpha": 0.9,
+                "eps": 1e-6
+            },
             "_rnn_hidden_layer_size": 256,
             "rnn_hidden_layer_size": 64,
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
             "previous_input": false,
-            "_grad_clip": 10.0
+            "_grad_clip": 10.0,
+            "lr_scheduler": {
+                "type": "ExponentialLR",
+                "gamma": 0.95,
+                "verbosity": true
+            },
+            "_lr_scheduler": {
+                "type": "ReduceLROnPlateau",
+                "mode": "min",
+                "factor": 0.5,
+                "patience": 10,
+                "min_lr": 1e-6,
+                "verbose": true,
+                "verbosity": true
+            }
         },
         "remove_x_vars": false,
         "behaviour_policy": "target",
@@ -52,10 +70,10 @@
         "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
-        "_baseline": {
+        "baseline": {
             "name": "mean"
         },
-        "baseline": {
+        "_baseline": {
             "name": "ewma",
             "alpha": 0.25,
             "jumpstart": true
@@ -77,6 +95,6 @@
         "write_to_file": true
     },
     "execution": {
-        "num_runs": 1
+        "num_runs": 10
     }
 }

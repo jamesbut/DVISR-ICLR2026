@@ -20,6 +20,9 @@ import pandas as pd
 from util.norms import normalise_value
 from .net_masks import NetMasks
 from .integrators import integrate_q_z_c, integrate_p_z_c_x, integrate_joint
+from .analytic_solutions import analytic_log_evidence
+from util.lr_scheduler import LRScheduler
+from util.optimiser import Optimiser
 
 
 class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
@@ -93,8 +96,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # Maximum number of tokens in generated equations
         self._max_num_tokens = config['max_num_tokens']
 
-        # Learning rate for optimiser
-        self._lr = config['target_policy']['learning_rate']
+        # Optimiser config, which is created during initialisation
+        self._opt_config = config['target_policy']['optimiser']
+
+        # Learning rate scheduler config
+        # LRScheduler is created during initialisation
+        self._lr_scheduler_config = config['target_policy'].get('lr_scheduler',
+                                                                None)
 
         # Size of RNN hidden layer
         self._hidden_layer_size = \
@@ -357,8 +365,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     def _maximise_elbo(self, data):
 
-        optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
-
         self._results = {
             # mus = []
             'kl_divs': [],
@@ -373,12 +379,19 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         }
 
         if self._calc_posteriors_flag:
+
+            # Numerically calculate log evidence
             self._results['log_ev'] = self.log_evidence(
                 data, self._enumerate_expressions(data),
                 int_method=self._evidence_integration_method,
                 reset=False,
                 log_space=True,
                 int_error_tol=self._evidence_integrator_error_tol
+            )
+
+            # Analytically calculate log evidence if possible
+            self._results['analytic_log_ev'] = analytic_log_evidence(
+                self._enumerate_expressions(data), self
             )
 
         for i in range(self._num_steps):
@@ -474,6 +487,9 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if self._calc_posteriors_flag:
                 log_ev = self._results['log_ev']
                 summary_str += f"   log p(x): {log_ev:.10f}"
+                analytic_log_ev = self._results['analytic_log_ev']
+                if analytic_log_ev:
+                    summary_str += f"   log p(x) (analytic): {log_ev:.10f}"
             if self._results['epoch_true_model_located']:
                 summary_str += (
                     f'   ETML: {self._results["epoch_true_model_located"]}'
@@ -483,16 +499,22 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
             if self._writer:
                 self._writer.write_log(summary_str)
 
-            optimiser.zero_grad()
+            self._optimiser.zero_grad()
 
             loss.backward()
+
+            # print('Grad mean:', self._q._net.average_gradient())
+            # print('Grad max:', self._q._net.max_gradient())
 
             # Clip gradients if specified
             if self._grad_clip:
                 torch.nn.utils.clip_grad_value_(self._q._net.parameters(),
                                                 clip_value=self._grad_clip)
 
-            optimiser.step()
+            self._optimiser.step()
+
+            if self._lr_scheduler:
+                self._lr_scheduler.step(-elbos.mean().item())
 
         self._post_elbo_analysis(data)
 
@@ -538,6 +560,13 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                                  self._max_num_tokens,
                                                  self._net_masks,
                                                  all_models)
+
+        # Create torch optimiser and learning rate scheduler if specified
+        self._optimiser = Optimiser(self._opt_config)
+
+        self._lr_scheduler = LRScheduler(
+            self._optimiser, self._lr_scheduler_config
+        ) if self._lr_scheduler_config else None
 
         self._data = data
 
@@ -699,13 +728,14 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         elbos = log_likelihoods + log_priors - log_q_zs
 
         '''
-        for z, ll, qz, lp, el in zip(samples[:10], log_likelihoods,
+        for z, ll, qz, lp, el in zip(samples[:20], log_likelihoods,
                                      log_q_zs, log_priors, elbos):
             out_str = (f'           z: {z.get_infix():<25} '
                        f'log p(x|z): {ll:.10f}  '
                        f'log q(z): {qz:.10f}  '
                        f'log p(z): {lp:.10f}  '
-                       f'ELBO: {el:.10f}')
+                       f'ELBO: {el:.10f}  '
+                       f'log p(x): {math.log(self._evidence):.10f}')
             print(out_str)
         '''
 

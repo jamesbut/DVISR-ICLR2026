@@ -92,6 +92,34 @@ class NN(torch.nn.Module):
     def load(cls, file_path):
         return torch.load(file_path)
 
+    def average_gradient(self):
+
+        total_norm = 0.0
+        param_count = 0
+
+        for param in self.parameters():
+            if param.grad is not None:
+                grad = param.grad.detach()
+                grad_norm = grad.norm(2).item()  # L2 norm
+                total_norm += grad_norm
+                param_count += 1
+
+        if param_count == 0:
+            return 0.0  # No gradients
+
+        return total_norm / param_count
+
+    def max_gradient(self):
+
+        max_grad = 0.0
+        for param in self.parameters():
+            if param.grad is not None:
+                param_max = param.grad.detach().abs().max().item()
+                if param_max > max_grad:
+                    max_grad = param_max
+
+        return max_grad
+
 
 def init_gru_weights_zero(gru_cell):
 
