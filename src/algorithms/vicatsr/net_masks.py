@@ -62,7 +62,8 @@ class NetMasks:
             valid_constraints = [
                 "inverse_ops",
                 "nested_trigs",
-                "all_child_float_consts"
+                "all_child_float_consts",
+                "lhs_float_consts"
             ]
 
             for c in self._constraints:
@@ -110,6 +111,12 @@ class NetMasks:
                       and sampled_tokens[-2]['type'] == 'bin_op'):
                     masks += ['all_child_float_consts']
 
+            # Mask for no float constants on the left hand side of a binary
+            # operator
+            if 'lhs_float_consts' in self._constraints and sampled_tokens:
+                if sampled_tokens[-1]['type'] == 'bin_op':
+                    masks += ['lhs_float_consts']
+
         return masks
 
     # Compose mask from multiple mask names
@@ -144,7 +151,8 @@ class NetMasks:
             mask += self._no_trig_mask
 
         # Do not sample float consts
-        if 'all_child_float_consts' in mask_names:
+        if ('all_child_float_consts' in mask_names
+            or 'lhs_float_consts' in mask_names):
             mask += self._no_float_consts_mask
 
         return torch.from_numpy(mask)

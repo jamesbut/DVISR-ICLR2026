@@ -728,6 +728,36 @@ class Utils(unittest.TestCase):
         )
         self.assertEqual(masks, [])
 
+        # Check for lhs_float_consts mask
+        eq_14 = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None}
+        ]
+
+        net_masks = NetMasks(token_set, ['inverse_ops', 'nested_trigs',
+                                         'all_child_float_consts',
+                                         'lhs_float_consts'])
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_14, num_consts_required=2
+        )
+        self.assertEqual(masks, ['lhs_float_consts'])
+
+        pre_softmax_mask = net_masks.compose_mask(masks)
+        self.assertTrue(torch.equal(
+            pre_softmax_mask,
+            torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1e9])
+        ))
+
+        eq_15 = [
+            {'op': '+', 'type': 'bin_op', 'sub_type': None},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const'},
+        ]
+
+        masks = net_masks.determine_masks(
+            max_num_tokens=10, sampled_tokens=eq_15, num_consts_required=1
+        )
+        self.assertEqual(masks, [])
+
 
 class Reachability(unittest.TestCase):
 

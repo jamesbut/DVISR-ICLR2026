@@ -20,7 +20,8 @@
         "constraints": [
             "inverse_ops",
             "nested_trigs",
-            "all_child_float_consts"
+            "all_child_float_consts",
+            "lhs_float_consts"
         ],
         "prior_mean": 0.0,
         "_prior_sd": 0.1,
@@ -54,16 +55,16 @@
                 "gamma": 0.95,
                 "verbosity": true
             },
-            "_lr_scheduler": {
+            "lr_scheduler": {
                 "type": "ReduceLROnPlateau",
                 "mode": "min",
                 "factor": 0.5,
                 "patience": 10,
                 "min_lr": 1e-6,
-                "verbose": true,
-                "verbosity": true
+                "verbose": false,
+                "verbosity": false
             },
-            "lr_scheduler": {
+            "_lr_scheduler": {
                 "type": "StepLR",
                 "step_size": 50,
                 "gamma": 0.1,
