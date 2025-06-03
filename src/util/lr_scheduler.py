@@ -2,7 +2,8 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import (
     ExponentialLR,
     ReduceLROnPlateau,
-    LinearLR
+    LinearLR,
+    StepLR
 )
 from typing import Any, Dict, Optional
 import copy
@@ -21,6 +22,7 @@ class LRScheduler:
         "ExponentialLR": ExponentialLR,
         "ReduceLROnPlateau": ReduceLROnPlateau,
         "LinearLR": LinearLR,
+        "StepLR": StepLR
     }
 
     def __init__(self, optimiser: Optimizer, config: Dict[str, Any]):

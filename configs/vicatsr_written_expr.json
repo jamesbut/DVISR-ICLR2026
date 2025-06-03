@@ -54,13 +54,19 @@
                 "gamma": 0.95,
                 "verbosity": true
             },
-            "lr_scheduler": {
+            "_lr_scheduler": {
                 "type": "ReduceLROnPlateau",
                 "mode": "min",
                 "factor": 0.5,
                 "patience": 10,
                 "min_lr": 1e-6,
                 "verbose": true,
+                "verbosity": true
+            },
+            "lr_scheduler": {
+                "type": "StepLR",
+                "step_size": 50,
+                "gamma": 0.1,
                 "verbosity": true
             }
         },
