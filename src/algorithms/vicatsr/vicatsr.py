@@ -234,8 +234,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
     def _maximise_likelihood(self, data):
 
-        optimiser = torch.optim.RMSprop(self._q._net.parameters(), lr=self._lr)
-
         # Keep track of sampled z with the highest maximum likelihood
         r_max = None
         best_z = None
@@ -327,11 +325,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             print('Step: {}   Loss: {}'.format(str(i), loss.item()))
 
-            optimiser.zero_grad()
+            self._optimiser.zero_grad()
 
             loss.backward()
 
-            optimiser.step()
+            self._optimser.step()
 
         '''
         sampled_z = [self._q.sample_and_optimise(data, log_likelihood)
@@ -562,7 +560,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                                  all_models)
 
         # Create torch optimiser and learning rate scheduler if specified
-        self._optimiser = Optimiser(self._opt_config)
+        self._optimiser = Optimiser(self._q._net.parameters(),
+                                    self._opt_config)
 
         self._lr_scheduler = LRScheduler(
             self._optimiser, self._lr_scheduler_config

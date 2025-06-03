@@ -41,7 +41,9 @@ class LRScheduler:
 
         # Create scheduler
         SchedulerClass = LRScheduler._registry[scheduler_type]
-        self._scheduler = SchedulerClass(optimiser, **params)
+        self._scheduler = SchedulerClass(optimiser.get_optimiser(), **params)
+
+        self._optimiser = optimiser
 
     def step(self, metric: Optional[float] = None):
         """
@@ -59,5 +61,5 @@ class LRScheduler:
             self._scheduler.step()
 
         if self._verbosity:
-            current_lr = self._optimiser.param_groups[0]['lr']
+            current_lr = self._optimiser.get_optimiser().param_groups[0]['lr']
             print(f"Current learning rate: {current_lr:.6e}")

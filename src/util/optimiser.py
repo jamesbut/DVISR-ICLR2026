@@ -1,9 +1,8 @@
 from torch.optim import (
-    RMSProp,
+    RMSprop,
     Adam
 )
 import copy
-from typing import Any, Dict
 
 
 class Optimiser:
@@ -14,11 +13,11 @@ class Optimiser:
 
     # Mapping of optimiser names to their classes
     _registry = {
-        "RMSProp": RMSProp,
+        "RMSprop": RMSprop,
         "Adam": Adam,
     }
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, net_params, config):
         """
         Initialise the optimiser based on the JSON config.
         """
@@ -36,10 +35,13 @@ class Optimiser:
 
         # Create optimiser
         OptimiserClass = Optimiser._registry[opt_type]
-        self._optimiser = OptimiserClass(**params)
+        self._optimiser = OptimiserClass(net_params, **params)
 
     def step(self):
         self._optimiser.step()
 
     def zero_grad(self):
         self._optimiser.zero_grad()
+
+    def get_optimiser(self):
+        return self._optimiser

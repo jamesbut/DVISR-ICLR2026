@@ -37,7 +37,7 @@
         "max_num_tokens": 3,
         "target_policy": {
             "optimiser": {
-                "type": "RMSProp",
+                "type": "RMSprop",
                 "lr": 1e-2,
                 "alpha": 0.9,
                 "eps": 1e-6
