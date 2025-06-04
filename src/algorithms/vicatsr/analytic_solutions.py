@@ -79,6 +79,12 @@ def analytic_evidence(exprs, vicatsr):
     # expression and calculate it
     for z in exprs:
 
+        # Check whether z is a invalid expression under the constraints.
+        # If invalid, it will not contribute anything to the evidence.
+        # Do not return None.
+        if not z.valid_eq(vicatsr._max_num_tokens, vicatsr._net_masks):
+            continue
+
         # If there are no distributional constants, evidence contribution
         # is simply the joint
         if z.num_distr_consts() == 0:
@@ -142,17 +148,9 @@ def analytic_evidence(exprs, vicatsr):
                     )
                 )
 
+            # Cannot be calculated
             else:
-
-                # Check whether z is a invalid expression under the constraints.
-                # If invalid, it will not contribute anything to the evidence.
-                # Do not return None.
-                if not z.valid_eq(vicatsr._max_num_tokens, vicatsr._net_masks):
-                    continue
-
-                # If it is valid but just cannot be calculated then return None
-                else:
-                    return None
+                return None
 
     return sum(p_x)
 
