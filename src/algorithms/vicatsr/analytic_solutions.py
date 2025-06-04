@@ -30,6 +30,22 @@ def post_params_analytic_cx(prior_mean, prior_sd, likelihood_sd, data):
     return post_mean, post_sd
 
 
+# Posterior parameter solutions for y = c + x and a prior over c
+def post_params_analytic_c_plus_x(prior_mean, prior_sd, likelihood_sd, data):
+
+    N = len(data['y'])
+
+    sum_diffs = sum(y - x for x, y in zip(data['x'], data['y']))[0]
+
+    post_var = 1 / ((N / likelihood_sd ** 2) + (1 / prior_sd ** 2))
+    post_sd = np.sqrt(post_var)
+
+    post_mean = post_var * ((prior_mean / prior_sd ** 2)
+                            + (1 / likelihood_sd ** 2) * sum_diffs)
+
+    return post_mean, post_sd
+
+
 # Compute evidence analytically when the posterior parameters have
 # been obtained
 def analytic_evidence_post_params(post_mean, post_sd, z, vicatsr):
@@ -97,6 +113,24 @@ def analytic_evidence(exprs, vicatsr):
                   and any(t['sub_type'] == 'var_const' for t in z.tokens())):
 
                 post_params = post_params_analytic_cx(
+                    vicatsr._prior_mean,
+                    vicatsr._prior_sd,
+                    vicatsr._likelihood_sd,
+                    vicatsr._data)
+
+                p_x.append(
+                    analytic_evidence_post_params(
+                        post_params[0], post_params[1], z, vicatsr
+                    )
+                )
+
+            # If expression is y = c + x
+            elif (z.num_tokens() == 3
+                  and any(t['op'] == '+' for t in z.tokens())
+                  and any(t['sub_type'] == 'float_const' for t in z.tokens())
+                  and any(t['sub_type'] == 'var_const' for t in z.tokens())):
+
+                post_params = post_params_analytic_c_plus_x(
                     vicatsr._prior_mean,
                     vicatsr._prior_sd,
                     vicatsr._likelihood_sd,

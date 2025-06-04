@@ -1322,7 +1322,7 @@ class AnalyticSolutions(unittest.TestCase):
         self.assertAlmostEqual(numeric_log_ev, analytic_log_ev)
 
     # Check analytic solutions work when max number of tokens is 3 so there
-    # are c * x expressions which are analytically solvable
+    # is also the c * x expression which is analytically solvable
     def test_analytic_solution_cx(self):
 
         config = copy.deepcopy(self._config)
@@ -1330,6 +1330,41 @@ class AnalyticSolutions(unittest.TestCase):
         del config['algorithm']['operators']['unary_ops']
         config['algorithm']['max_num_tokens'] = 3
         config['algorithm']['constraints'] = ['all_child_float_consts']
+
+        # Create algorithm
+        self._alg = create_algorithm(config['algorithm'], self._domain)
+        self._alg._initialise(self._data)
+
+        all_exprs = self._alg._enumerate_expressions(self._data)
+
+        # Calculate log evidence numerically
+        numeric_log_ev = self._alg.log_evidence(
+            self._data,
+            all_exprs,
+            int_method='only_own_c',
+            reset=True,
+            log_space=True,
+            int_error_tol=1e-25
+        )
+
+        # Calculate log evidence analytically
+        analytic_log_ev = analytic_log_evidence(all_exprs, self._alg)
+
+        # Check both evidence values are essentially the same
+        self.assertAlmostEqual(numeric_log_ev, analytic_log_ev, places=14)
+
+        print(numeric_log_ev)
+        print(analytic_log_ev)
+
+    # Check analytic solutions work when y = c + x is possible
+    def test_analytic_solution_c_plus_x(self):
+
+        config = copy.deepcopy(self._config)
+
+        del config['algorithm']['operators']['unary_ops']
+        config['algorithm']['max_num_tokens'] = 3
+        config['algorithm']['constraints'] = ['all_child_float_consts']
+        config['algorithm']['operators']['binary_ops'].append('+')
 
         # Create algorithm
         self._alg = create_algorithm(config['algorithm'], self._domain)
