@@ -712,6 +712,11 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
              for z in samples],
             requires_grad=False
         )
+        '''
+        for e in samples:
+            print(e.get_infix())
+        exit()
+        '''
 
         # Calculate log q(z) under the surrogate distribution for samples
         # models

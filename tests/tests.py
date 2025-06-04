@@ -34,12 +34,14 @@ class VICatSR(unittest.TestCase):
 
     def test_max_likelihood_static_consts(self):
 
-        self._config['algorithm']['operators']['consts'] = [1.0]
-        self._config['algorithm']['max_likelihood'] = True
-        self._config['algorithm']['learning_rate'] = 1e-3
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['operators']['consts'] = [1.0]
+        config['algorithm']['max_likelihood'] = True
+        config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
 
         # Train
         q, all_exps = alg.train(self._data)
@@ -52,11 +54,13 @@ class VICatSR(unittest.TestCase):
 
     def test_elbo_static_consts(self):
 
-        self._config['algorithm']['operators']['consts'] = [1.0]
-        self._config['algorithm']['learning_rate'] = 1e-3
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['operators']['consts'] = [1.0]
+        config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -67,12 +71,14 @@ class VICatSR(unittest.TestCase):
 
     def test_max_likelihood_opt_consts(self):
 
-        self._config['algorithm']['operators']['consts'] = ['opt_const']
-        self._config['algorithm']['max_likelihood'] = True
-        self._config['algorithm']['learning_rate'] = 1e-3
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['operators']['consts'] = ['opt_const']
+        config['algorithm']['max_likelihood'] = True
+        config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
 
         # Train
         q, all_exps = alg.train(self._data)
@@ -87,11 +93,13 @@ class VICatSR(unittest.TestCase):
 
     def test_elbo_opt_consts(self):
 
-        self._config['algorithm']['operators']['consts'] = ['opt_const']
-        self._config['algorithm']['learning_rate'] = 1e-3
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['operators']['consts'] = ['opt_const']
+        config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -107,11 +115,13 @@ class VICatSR(unittest.TestCase):
 
     def test_max_likelihood_distr_consts(self):
 
-        self._config['algorithm']['max_likelihood'] = True
-        self._config['algorithm']['learning_rate'] = 1e-3
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['max_likelihood'] = True
+        config['algorithm']['learning_rate'] = 1e-3
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
 
         # Train
         q, all_exps = alg.train(self._data)
@@ -122,14 +132,16 @@ class VICatSR(unittest.TestCase):
 
     def test_elbo_distr_consts_no_x(self):
 
-        self._config['algorithm']['learning_rate'] = 2e-4
-        self._config['algorithm']['remove_x_vars'] = True
+        config = copy.deepcopy(self._config)
 
-        self._config['algorithm']['num_eq_samples'] = 50
-        self._config['algorithm']['num_steps'] = 650
+        config['algorithm']['learning_rate'] = 2e-4
+        config['algorithm']['remove_x_vars'] = True
+
+        config['algorithm']['num_eq_samples'] = 50
+        config['algorithm']['num_steps'] = 650
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -163,15 +175,17 @@ class VICatSR(unittest.TestCase):
 
     def test_elbo_distr_consts(self):
 
-        self._config['algorithm']['learning_rate'] = 2e-4
-        self._config['algorithm']['remove_x_vars'] = True
+        config = copy.deepcopy(self._config)
 
-        self._config['algorithm']['num_eq_samples'] = 50
-        self._config['algorithm']['num_steps'] = 650
-        self._config['algorithm']['posterior_integration'] = True
+        config['algorithm']['learning_rate'] = 2e-4
+        config['algorithm']['remove_x_vars'] = True
+
+        config['algorithm']['num_eq_samples'] = 50
+        config['algorithm']['num_steps'] = 650
+        config['algorithm']['posterior_integration'] = True
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
         alg._initialise(self._data)
 
         # Train
@@ -204,15 +218,17 @@ class VICatSR(unittest.TestCase):
         print('Analytic mean:', analytic_mean)
         print('Analytic sd:', analytic_sd)
 
-    def test_elbo_distr_consts_separate_behaviour_policy(self):
+    def test_elbo_distr_consts_equal_prob_bp(self):
 
-        self._config['algorithm']['learning_rate'] = 2e-4
-        self._config['algorithm']['behaviour_policy'] = 'equal_prob_tokens'
-        self._config['algorithm']['num_eq_samples'] = 100
-        self._config['algorithm']['plotting'] = False
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['learning_rate'] = 2e-4
+        config['algorithm']['behaviour_policy'] = 'equal_prob_tokens'
+        config['algorithm']['num_eq_samples'] = 100
+        config['algorithm']['plotting'] = False
 
         # Create algoritm
-        alg = create_algorithm(self._config['algorithm'], self._domain)
+        alg = create_algorithm(config['algorithm'], self._domain)
 
         # Train
         q, true_pos, all_exps = alg.train(self._data)
@@ -231,6 +247,38 @@ class VICatSR(unittest.TestCase):
         self.assertGreaterEqual(mean, 0.33)
         self.assertLessEqual(variance, 0.32)
         self.assertGreaterEqual(variance, 0.28)
+
+    '''
+    def test_elbo_distr_consts_enum_all_bp(self):
+
+        config = copy.deepcopy(self._config)
+
+        config['algorithm']['learning_rate'] = 2e-4
+        config['algorithm']['behaviour_policy'] = 'enum_all'
+        config['algorithm']['num_eq_samples'] = 100
+        config['algorithm']['plotting'] = False
+
+        # Create algoritm
+        alg = create_algorithm(config['algorithm'], self._domain)
+
+        # Train
+        q, true_pos, all_exps = alg.train(self._data)
+
+        # Get const mean and variance
+        consts_params = q.get_consts_params(all_exps[0])
+        mean = consts_params[0][0]
+        variance = consts_params[0][1]
+
+        print('Mean:', mean)
+        print('Variance:', variance)
+
+        # Check the parameters for the distribution over constants has
+        # optimised
+        self.assertLessEqual(mean, 0.37)
+        self.assertGreaterEqual(mean, 0.33)
+        self.assertLessEqual(variance, 0.32)
+        self.assertGreaterEqual(variance, 0.28)
+    '''
 
 
 class Utils(unittest.TestCase):
