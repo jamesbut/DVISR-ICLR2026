@@ -248,13 +248,12 @@ class VICatSR(unittest.TestCase):
         self.assertLessEqual(variance, 0.32)
         self.assertGreaterEqual(variance, 0.28)
 
-    '''
     def test_elbo_distr_consts_enum_all_bp(self):
 
         config = copy.deepcopy(self._config)
 
         config['algorithm']['learning_rate'] = 2e-4
-        config['algorithm']['behaviour_policy'] = 'enum_all'
+        config['algorithm']['behaviour_policy'] = 'enumerate_all'
         config['algorithm']['num_eq_samples'] = 100
         config['algorithm']['plotting'] = False
 
@@ -278,7 +277,6 @@ class VICatSR(unittest.TestCase):
         self.assertGreaterEqual(mean, 0.33)
         self.assertLessEqual(variance, 0.32)
         self.assertGreaterEqual(variance, 0.28)
-    '''
 
 
 class Utils(unittest.TestCase):

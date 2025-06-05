@@ -117,7 +117,7 @@ class BehaviourPolicy:
 
         # Sample constant values for constants with distributions
         consts_params = self._target_policy.get_consts_params(eq)
-        consts = [np.random.normal(p[0], p[1]) for p in consts_params]
+        consts = [scipy.stats.norm.rvs(p[0], p[1]) for p in consts_params]
 
         eq.set_distr_consts(consts)
 
@@ -126,15 +126,17 @@ class BehaviourPolicy:
     # Samples uniformly according to all enumerated equations
     def _sample_enum_all(self):
 
-        eq = copy.deepcopy(random.choice(self._all_eqs))
+        z = copy.deepcopy(random.choice(self._all_eqs))
 
-        # Sample distributional constants from target policy
-        consts_params = self._target_policy.get_consts_params(eq)
-        consts = [np.random.normal(p[0], p[1]) for p in consts_params]
+        if z.num_distr_consts() > 0:
 
-        eq.set_distr_consts(consts)
+            # Sample distributional constants from target policy
+            consts_params = self._target_policy.get_consts_params(z)
+            consts = [scipy.stats.norm.rvs(p[0], p[1]) for p in consts_params]
 
-        return eq
+            z.set_distr_consts(consts)
+
+        return z
 
     # Determine pdf according to the behaviour policy where an equal
     # probability is assigned to each token at each step of the equation
@@ -174,9 +176,22 @@ class BehaviourPolicy:
 
         return math.prod(pdfs)
 
-    # Determines pdf of policy that samples uniformly over all models
+    # Determines pdf of policy that samples uniformly over all discrete
+    # expressions
     def _pdf_enum_all(self, z):
-        return 1.0 / len(self._all_eqs)
+
+        prob = 1.0 / len(self._all_eqs)
+
+        if z.num_distr_consts() > 0:
+
+            # Get pdf of each individual constant sampled
+            consts_params = self._target_policy.get_consts_params(z)
+
+            # Multiply overall probability by pdf of const value
+            for t, p in zip(z.distr_const_tokens(), consts_params):
+                prob *= scipy.stats.norm.pdf(t['value'], p[0], p[1])
+
+        return prob
 
     # Also returns pre_softmax_mask for token
     def _determine_p(self, num_consts_required, sampled_tokens):
