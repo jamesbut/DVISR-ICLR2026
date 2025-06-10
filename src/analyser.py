@@ -119,7 +119,7 @@ def analyse_results(args):
         calc_true_posteriors(config, alg, data, all_results, run_dirs)
 
     # Plot distributions over c
-    plot_c_distrs(alg, data, q_z)
+    # plot_c_distrs(alg, data, q_z)
 
 
 def plot_results(results, save):

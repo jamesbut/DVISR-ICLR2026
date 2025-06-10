@@ -2,6 +2,7 @@
 
 from domains.domain import Domain
 from util.function import Function
+import numpy as np
 
 
 class WrittenExpression(Domain):
@@ -20,6 +21,11 @@ class WrittenExpression(Domain):
 
         # Evaluate expression
         y = self._expr(**func_kwargs)
+
+        # Check whether y is a scalar, if so, turn into an appropriately sized
+        # numpy array
+        if not isinstance(y, np.ndarray):
+            y = np.array([y] * x.shape[0])
 
         return y
 

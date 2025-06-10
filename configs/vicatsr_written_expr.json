@@ -1,10 +1,9 @@
 {
     "domain": {
         "name": "WrittenExpression",
-        "expression": "`x_0` * `x_0`",
-        "_expression": "`x1` * `x1` + `x1`",
-        "_expression": "`x1` * `x1` * `x1` + `x1`",
-        "_expression": "`x1` * `x1` * `x1` + `x1` * `x1`",
+        "expression": "0.5",
+        "_expression": "`x_0`",
+        "_expression": "`x_0` * `x_0`",
         "_x_mins": [-1.0],
         "x_mins": [0.0],
         "x_maxs": [1.0],
@@ -15,7 +14,7 @@
         "operators": {
             "binary_ops": ["*", "+"],
             "_binary_ops": ["*"],
-            "unary_ops": ["cos"]
+            "unary_ops": ["sin"]
         },
         "constraints": [
             "inverse_ops",
@@ -30,7 +29,7 @@
         "likelihood_sd": 1.0,
         "_q_const_sd": 0.1,
         "num_steps": 250,
-        "num_eq_samples": 500,
+        "num_eq_samples": 100,
         "_num_eq_samples": 1000,
         "_max_num_tokens": 5,
         "max_num_tokens": 3,
@@ -39,10 +38,12 @@
                 "type": "RMSprop",
                 "lr": 1e-2,
                 "alpha": 0.9,
-                "eps": 1e-6
+                "eps": 1e-6,
+                "centered": false
             },
-            "_rnn_hidden_layer_size": 256,
-            "rnn_hidden_layer_size": 64,
+            "_rnn_hidden_layer_size": 512,
+            "_rnn_hidden_layer_size": 64,
+            "rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
@@ -57,7 +58,7 @@
                 "type": "ReduceLROnPlateau",
                 "mode": "min",
                 "factor": 0.5,
-                "patience": 10,
+                "patience": 15,
                 "min_lr": 1e-6,
                 "verbose": false,
                 "verbosity": false
@@ -70,21 +71,21 @@
             }
         },
         "remove_x_vars": false,
-        "_behaviour_policy": "target",
+        "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
-        "behaviour_policy": "enumerate_all",
+        "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
-        "baseline": {
+        "_baseline": {
             "name": "mean"
         },
-        "_baseline": {
+        "baseline": {
             "name": "ewma",
             "alpha": 0.25,
             "jumpstart": true
         },
         "max_likelihood": false,
-        "distr_over_consts": true,
+        "distr_over_consts": false,
         "plotting": false,
         "track_kl_divergence": true,
         "calculate_posteriors": true,
@@ -100,6 +101,6 @@
         "write_to_file": true
     },
     "execution": {
-        "num_runs": 1
+        "num_runs": 10
     }
 }
