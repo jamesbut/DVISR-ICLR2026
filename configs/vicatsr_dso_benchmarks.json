@@ -8,36 +8,61 @@
     "algorithm": {
         "name": "VICatSR",
         "operators": {
-            "_binary_ops": ["*", "+"],
-            "binary_ops": ["+", "-", "*", "/"],
+            "binary_ops": ["*", "+"],
+            "_binary_ops": ["+", "-", "*", "/"],
             "_binary_ops": ["+", "-", "*"],
             "_binary_ops": ["+", "*", "/"],
-            "unary_ops": ["sin", "cos", "exp", "log"],
-            "_unary_ops": ["sin", "cos"]
+            "_unary_ops": ["sin", "cos", "exp", "log"],
+            "unary_ops": ["sin", "cos"]
         },
         "constraints": [
             "inverse_ops",
-            "nested_trigs"
+            "nested_trigs",
+            "all_child_float_consts",
+            "lhs_float_consts"
         ],
-        "prior_mean": 0.35,
-        "prior_sd": 1.0,
-        "_prior_mean": 0.0,
-        "_prior_sd": 100.0,
+        "prior_mean": 0.0,
+        "prior_sd": 10.0,
+        "likelihood_sd": 1.0,
         "_q_const_sd": 0.1,
         "num_steps": 2000,
         "num_eq_samples": 1000,
         "_max_num_tokens": 3,
-        "max_num_tokens": 30,
+        "max_num_tokens": 11,
         "target_policy": {
-            "_learning_rate": 2e-4,
-            "learning_rate": 5e-4,
+            "optimiser": {
+                "type": "RMSprop",
+                "lr": 1e-3,
+                "alpha": 0.9,
+                "eps": 1e-6,
+                "centered": false
+            },
             "rnn_hidden_layer_size": 256,
-            "_rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
             "previous_input": false,
-            "_grad_clip": 10.0
+            "_grad_clip": 10.0,
+            "_lr_scheduler": {
+                "type": "ExponentialLR",
+                "gamma": 0.95,
+                "verbosity": true
+            },
+            "_lr_scheduler": {
+                "type": "ReduceLROnPlateau",
+                "mode": "min",
+                "factor": 0.5,
+                "patience": 25,
+                "min_lr": 1e-6,
+                "verbose": false,
+                "verbosity": false
+            },
+            "_lr_scheduler": {
+                "type": "StepLR",
+                "step_size": 50,
+                "gamma": 0.1,
+                "verbosity": true
+            }
         },
         "remove_x_vars": false,
         "behaviour_policy": "target",
@@ -45,10 +70,10 @@
         "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
-        "_baseline": {
+        "baseline": {
             "name": "mean"
         },
-        "baseline": {
+        "_baseline": {
             "name": "ewma",
             "alpha": 0.25,
             "jumpstart": true
@@ -57,14 +82,17 @@
         "distr_over_consts": false,
         "plotting": false,
         "track_kl_divergence": false,
-        "calculate_posteriors": false,
+        "calculate_posteriors": true,
+        "posterior_integration": true,
+        "evidence_integration_method": "only_own_c",
+        "evidence_integrator_error_tol": 1e-20,
         "enum_exps": false,
         "stop_when_true_expr_found": false,
         "x_seed": 18,
         "verbosity": 1
     },
     "writer": {
-        "write_to_file": true
+        "write_to_file": false
     },
     "execution": {
         "num_runs": 1

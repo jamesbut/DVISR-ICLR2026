@@ -1,9 +1,10 @@
 {
     "domain": {
         "name": "WrittenExpression",
-        "expression": "0.5",
+        "_expression": "0.5",
         "_expression": "`x_0`",
         "_expression": "`x_0` * `x_0`",
+        "expression": "`x_0` * `x_0` + `x_0`",
         "_x_mins": [-1.0],
         "x_mins": [0.0],
         "x_maxs": [1.0],
@@ -13,8 +14,9 @@
         "name": "VICatSR",
         "operators": {
             "binary_ops": ["*", "+"],
-            "_binary_ops": ["*"],
-            "unary_ops": ["cos"]
+            "_binary_ops": ["+", "-", "*", "/"],
+            "unary_ops": ["cos"],
+            "_unary_ops": ["sin", "cos", "exp", "log"]
         },
         "constraints": [
             "inverse_ops",
@@ -32,7 +34,7 @@
         "num_eq_samples": 500,
         "_num_eq_samples": 1000,
         "_max_num_tokens": 5,
-        "max_num_tokens": 3,
+        "max_num_tokens": 5,
         "target_policy": {
             "optimiser": {
                 "type": "RMSprop",
@@ -60,7 +62,7 @@
                 "factor": 0.5,
                 "patience": 25,
                 "min_lr": 1e-6,
-                "verbose": false,
+                "verbose": true,
                 "verbosity": false
             },
             "_lr_scheduler": {
@@ -85,7 +87,7 @@
             "jumpstart": true
         },
         "max_likelihood": false,
-        "distr_over_consts": true,
+        "distr_over_consts": false,
         "plotting": false,
         "track_kl_divergence": true,
         "calculate_posteriors": true,
@@ -101,6 +103,6 @@
         "write_to_file": true
     },
     "execution": {
-        "num_runs": 10
+        "num_runs": 1
     }
 }

@@ -936,8 +936,17 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         # expressions[0] is empty (unused), expressions[1] for length 1, etc.
         expressions = [[] for _ in range(l_m + 1)]
 
+        # Print expressions lengths
+        def exp_len(expressions):
+            if total_num_eqs > 1e4:
+                print('Expressions enumerated: ', end=' ')
+                for e in expressions:
+                    print(f'{len(e)}', end=' ')
+                print('\n')
+
         # Base case: length 1 expressions are just the constants
         expressions[1] = [[copy.deepcopy(c)] for c in consts]
+        exp_len(expressions)
 
         # Build expressions iteratively from length 2 to l_m
         for length in range(2, l_m + 1):
@@ -964,13 +973,27 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                                     + copy.deepcopy(expr2)
                                 )
 
-        # Collect all expressions from length 1 to l_m
-        all_expressions = [Equation(expr) for length in range(1, l_m + 1)
-                           for expr in expressions[length]]
+            exp_len(expressions)
 
+        if total_num_eqs > 1e4:
+            print('Collecting expressions...')
+
+        # Collect all expressions from length 1 to l_m
+        all_expressions = []
+        for length in range(1, l_m + 1):
+            for expr in expressions[length]:
+                if total_num_eqs > 1e4:
+                    print(f'{len(all_expressions)}/{total_num_eqs}',
+                          end='\r', flush=True)
+                all_expressions.append(Equation(expr))
+
+        if total_num_eqs > 1e4:
+            print('Applying presoftmax vals...')
         # Check whether pre softmax masks would have been applied if these
         # expressions were sampled from q
-        for e in all_expressions:
+        for i, e in enumerate(all_expressions):
+            if total_num_eqs > 1e4:
+                print(f'{i}/{total_num_eqs}', end='\r', flush=True)
             e.apply_pre_softmax_mask(self._max_num_tokens,
                                      self._net_masks)
 
