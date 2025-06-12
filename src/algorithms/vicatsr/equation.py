@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import scipy
 import re
+from util.types import is_float
 
 
 # A class for representing analytic equations and evaluating them
@@ -23,10 +24,34 @@ class Equation:
 
             self._eq = []
 
+            # Create tokens from polish token strings
             for t_str in token_strs:
-                token = next((
-                    copy.copy(token) for token in token_set
-                    if token['op'] == t_str), None)
+
+                # Get token by matching operators
+                token = next(
+                    (
+                        copy.copy(token) for token in token_set
+                        if token['op'] == t_str
+                    ),
+                    None
+                )
+
+                # Get token by checking for float_const sub type token
+                if not token and is_float(t_str):
+                    token = next(
+                        (
+                            copy.copy(token) for token in token_set
+                            if token['sub_type'] == 'float_const'
+                        ),
+                        None
+                    )
+                    # Set value
+                    if token:
+                        token['value'] = float(t_str)
+
+                if not token:
+                    raise ValueError(f'Could not create token from {t_str}')
+
                 self._eq.append(token)
 
         # Check number of opt_consts
@@ -371,14 +396,19 @@ def infix_to_polish(infix, token_set):
 
     # Check all tokens are in token set
     for t_str in tokens:
+
         if t_str == '(' or t_str == ')':
             continue
-        found = False
-        for t in token_set:
-            if t_str == t['op']:
-                found = True
-                break
-        if not found:
+
+        # Check whether for any float token that there is a float_const
+        # operator in the token set
+        if (is_float(t_str)
+            and any(t['sub_type'] == 'float_const' for t in token_set)):
+            continue
+
+        # Check all tokens have operators in the token set (apart from raw
+        # float values which is handled above)
+        if all(t['op'] != t_str for t in token_set):
             raise ValueError(f'\"{t_str}\" is not in the token set')
 
     op_stack = []

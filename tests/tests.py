@@ -462,6 +462,27 @@ class Utils(unittest.TestCase):
         )
         self.assertEqual(eq.num_tokens(), 27)
 
+    # Confirms equation can be created from infix notation when float
+    # value constants are included
+    def test_equation_float(self):
+
+        token_set = [
+            {'op': 'cos', 'type': 'un_op', 'sub_type': None, 'id': 1},
+            {'op': 'distr_const', 'type': 'const', 'sub_type': 'float_const',
+             'value': None, 'id': 2},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 3}
+        ]
+
+        eq_str_1 = '0.5'
+
+        eq1 = Equation(infix_str=eq_str_1, token_set=token_set)
+        self.assertEqual(eq1.get_infix(), '0.5000')
+
+        eq_str_2 = 'cos(0.5)'
+
+        eq2 = Equation(infix_str=eq_str_2, token_set=token_set)
+        self.assertEqual(eq2.get_infix(), 'cos(0.5000)')
+
     def test_is_descendent(self):
 
         eq_1 = [
