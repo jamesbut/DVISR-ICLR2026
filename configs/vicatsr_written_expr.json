@@ -4,7 +4,8 @@
         "_expression": "0.5",
         "_expression": "`x_0`",
         "_expression": "`x_0` * `x_0`",
-        "expression": "`x_0` * `x_0` + `x_0`",
+        "_expression": "`x_0` * `x_0` + `x_0`",
+        "expression": "`x_0` * `x_0` * `x_0` + `x_0` * `x_0` + `x_0`",
         "_x_mins": [-1.0],
         "x_mins": [0.0],
         "x_maxs": [1.0],
@@ -15,7 +16,7 @@
         "operators": {
             "binary_ops": ["*", "+"],
             "_binary_ops": ["+", "-", "*", "/"],
-            "unary_ops": ["cos"],
+            "_unary_ops": ["sin"],
             "_unary_ops": ["sin", "cos", "exp", "log"]
         },
         "constraints": [
@@ -34,7 +35,7 @@
         "num_eq_samples": 500,
         "_num_eq_samples": 1000,
         "_max_num_tokens": 5,
-        "max_num_tokens": 5,
+        "max_num_tokens": 11,
         "target_policy": {
             "optimiser": {
                 "type": "RMSprop",
@@ -60,8 +61,8 @@
                 "type": "ReduceLROnPlateau",
                 "mode": "min",
                 "factor": 0.5,
-                "patience": 25,
-                "min_lr": 1e-6,
+                "patience": 50,
+                "min_lr": 5e-6,
                 "verbose": true,
                 "verbosity": false
             },
@@ -73,15 +74,15 @@
             }
         },
         "remove_x_vars": false,
-        "_behaviour_policy": "target",
+        "behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
-        "behaviour_policy": "enumerate_all",
+        "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
-        "baseline": {
+        "_baseline": {
             "name": "mean"
         },
-        "_baseline": {
+        "baseline": {
             "name": "ewma",
             "alpha": 0.25,
             "jumpstart": true

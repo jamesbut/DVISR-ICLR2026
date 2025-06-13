@@ -31,10 +31,11 @@ class BehaviourPolicy:
         if name == 'enumerate_all' and all_eqs is None:
             raise ValueError('Must provided enumerate equations in order to '
                              'use the enumerate_all behaviour strategy')
-        else:
-            self._all_eqs = all_eqs
 
-            # Determine all valid expressions
+        self._all_eqs = all_eqs
+
+        # Determine all valid expressions
+        if self._all_eqs is not None:
             self._all_valid_eqs = [e for e in self._all_eqs
                                    if e.valid_eq(max_num_tokens, net_masks)]
 
