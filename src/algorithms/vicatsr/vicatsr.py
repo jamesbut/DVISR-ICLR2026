@@ -489,12 +489,12 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                 analytic_log_ev = self._results['analytic_log_ev']
                 if analytic_log_ev:
                     summary_str += f"   log p(x) (analytic): {log_ev:.10f}"
-            if self._results['epoch_true_model_located']:
+            if self._results['epoch_true_model_located'] is not None:
                 summary_str += (
                     f'   ETML: {self._results["epoch_true_model_located"]}'
                 )
-
             print(summary_str)
+
             if self._writer:
                 self._writer.write_log(summary_str)
 

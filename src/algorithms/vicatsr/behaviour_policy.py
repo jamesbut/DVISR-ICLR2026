@@ -34,9 +34,13 @@ class BehaviourPolicy:
         else:
             self._all_eqs = all_eqs
 
+            # Determine all valid expressions
+            self._all_valid_eqs = [e for e in self._all_eqs
+                                   if e.valid_eq(max_num_tokens, net_masks)]
+
         # Enumerate all policy cannot be used if there are distr_consts in the
         # token set
-        if sum(1 for t in token_set if t['op'] == 'dist_const') > 0:
+        if sum(1 for t in token_set if t['op'] == 'distr_const') > 0:
             raise ValueError('Enumerate all policy cannot be used if there '
                              'are dist_const in the token set')
 
@@ -126,7 +130,7 @@ class BehaviourPolicy:
     # Samples uniformly according to all enumerated equations
     def _sample_enum_all(self):
 
-        z = copy.deepcopy(random.choice(self._all_eqs))
+        z = copy.deepcopy(random.choice(self._all_valid_eqs))
 
         if z.num_distr_consts() > 0:
 
@@ -180,7 +184,7 @@ class BehaviourPolicy:
     # expressions
     def _pdf_enum_all(self, z):
 
-        prob = 1.0 / len(self._all_eqs)
+        prob = 1.0 / len(self._all_valid_eqs)
 
         if z.num_distr_consts() > 0:
 

@@ -73,9 +73,9 @@
             }
         },
         "remove_x_vars": false,
-        "behaviour_policy": "target",
+        "_behaviour_policy": "target",
         "_behaviour_policy": "equal_prob_tokens",
-        "_behaviour_policy": "enumerate_all",
+        "behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
         "baseline": {
