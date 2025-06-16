@@ -120,6 +120,11 @@ class NN(torch.nn.Module):
 
         return max_grad
 
+    def average_weight(self):
+        all_params = torch.cat([p.data.flatten() for p in self.parameters()])
+        params_mean = all_params.mean().item()
+        return params_mean
+
 
 def init_gru_weights_zero(gru_cell):
 

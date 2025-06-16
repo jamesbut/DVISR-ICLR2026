@@ -69,10 +69,11 @@ def calculate_kl_divs(exp_parent_dir):
 
             # Set algorithm q as the optimised q
             alg._q = q_z
+            alg._behaviour_policy._target_policy = q_z
 
             # Calculate KL divergence
             print('Calculating KL divs...')
-            kl_div = alg.kl_divergence(alg._data, num_samples=100)
+            kl_div = alg.kl_divergence(alg._data, num_samples=1000)
 
             # Store kl divergence for this experiment
             kl_divs[max_tokens] = kl_div
