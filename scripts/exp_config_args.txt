@@ -11,5 +11,3 @@
 "{algorithm/max_num_tokens:11}"
 "{algorithm/max_num_tokens:12}"
 "{algorithm/max_num_tokens:13}"
-"{algorithm/max_num_tokens:14}"
-"{algorithm/max_num_tokens:15}"

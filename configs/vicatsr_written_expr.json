@@ -39,14 +39,14 @@
         "target_policy": {
             "optimiser": {
                 "type": "RMSprop",
-                "lr": 5e-3,
+                "lr": 1e-2,
                 "alpha": 0.9,
                 "eps": 1e-6,
                 "centered": false
             },
             "_rnn_hidden_layer_size": 512,
-            "rnn_hidden_layer_size": 64,
-            "_rnn_hidden_layer_size": 32,
+            "_rnn_hidden_layer_size": 64,
+            "rnn_hidden_layer_size": 32,
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
@@ -61,8 +61,8 @@
                 "type": "ReduceLROnPlateau",
                 "mode": "min",
                 "factor": 0.5,
-                "patience": 50,
-                "min_lr": 5e-6,
+                "patience": 25,
+                "min_lr": 1e-6,
                 "verbose": true,
                 "verbosity": false
             },

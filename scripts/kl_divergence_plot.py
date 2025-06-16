@@ -72,7 +72,7 @@ def calculate_kl_divs(exp_parent_dir):
 
             # Calculate KL divergence
             print('Calculating KL divs...')
-            kl_div = alg.kl_divergence(alg._data, num_samples=10000)
+            kl_div = alg.kl_divergence(alg._data, num_samples=100)
 
             # Store kl divergence for this experiment
             kl_divs[max_tokens] = kl_div
