@@ -102,7 +102,7 @@
         "verbosity": 1
     },
     "writer": {
-        "write_to_file": false
+        "write_to_file": true
     },
     "execution": {
         "num_runs": 1
