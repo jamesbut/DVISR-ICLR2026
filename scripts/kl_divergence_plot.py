@@ -73,7 +73,7 @@ def calculate_kl_divs(exp_parent_dir):
 
             # Calculate KL divergence
             print('Calculating KL divs...')
-            kl_div = alg.kl_divergence(alg._data, num_samples=1000)
+            kl_div = alg.kl_divergence(alg._data, num_samples=50000)
 
             # Store kl divergence for this experiment
             kl_divs[max_tokens] = kl_div
@@ -84,9 +84,19 @@ def calculate_kl_divs(exp_parent_dir):
     return kl_divs
 
 
-def plot_kl_divs(kl_divs):
+def plot_kl_divs(kl_divs, save):
 
     plt.bar(kl_divs.keys(), kl_divs.values())
+
+    plt.legend()
+    plt.xlabel('Max number of tokens')
+    plt.ylabel('KL Divergence')
+    plt.tight_layout()
+
+    if save:
+        os.makedirs('figures', exist_ok=True)
+        plt.savefig('figures/kl_divs_max_num_tokens.svg', format='svg')
+
     plt.show()
 
 
@@ -113,7 +123,7 @@ def main():
         print(kl)
 
     # Create plot
-    plot_kl_divs(kl_divs)
+    plot_kl_divs(kl_divs, '--save' in sys.argv)
 
 
 if __name__ == "__main__":
