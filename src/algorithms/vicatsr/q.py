@@ -18,6 +18,7 @@ class q:
                  distr_over_consts, const_sd,
                  net_masks, previous_input: bool,
                  parent_input: bool, sibling_input: bool,
+                 const_value_input: bool,
                  hidden_layer_size: int = None,
                  init_gru_zero: bool = False,
                  net_path: str = None):
@@ -38,9 +39,17 @@ class q:
         self._previous_input = previous_input
         self._parent_input = parent_input
         self._sibling_input = sibling_input
+        self._const_value_input = const_value_input
 
         rnn_input_size = sum([self._previous_input, self._parent_input,
                               self._sibling_input]) * len(token_set)
+
+        # Add a const value input for both previous and sibling inputs
+        if self._const_value_input:
+            if self._previous_input:
+                rnn_input_size += 1
+            if self._sibling_input:
+                rnn_input_size += 1
 
         # Read net from file
         if net_path:
@@ -213,11 +222,22 @@ class q:
 
             inputs = []
 
+            # Previous input
             if self._previous_input:
-                x = torch.zeros(len(self._token_set))
+                length = len(self._token_set)
+                if self._const_value_input:
+                    length += 1
+
+                x = torch.zeros(length)
                 x[tokens[-1]['id']] = 1.0
+
+                if self._const_value_input:
+                    if tokens[-1]['sub_type'] == 'float_const':
+                        x[-1] = tokens[-1]['value']
+
                 inputs.append(x)
 
+            # Parent input
             if self._parent_input:
                 parent = get_parent(tokens)
                 x = torch.zeros(len(self._token_set))
@@ -225,17 +245,27 @@ class q:
                     x[parent['id']] = 1.0
                 inputs.append(x)
 
+            # Sibling input
             if self._sibling_input:
                 sibling = get_sibling(tokens)
-                x = torch.zeros(len(self._token_set))
+
+                length = len(self._token_set)
+                if self._const_value_input:
+                    length += 1
+
+                x = torch.zeros(length)
+
                 if sibling:
+
                     x[sibling['id']] = 1.0
+
+                    if self._const_value_input:
+                        if sibling['sub_type'] == 'float_const':
+                            x[-1] = sibling['value']
+
                 inputs.append(x)
 
             return torch.cat(inputs)
-
-        # TODO: Might have to input sampled value for constants back into
-        # the network
 
     def to_json(self):
 
@@ -261,5 +291,9 @@ class q:
                                   j['constraints'])
 
         del j['constraints']
+
+        # For backward compatibility with old results
+        if 'const_value_input' not in j:
+            j['const_value_input'] = False
 
         return cls(**j)

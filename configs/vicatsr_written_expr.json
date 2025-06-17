@@ -51,6 +51,7 @@
             "parent_input": true,
             "sibling_input": true,
             "previous_input": false,
+            "const_value_input": false,
             "_grad_clip": 10.0,
             "_lr_scheduler": {
                 "type": "ExponentialLR",
@@ -101,7 +102,7 @@
         "verbosity": 1
     },
     "writer": {
-        "write_to_file": true
+        "write_to_file": false
     },
     "execution": {
         "num_runs": 1

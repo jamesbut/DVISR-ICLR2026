@@ -42,8 +42,11 @@ class BehaviourPolicy:
         # Enumerate all policy cannot be used if there are distr_consts in the
         # token set
         if sum(1 for t in token_set if t['op'] == 'distr_const') > 0:
-            raise ValueError('Enumerate all policy cannot be used if there '
-                             'are dist_const in the token set')
+            if name == 'enumerate_all':
+                raise ValueError(
+                    'Enumerate all policy cannot be used if there '
+                    'are distr_const in the token set'
+                )
 
         self._target_policy = target_policy
 

@@ -278,6 +278,123 @@ class VICatSR(unittest.TestCase):
         self.assertLessEqual(variance, 0.32)
         self.assertGreaterEqual(variance, 0.28)
 
+    def test_net_inputs(self):
+
+        config = copy.deepcopy(self._config)
+
+        # Create algorithm and data
+        data = self._domain.create_data()
+        alg = create_algorithm(config['algorithm'], self._domain)
+        alg._initialise(data)
+
+        tokens = [
+            {'op': 'sin', 'type': 'un_op', 'sub_type': None, 'id': 1}
+        ]
+
+        ins = alg._q.get_net_inputs(tokens)
+
+        self.assertTrue(torch.equal(
+            ins,
+            torch.tensor([0.0, 1.0, 0.0, 0.0])
+        ))
+
+        # Add parent and sibling inputs
+        config = copy.deepcopy(self._config)
+        config['algorithm']['target_policy']['parent_input'] = True
+        config['algorithm']['target_policy']['sibling_input'] = True
+
+        data = self._domain.create_data()
+        alg = create_algorithm(config['algorithm'], self._domain)
+        alg._initialise(data)
+
+        ins = alg._q.get_net_inputs(tokens)
+
+        self.assertTrue(torch.equal(
+            ins,
+            torch.tensor(
+                [0.0, 1.0, 0.0, 0.0,
+                 0.0, 1.0, 0.0, 0.0,
+                 0.0, 0.0, 0.0, 0.0]
+            )
+        ))
+
+        # Add constant value input
+        config = copy.deepcopy(self._config)
+        config['algorithm']['target_policy']['parent_input'] = True
+        config['algorithm']['target_policy']['sibling_input'] = True
+        config['algorithm']['target_policy']['const_value_input'] = True
+
+        data = self._domain.create_data()
+        alg = create_algorithm(config['algorithm'], self._domain)
+        alg._initialise(data)
+
+        tokens = [
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 0},
+            {'op': 'distr_const', 'type': 'const', 'sub_type': 'float_const',
+             'value': 0.52, 'id': 2}
+        ]
+
+        ins = alg._q.get_net_inputs(tokens)
+
+        self.assertTrue(torch.equal(
+            ins,
+            torch.tensor(
+                [0.0, 0.0, 1.0, 0.0, 0.52,
+                 1.0, 0.0, 0.0, 0.0,
+                 0.0, 0.0, 1.0, 0.0, 0.52]
+            )
+        ))
+
+        # Remove previous input
+        config = copy.deepcopy(self._config)
+        config['algorithm']['target_policy']['previous_input'] = False
+        config['algorithm']['target_policy']['parent_input'] = True
+        config['algorithm']['target_policy']['sibling_input'] = True
+        config['algorithm']['target_policy']['const_value_input'] = True
+
+        data = self._domain.create_data()
+        alg = create_algorithm(config['algorithm'], self._domain)
+        alg._initialise(data)
+
+        ins = alg._q.get_net_inputs(tokens)
+
+        self.assertTrue(torch.equal(
+            ins,
+            torch.tensor([
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0, 0.52
+            ])
+        ))
+
+        # Test when previous and sibling are different
+        config = copy.deepcopy(self._config)
+        config['algorithm']['target_policy']['parent_input'] = True
+        config['algorithm']['target_policy']['sibling_input'] = True
+        config['algorithm']['target_policy']['const_value_input'] = True
+
+        data = self._domain.create_data()
+        alg = create_algorithm(config['algorithm'], self._domain)
+        alg._initialise(data)
+
+        tokens = [
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 0},
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 0},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 3},
+            {'op': 'distr_const', 'type': 'const', 'sub_type': 'float_const',
+             'value': 0.52, 'id': 2}
+        ]
+
+        ins = alg._q.get_net_inputs(tokens)
+
+        self.assertTrue(torch.equal(
+            ins,
+            torch.tensor(
+                [0.0, 0.0, 1.0, 0.0, 0.52,
+                 1.0, 0.0, 0.0, 0.0,
+                 1.0, 0.0, 0.0, 0.0, 0.0]
+            )
+        ))
+
 
 class Utils(unittest.TestCase):
 
@@ -307,7 +424,9 @@ class Utils(unittest.TestCase):
             {'op': '+', 'type': 'bin_op', 'sub_type': None, 'id': 1},
             {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 2},
             {'op': 'sin', 'type': 'un_op', 'sub_type': None, 'id': 3},
-            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 4}
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 4},
+            {'op': 'distr_const', 'type': 'const', 'sub_type': 'float_const',
+             'value': None, 'id': 5}
         ]
 
         eq1 = Equation(infix_str='(x_0 + x_0)', token_set=token_set)
@@ -366,6 +485,15 @@ class Utils(unittest.TestCase):
         self.assertEqual(get_parent(eq7.tokens()[:4])['op'], '*')
         self.assertEqual(get_parent(eq7.tokens()[:5])['op'], '*')
         self.assertEqual(get_parent(eq7.tokens()), None)
+
+        tokens = [
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 2},
+            {'op': '*', 'type': 'bin_op', 'sub_type': None, 'id': 2},
+            {'op': 'x_0', 'type': 'const', 'sub_type': 'var_const', 'id': 4},
+            {'op': 'distr_const', 'type': 'const', 'sub_type': 'float_const',
+             'value': 0.52, 'id': 5}
+        ]
+        self.assertEqual(get_parent(tokens)['op'], '*')
 
     def test_get_sibling(self):
 

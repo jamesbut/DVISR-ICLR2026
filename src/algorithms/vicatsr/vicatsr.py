@@ -114,12 +114,18 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
         )
 
         # Specification for RNN inputs
-        self._previous_input = config['target_policy'].get('previous_input',
-                                                           True)
-        self._parent_input = config['target_policy'].get('parent_input',
-                                                         False)
-        self._sibling_input = config['target_policy'].get('sibling_input',
-                                                          False)
+        self._previous_input = config['target_policy'].get(
+            'previous_input', True
+        )
+        self._parent_input = config['target_policy'].get(
+            'parent_input', False
+        )
+        self._sibling_input = config['target_policy'].get(
+            'sibling_input', False
+        )
+        self._const_value_input = config['target_policy'].get(
+            'const_value_input', False
+        )
 
         # Clip gradients of RNN
         self._grad_clip = config['target_policy'].get('grad_clip', None)
@@ -502,9 +508,6 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
 
             loss.backward()
 
-            # print('Grad mean:', self._q._net.average_gradient())
-            # print('Grad max:', self._q._net.max_gradient())
-
             # Clip gradients if specified
             if self._grad_clip:
                 torch.nn.utils.clip_grad_value_(self._q._net.parameters(),
@@ -545,7 +548,8 @@ class VICatSR(Algorithm, BaseEstimator, RegressorMixin):
                     self._distr_over_consts, self._q_const_sd,
                     self._net_masks, self._previous_input,
                     self._parent_input, self._sibling_input,
-                    self._hidden_layer_size, self._init_gru_zero)
+                    self._const_value_input, self._hidden_layer_size,
+                    self._init_gru_zero)
 
         # If enumerate all behaviour policy is being used, enumerate models
         # here
