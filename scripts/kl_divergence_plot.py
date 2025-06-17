@@ -88,14 +88,15 @@ def plot_kl_divs(kl_divs, save):
 
     plt.bar(kl_divs.keys(), kl_divs.values())
 
-    plt.legend()
+    plt.xticks(range(min(kl_divs.keys()), max(kl_divs.keys()) + 1, 1))
+
     plt.xlabel('Max number of tokens')
     plt.ylabel('KL Divergence')
     plt.tight_layout()
 
     if save:
-        os.makedirs('figures', exist_ok=True)
-        plt.savefig('figures/kl_divs_max_num_tokens.svg', format='svg')
+        os.makedirs('../figures', exist_ok=True)
+        plt.savefig('../figures/kl_divs_max_num_tokens.svg', format='svg')
 
     plt.show()
 
