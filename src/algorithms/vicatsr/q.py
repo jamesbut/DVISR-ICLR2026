@@ -261,7 +261,8 @@ class q:
 
                     if self._const_value_input:
                         if sibling['sub_type'] == 'float_const':
-                            x[-1] = sibling['value']
+                            if sibling['value'] is not None:
+                                x[-1] = sibling['value']
 
                 inputs.append(x)
 

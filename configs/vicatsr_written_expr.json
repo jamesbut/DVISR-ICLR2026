@@ -16,7 +16,7 @@
         "operators": {
             "binary_ops": ["*", "+"],
             "_binary_ops": ["+", "-", "*", "/"],
-            "unary_ops": ["sin"],
+            "unary_ops": ["cos"],
             "_unary_ops": ["sin", "cos", "exp", "log"]
         },
         "constraints": [
@@ -31,11 +31,11 @@
         "_likelihood_sd": 3.0,
         "likelihood_sd": 1.0,
         "_q_const_sd": 0.1,
-        "num_steps": 2000,
-        "num_eq_samples": 1000,
+        "num_steps": 1000,
+        "num_eq_samples": 500,
         "_num_eq_samples": 1000,
         "_max_num_tokens": 5,
-        "max_num_tokens": 5,
+        "max_num_tokens": 3,
         "target_policy": {
             "optimiser": {
                 "type": "RMSprop",
@@ -50,8 +50,8 @@
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
-            "previous_input": true,
-            "const_value_input": false,
+            "previous_input": false,
+            "const_value_input": true,
             "_grad_clip": 10.0,
             "_lr_scheduler": {
                 "type": "ExponentialLR",
@@ -62,9 +62,9 @@
                 "type": "ReduceLROnPlateau",
                 "mode": "min",
                 "factor": 0.5,
-                "patience": 50,
-                "min_lr": 5e-6,
-                "verbose": true,
+                "patience": 25,
+                "min_lr": 1e-6,
+                "verbose": false,
                 "verbosity": false
             },
             "_lr_scheduler": {
@@ -80,16 +80,16 @@
         "_behaviour_policy": "enumerate_all",
         "_risk_seeking_epsilon": 0.1,
         "_entropy_lambda": 0.005,
-        "_baseline": {
+        "baseline": {
             "name": "mean"
         },
-        "baseline": {
+        "_baseline": {
             "name": "ewma",
             "alpha": 0.25,
             "jumpstart": true
         },
         "max_likelihood": false,
-        "distr_over_consts": false,
+        "distr_over_consts": true,
         "plotting": false,
         "track_kl_divergence": true,
         "calculate_posteriors": true,
@@ -105,6 +105,6 @@
         "write_to_file": true
     },
     "execution": {
-        "num_runs": 1
+        "num_runs": 10
     }
 }
