@@ -2,6 +2,8 @@
 
 import json
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
+from matplotlib.ticker import FuncFormatter, ScalarFormatter
 from algorithms.vicatsr.q import q
 from domains.domain_factory import create_domain
 from algorithms.algorithm_factory import create_algorithm
@@ -44,7 +46,7 @@ def analyse_results(args):
 
         all_results = [results]
 
-        plot_results(all_results, args.save)
+        plot_results(all_results, args.save, args.zoom)
 
     # Single run directory given
     elif exp_dir != run_dir:
@@ -54,7 +56,7 @@ def analyse_results(args):
 
         all_results = [results]
 
-        plot_results(all_results, args.save)
+        plot_results(all_results, args.save, args.zoom)
 
     # Multiple runs given in the form of an experiment directory
     else:
@@ -69,7 +71,7 @@ def analyse_results(args):
                 all_results.append(json.load(file))
 
         # Plot all results
-        plot_results(all_results, args.save)
+        plot_results(all_results, args.save, args.zoom)
 
         # Use run with the median final ELBO for analysis below
         final_elbos = [r['all_elbos'][-1] for r in all_results]
@@ -122,7 +124,7 @@ def analyse_results(args):
     # plot_c_distrs(alg, data, q_z)
 
 
-def plot_results(results, save):
+def plot_results(results, save, zoom):
 
     # Create figures directory if it doesn't yet exist
     if save:
@@ -150,29 +152,66 @@ def plot_results(results, save):
 
     x = range(elbos.shape[1])
 
-    plot_kl_divs(x, kl_divs, save)
-    plot_elbos(x, elbos, save, results)
+    plot_kl_divs(x, kl_divs, save, zoom)
+    plot_elbos(x, elbos, save, results, zoom)
     plot_log_likelihoods(x, lls, save)
     plot_log_joints(x, l_joints, save)
 
 
 # Plot KL divergences
-def plot_kl_divs(x, kl_divs, save):
+def plot_kl_divs(x, kl_divs, save, zoom):
 
     if kl_divs.size != 0:
         medians = np.median(kl_divs, axis=0)
         q1s = np.percentile(kl_divs, 25, axis=0)
         q3s = np.percentile(kl_divs, 75, axis=0)
 
-        plt.plot(x, medians, label='KL divergence')
+        fig, ax = plt.subplots()
 
-        plt.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+        ax.plot(x, medians, label='KL divergence')
 
-        plt.plot(x, [0] * len(x), label='y = 0')
+        ax.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
 
-        plt.legend()
-        plt.xlabel('Epoch')
-        plt.ylabel('KL Divergence')
+        ax.plot(x, [0] * len(x), label='y = 0')
+
+        if zoom:
+
+            # Inset (zoomed view)
+            # axins = inset_axes(ax, width="30%", height="30%", loc="center right")
+            axins = inset_axes(
+                ax,
+                width="30%", height="30%",
+                loc="center right",                # base alignment
+                bbox_to_anchor=(-0.05, -0.0, 1, 1),        # shift inset to the left
+                bbox_transform=ax.transAxes
+            )
+
+            axins.plot(x, medians)
+            axins.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+            axins.plot(x, [0] * len(x), label='y = 0')
+
+            # Zoom in on a specific region
+            x1, x2 = 175, 225    # x-limits of inset
+            y1, y2 = -0.000000001, 0.000000001
+            axins.set_xlim(x1, x2)
+            axins.set_ylim(y1, y2)
+
+            # Remove tick labels from inset
+            axins.set_xticks([x1, x2])
+            axins.set_yticks([y1, y2])
+
+            # Format each tick as full scientific notation
+            formatter = FuncFormatter(lambda x, _: f"{x:.1e}")
+
+            axins.yaxis.set_major_formatter(formatter)
+
+            # Draw lines connecting inset and original plot
+            # loc1 and loc2 define the corners to link
+            mark_inset(ax, axins, loc1=2, loc2=4, fc="none", ec="0.5")
+
+        ax.legend()
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('KL Divergence')
         plt.tight_layout()
 
         if save:
@@ -182,25 +221,66 @@ def plot_kl_divs(x, kl_divs, save):
 
 
 # Plot ELBOs
-def plot_elbos(x, elbos, save, results):
+def plot_elbos(x, elbos, save, results, zoom):
 
     if elbos.size != 0:
         medians = np.median(elbos, axis=0)
         q1s = np.percentile(elbos, 25, axis=0)
         q3s = np.percentile(elbos, 75, axis=0)
 
-        plt.plot(x, medians, label='ELBO')
+        fig, ax = plt.subplots()
 
-        plt.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+        ax.plot(x, medians, label='ELBO')
+
+        ax.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
 
         if results[0]['log_ev']:
             log_ev = results[0]['log_ev']
-            plt.plot(x, [log_ev] * len(x),
+            ax.plot(x, [log_ev] * len(x),
                      label=f'log p(X,y): {log_ev:.5f}')
 
-        plt.legend()
-        plt.xlabel('Epoch')
-        plt.ylabel('ELBO')
+        if zoom:
+
+            # Inset (zoomed view)
+            # axins = inset_axes(ax, width="30%", height="30%", loc="center right")
+            axins = inset_axes(
+                ax,
+                width="30%", height="30%",
+                loc="center right",                # base alignment
+                bbox_to_anchor=(-0.05, -0.0, 1, 1),        # shift inset to the left
+                bbox_transform=ax.transAxes
+            )
+
+            axins.plot(x, medians)
+            axins.fill_between(x, q1s, q3s, color='lightblue', alpha=0.5)
+            axins.plot(x, [log_ev] * len(x), label=f'log p(X,y): {log_ev:.5f}')
+
+            # Zoom in on a specific region
+            x1, x2 = 175, 225    # x-limits of inset
+            y1, y2 = -10.6986497724, -10.698649771   # y-limits of inset
+            axins.set_xlim(x1, x2)
+            axins.set_ylim(y1, y2)
+
+            # Remove tick labels from inset
+            axins.set_xticks([x1, x2])
+            axins.set_yticks([y1, y2])
+
+            # Format each tick as full scientific notation
+            formatter = FuncFormatter(lambda x, _: f"{x:.10e}")
+
+            formatter = ScalarFormatter(useMathText=False)
+            formatter.set_scientific(False)  # disable scientific notation
+            formatter.set_useOffset(False)   # don't shift values
+
+            axins.yaxis.set_major_formatter(formatter)
+
+            # Draw lines connecting inset and original plot
+            # loc1 and loc2 define the corners to link
+            mark_inset(ax, axins, loc1=2, loc2=4, fc="none", ec="0.5")
+
+        ax.legend()
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('ELBO')
         plt.tight_layout()
 
         if save:

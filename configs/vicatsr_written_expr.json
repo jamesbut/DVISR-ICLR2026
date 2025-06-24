@@ -50,7 +50,7 @@
             "init_gru_weights_zero": false,
             "parent_input": true,
             "sibling_input": true,
-            "previous_input": false,
+            "previous_input": true,
             "const_value_input": true,
             "_grad_clip": 10.0,
             "_lr_scheduler": {

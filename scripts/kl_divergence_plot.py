@@ -90,6 +90,8 @@ def plot_kl_divs(kl_divs, save):
 
     plt.xticks(range(min(kl_divs.keys()), max(kl_divs.keys()) + 1, 1))
 
+    plt.ylim(0.0, None)
+
     plt.xlabel('Max number of tokens')
     plt.ylabel('KL Divergence')
     plt.tight_layout()

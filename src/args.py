@@ -32,6 +32,11 @@ def get_args_parser():
         '--true_pos', action='store_true',
         help='Calculate true posteriors of all models'
     )
+    # Zoom into plot using magnifying glass
+    parser.add_argument(
+        '--zoom', action='store_true',
+        help='Zoom into plot using magnifying glass'
+    )
 
     return parser
 

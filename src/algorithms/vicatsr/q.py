@@ -233,7 +233,8 @@ class q:
 
                 if self._const_value_input:
                     if tokens[-1]['sub_type'] == 'float_const':
-                        x[-1] = tokens[-1]['value']
+                        if tokens[-1]['value'] is not None:
+                            x[-1] = tokens[-1]['value']
 
                 inputs.append(x)
 
